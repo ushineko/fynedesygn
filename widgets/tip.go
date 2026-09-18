@@ -125,16 +125,44 @@ func (t *tipArea) show() {
 	body := container.NewPadded(label)
 	pop := widget.NewPopUp(body, c)
 
-	size := body.MinSize()
-	if size.Width > tipMaxWidth {
-		size.Width = tipMaxWidth
-		label.Resize(fyne.NewSize(tipMaxWidth, label.MinSize().Height))
-		size = body.MinSize()
-		size.Width = tipMaxWidth
-	}
-	pop.Resize(size)
-	pop.ShowAtPosition(clampToCanvas(d.AbsolutePositionForObject(t).Add(t.at).Add(tipOffset), size, c.Size()))
+	pop.Resize(tipSize(t.text, label, body, c.Size()))
+	pop.ShowAtPosition(clampToCanvas(
+		d.AbsolutePositionForObject(t).Add(t.at).Add(tipOffset), pop.Size(), c.Size()))
 	t.pop = pop
+}
+
+/*
+tipSize measures the tip at the width it will be drawn at.
+
+Two things make this less obvious than it looks.
+
+A wrapping label reports a minimum width of about one character -- it is built to
+fill whatever width it is given, so asking it how wide the text is returns
+nothing useful. The natural width comes from a label that does not wrap.
+
+And a wrapping label does not know its own height until it has a width. So the
+width is chosen first, the body is resized to it, and only then does MinSize
+report the height the wrapping produced. Skipping that pass is what drew the
+first version one line tall with its text running out of the box and off the
+window.
+*/
+func tipSize(text string, label, body fyne.CanvasObject, canvasSize fyne.Size) fyne.Size {
+	natural := widget.NewLabel(text).MinSize().Width
+	padding := body.MinSize().Width - label.MinSize().Width
+	width := natural + padding
+
+	limit := tipMaxWidth
+	// Never wider than the window either: tipMaxWidth is a preference, and a
+	// narrow window is a smaller limit than it.
+	if edge := canvasSize.Width - tipOffset.X*2; edge > 0 && edge < limit {
+		limit = edge
+	}
+	if width > limit {
+		width = limit
+	}
+
+	body.Resize(fyne.NewSize(width, body.MinSize().Height))
+	return fyne.NewSize(width, body.MinSize().Height)
 }
 
 // hide takes the tip down and cancels a pending one.

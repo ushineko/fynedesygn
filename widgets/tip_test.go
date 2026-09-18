@@ -180,3 +180,57 @@ func (h *hoverCounter) CreateRenderer() fyne.WidgetRenderer {
 func (h *hoverCounter) MouseIn(*desktop.MouseEvent)    { h.in++ }
 func (h *hoverCounter) MouseMoved(*desktop.MouseEvent) { h.moved++ }
 func (h *hoverCounter) MouseOut()                      { h.out++ }
+
+/*
+A long tip wraps inside its own background.
+
+The first version measured the label before it had a width, so it got the size
+of the text on one line, then clamped the width and kept that height: the tip
+was drawn one line tall with the text running out of it, off the side of the
+window. Asserting the width alone would not have caught that -- the width was
+right and the height was the lie -- so this asserts both.
+*/
+func TestALongTipWrapsRatherThanRunningOffTheWindow(t *testing.T) {
+	test.NewApp()
+	long := "Hands you a rod and bait if you have none, and tops any bait stack back up " +
+		"as you fish. Your own gear is left alone. Water under 300 tiles cuts fishing " +
+		"power, so fish in a lake rather than a puddle."
+	area, win := tipOnScreen(t, long)
+	defer win.Close()
+
+	area.MouseIn(&desktop.MouseEvent{})
+	require.Eventually(t, func() bool {
+		area.mu.Lock()
+		defer area.mu.Unlock()
+		return area.pop != nil
+	}, 2*time.Second, 20*time.Millisecond)
+
+	area.mu.Lock()
+	defer area.mu.Unlock()
+	size := area.pop.Size()
+	require.LessOrEqual(t, size.Width, tipMaxWidth, "a tip is never wider than its limit")
+
+	oneLine := widget.NewLabel("x").MinSize().Height
+	require.Greaterf(t, size.Height, oneLine*2,
+		"a %d-character tip at %g wide cannot be one line tall", len(long), size.Width)
+}
+
+// The limit is the window when the window is narrower than the limit: a tip
+// wider than the canvas is one that cannot be read whatever it says.
+func TestATipIsNoWiderThanTheWindow(t *testing.T) {
+	test.NewApp()
+	narrow := fyne.NewSize(240, 200)
+	text := "a tip far longer than two hundred and forty pixels of window"
+	label := wrappedLabel(text)
+	body := container.NewPadded(label)
+
+	got := tipSize(text, label, body, narrow)
+	require.LessOrEqual(t, got.Width, narrow.Width, "wider than the window it is drawn in")
+}
+
+// wrappedLabel is the label a tip is made of.
+func wrappedLabel(text string) *widget.Label {
+	l := widget.NewLabel(text)
+	l.Wrapping = fyne.TextWrapWord
+	return l
+}

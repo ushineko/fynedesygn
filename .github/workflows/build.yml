@@ -58,6 +58,8 @@ jobs:
         sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev libwayland-dev wayland-protocols
     - name: Lint
       run: make lint
+    - name: Diagrams are current
+      run: go run ./cmd/fynedesygn-mermaid -check -root docs
     - name: govulncheck
       run: |
         go install golang.org/x/vuln/cmd/govulncheck@latest

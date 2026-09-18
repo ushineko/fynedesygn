@@ -17,6 +17,9 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	fd "github.com/ushineko/fynedesygn"
+	"github.com/ushineko/fynedesygn/docs"
+	"github.com/ushineko/fynedesygn/markdown"
+	"github.com/ushineko/fynedesygn/mermaid"
 	"github.com/ushineko/fynedesygn/shell"
 	"github.com/ushineko/fynedesygn/table"
 	fdtheme "github.com/ushineko/fynedesygn/theme"
@@ -28,12 +31,19 @@ import (
 func sections() []shell.Section { return sectionsWith(newJobDemo()) }
 
 func sectionsWith(demo *jobDemo) []shell.Section {
+	readme := &aboutDoc{}
 	return []shell.Section{
 		shell.AppearanceSection("2026-09-17 16:20:01 INFO  rendered 44 blocks in 3.1ms"),
 		shell.NewSection("Widgets", fynetheme.ListIcon, buildWidgets),
 		shell.NewSection("Table", fynetheme.StorageIcon, buildTable),
 		shell.NewSection("Fonts", fynetheme.DocumentIcon, buildFonts),
 		shell.NewSection("Shell", fynetheme.MediaPlayIcon, demo.build),
+		markdown.Section("Documents", fynetheme.DocumentCreateIcon, mustDoc("markdown.md"), docOptions(), func(*shell.Shell) fyne.CanvasObject {
+			return widgets.Heading("Documents",
+				"markdown.Pane showing docs/markdown.md from the embedded docs package: per-block rendering near "+
+					"the viewport, code panels that wrap, a pipe table drawn as a grid, and a mermaid diagram "+
+					"rendered at development time and picked for the active scheme.")
+		}),
 		shell.AboutSection(shell.About{
 			Name:    "fynedesygn gallery",
 			Version: version,
@@ -50,7 +60,43 @@ func sectionsWith(demo *jobDemo) []shell.Section {
 				{Label: "Fyne", Value: "v2.8.1"},
 				{Label: "Preferences", Value: "Fyne store for " + appID},
 			},
-		}),
+			Extra: readme.extra,
+		}).OnDetach(readme.detach),
+	}
+}
+
+// docOptions point a document at the embedded docs and their diagrams.
+func docOptions() markdown.Options {
+	return markdown.Options{FS: docs.FS, Diagrams: mermaid.NewSet(docs.FS, "diagrams")}
+}
+
+// mustDoc reads one embedded document; the names are fixed at build time.
+func mustDoc(name string) string {
+	b, err := docs.FS.ReadFile(name)
+	if err != nil {
+		return "# " + name + "\n\nNot embedded: " + err.Error()
+	}
+	return string(b)
+}
+
+// aboutDoc is the About section's Extra: the module README following the
+// shell's scroller, released when the section is replaced.
+type aboutDoc struct{ pane *markdown.Pane }
+
+func (d *aboutDoc) extra(s *shell.Shell) fyne.CanvasObject {
+	d.detach()
+	d.pane = markdown.New(fd.README(), docOptions())
+	d.pane.Follow(s.Scroller())
+	return container.NewVBox(
+		widget.NewLabelWithStyle("README", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		d.pane,
+	)
+}
+
+func (d *aboutDoc) detach() {
+	if d.pane != nil {
+		d.pane.Detach()
+		d.pane = nil
 	}
 }
 

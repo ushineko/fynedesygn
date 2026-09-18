@@ -42,8 +42,8 @@ type Fact struct{ Label, Value string }
 // notes and facts, the shape the consuming programs share. Long-form
 // documentation belongs in the README; a shortened restatement here would
 // become a second, less careful copy to keep in sync. Use Extra to show the
-// README itself.
-func AboutSection(a About) Section {
+// README itself; OnDetach on the returned section releases what Extra holds.
+func AboutSection(a About) *FuncSection {
 	return NewSection("About", fynetheme.HelpIcon, func(s *Shell) fyne.CanvasObject {
 		return buildAbout(s, a)
 	})

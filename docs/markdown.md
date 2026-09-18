@@ -16,6 +16,21 @@ detail table, not a Markdown table.
 
 ## How it renders
 
+```mermaid
+flowchart LR
+  A[Markdown source] --> B[Blocks: split on blank lines, fences kept whole]
+  B --> C{block kind}
+  C -->|prose| D[widget.RichText]
+  C -->|code| E[markdown.CodePanel]
+  C -->|mermaid fence| F[mermaid.Set lookup by hash]
+  F -->|image found| G[mermaid.Diagram PNG]
+  F -->|no image| E
+  C -->|whole-block image| H[image from fs.FS]
+  D & E & G & H --> I[measured spacer per block]
+  I --> J[render only near the viewport]
+```
+
+
 1. The source is split into blocks on blank lines, tracking code fences so a
    blank line inside a fence does not split it.
 2. Each block is classified: fenced or indented code, a `mermaid` fence, or
@@ -25,7 +40,9 @@ detail table, not a Markdown table.
    input-coloured rectangle that wraps long lines. Mermaid renders as an
    embedded PNG looked up by content hash (see [mermaid.md](mermaid.md)); a
    diagram with no pre-rendered image falls back to a code panel showing the
-   source, with a caption saying so.
+   source, with a caption saying so. A block that is a single image with a
+   relative path is read from the `fs.FS` in `markdown.Options` and drawn at
+   its natural size, capped to the pane width.
 4. The pane measures every block once at the current width and reserves that
    height with a spacer. Only blocks within half a viewport of the visible
    area are rendered; the rest are spacers. Heights are measured, never
@@ -34,7 +51,8 @@ detail table, not a Markdown table.
    currently rendered. Nothing reflows as the reader scrolls.
 5. The pane is not scrollable itself. The section puts it inside its own
    scroller and hands that scroller to `Follow`; `Detach` gives the scroll
-   callback back when the section is replaced.
+   callback back when the section is replaced. `markdown.Section` does both
+   for a section that is one document.
 
 ## Why not one RichText
 
@@ -59,15 +77,18 @@ the panel can go.
 
 - Keep the documentation in one place. If the program has a README, embed it
   and show it; do not restate it in the window.
-- Relative image paths are resolved through the `fs.FS` the pane is given.
-  Use paths relative to the document.
+- Relative image paths are resolved through the `fs.FS` the pane is given,
+  relative to `Options.Dir`, and only when the image is a block of its own
+  (`![alt](path)` on its own line). An image inside a paragraph goes through
+  Fyne's own image segment, which cannot read from an embedded filesystem.
 - Prefer fenced code with a language to indented code; both render the same,
   but the fence names the language for readers of the source.
 - Mermaid fences must have a pre-rendered image in the program's diagram set
   or they show as source. `make generate` renders them.
 - Headings, lists, emphasis, links and inline code are supported by Fyne's
-  RichText. Tables render poorly in RichText; use the detail table component
-  for tabular data in the window and keep Markdown tables for the file.
+  RichText. Pipe tables are drawn by the pane as a grid of cells (Fyne's own
+  table segment sits in a scroller that would take the wheel); for tabular
+  data a program computes, use the detail table component instead.
 
 ## Testing
 

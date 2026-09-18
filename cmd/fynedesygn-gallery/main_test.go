@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ushineko/fynedesygn/fynetest"
+	"github.com/ushineko/fynedesygn/markdown"
 	"github.com/ushineko/fynedesygn/shell"
 	fdtheme "github.com/ushineko/fynedesygn/theme"
 )
@@ -21,7 +22,7 @@ func testShell(t *testing.T) *shell.Shell {
 func TestSectionNamesNeedNoApp(t *testing.T) {
 	// Canary #8 (docs/fyne-quirks.md): the names are read before any Fyne app
 	// exists, as --help and --version do.
-	require.Equal(t, []string{"Appearance", "Widgets", "Table", "Fonts", "Shell", "About"}, shell.Names(sections()))
+	require.Equal(t, []string{"Appearance", "Widgets", "Table", "Fonts", "Shell", "Documents", "About"}, shell.Names(sections()))
 	require.True(t, known(shell.Names(sections()), "table"))
 	require.False(t, known(shell.Names(sections()), "nope"))
 }
@@ -74,4 +75,31 @@ func TestTheStatusBarSegmentFollowsTheJobState(t *testing.T) {
 	}
 	require.Contains(t, text, "finished")
 	require.Contains(t, text, "3")
+}
+
+func TestTheDocumentsSectionShowsTheEmbeddedGuideWithItsDiagram(t *testing.T) {
+	s := testShell(t)
+	var doc shell.Section
+	for _, sec := range s.Sections() {
+		if sec.Title() == "Documents" {
+			doc = sec
+		}
+	}
+	require.NotNil(t, doc)
+	o := doc.Build(s)
+	text := fynetest.Text(o)
+	require.Contains(t, text, "Rendering Markdown")
+	require.NotContains(t, text, markdown.NotRenderedCaption, "the flowchart's PNG pair is embedded")
+	require.False(t, fynetest.ScrollableIn(o), "nothing in the document takes the wheel")
+	_, isDetacher := doc.(shell.Detacher)
+	require.True(t, isDetacher)
+}
+
+func TestTheAboutSectionShowsTheReadme(t *testing.T) {
+	s := testShell(t)
+	about := s.Sections()[len(s.Sections())-1]
+	require.Equal(t, "About", about.Title())
+	text := fynetest.Text(about.Build(s))
+	require.Contains(t, text, "README")
+	require.Contains(t, text, "design system and wrapper library")
 }

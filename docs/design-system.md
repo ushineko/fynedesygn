@@ -292,10 +292,11 @@ Border{
 
 ## Documents
 
-- Markdown renders per block with `widget.RichText`; code blocks (fenced or
-  indented) render in the module's own code panel, which wraps rather than
-  scrolling sideways. Rationale and the block-level virtualisation are in
-  [markdown.md](markdown.md).
+- Markdown renders per block with `widget.RichText` (`markdown.Pane`, or
+  `markdown.Section` for a page that is one document); code blocks (fenced
+  or indented) render in the module's own code panel, which wraps rather
+  than scrolling sideways, and pipe tables render as a grid. Rationale and
+  the block-level virtualisation are in [markdown.md](markdown.md).
 - Mermaid fences render to PNG at development time and are embedded; see
   [mermaid.md](mermaid.md).
 - Long-form documentation that already lives in a README should be shown

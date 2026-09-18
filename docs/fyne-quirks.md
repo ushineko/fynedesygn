@@ -13,15 +13,15 @@ the target names for the implementation specs; a row without a test yet says
 |---|---|---|---|
 | 1 | File and folder dialogs crash if `Resize` is called before `Show`: the dialog has no window yet and `Resize` asks it for its minimum size through a nil pointer. | `dialogs` shows first, then resizes to 760 x 520. | `TestChooserResizeAfterShowDoesNotPanic` (planned) |
 | 2 | `widget.Check.SetChecked` (and other programmatic setters) fire `OnChanged`. | Form models carry a `setting` re-entry guard; list rows clear `OnChanged` before `SetChecked`. | `TestSetCheckedFiresOnChanged` (planned) |
-| 3 | On a recycled table cell, `SetText` refreshes the label and the refresh is where `Importance` becomes a colour. Setting importance after the text paints the previous row's colour. | `table` sets `Importance` before `SetText`. | `TestImportanceAfterSetTextKeepsOldColour` (planned) |
-| 4 | `widget.Table.UpdateHeader` is called with `Col == -1` for the corner cell. | Guarded in `table`. | `TestUpdateHeaderVisitsCornerCell` (planned) |
+| 3 | On a recycled table cell, `SetText` refreshes the label and the refresh is where `Importance` becomes a colour. Setting importance after the text paints the previous row's colour. | `table` sets `Importance` before `SetText`. | `table.TestImportanceAfterSetTextKeepsOldColour` |
+| 4 | `widget.Table.UpdateHeader` is called with `Col == -1` for the corner cell. | Guarded in `table`. | `table.TestUpdateHeaderVisitsCornerCell` |
 | 5 | `container.AppTabs` sizes to its tallest item, not the selected one. | Only the selected tab holds content; the rest hold an empty container. | `TestAppTabsSizeToTallestItem` (planned) |
-| 6 | `widget.NewRichTextFromMarkdown` wraps code blocks in a horizontal scroller (`richCodeBlock`). The innermost scrollable under the pointer takes the wheel, and the scroller swaps axes when the block is wider than the pane but not taller. | `markdown.CodePanel` renders code blocks itself and wraps instead of scrolling. | `TestFyneStillDrawsMarkdownCodeInsideAScroll` (exists in clockwork-orange, ports as is) |
-| 7 | `widget.RichText` lays out and repaints every segment on each refresh, and a scroller refreshes its content as it moves. A 250-segment document costs ~51 ms per frame in the software painter. | `markdown.Pane` renders per block and only near the viewport, reserving measured heights. | `TestDocumentRendersOnlyNearTheViewport` (planned) |
-| 8 | Constructing a theme icon (`theme.XxxIcon()`) before `app.New` logs "Attempt to access current Fyne app when none is started". | Section icons are `func() fyne.Resource`, resolved after the app exists. | `TestSectionNamesNeedNoApp` (planned) |
+| 6 | `widget.NewRichTextFromMarkdown` wraps code blocks in a horizontal scroller (`richCodeBlock`). The innermost scrollable under the pointer takes the wheel, and the scroller swaps axes when the block is wider than the pane but not taller. | `markdown.CodePanel` renders code blocks itself and wraps instead of scrolling. | `fynetest.TestFyneStillDrawsMarkdownCodeInsideAScroll` |
+| 7 | `widget.RichText` lays out and repaints every segment on each refresh, and a scroller refreshes its content as it moves. A 250-segment document costs ~51 ms per frame in the software painter. | `markdown.Pane` renders per block and only near the viewport, reserving measured heights. | `markdown.TestDocumentRendersOnlyNearTheViewport` |
+| 8 | Constructing a theme icon (`theme.XxxIcon()`) before `app.New` logs "Attempt to access current Fyne app when none is started". | Section icons are `func() fyne.Resource`, resolved after the app exists. | `shell.TestNamesNeedNoApp` |
 | 9 | Fyne animates properties, not opacity; a widget has no alpha. | Banner fade animates the background rectangle's colour with `canvas.NewColorRGBAAnimation`. | none (design, not a bug) |
 | 10 | No scroll callback on `widget.List`; no way to know the user scrolled. | Follow-tail inference compares the current offset with the one the last auto-scroll left, tolerance 4. | `TestFollowTailToleratesFractionalOffsets` (planned) |
-| 11 | `fyne.Do` runs inline under the test driver, so a worker touching widgets races the test. | Shell runs work inline when not on screen. | `TestPerformRunsInlineWhenHeadless` (planned) |
+| 11 | `fyne.Do` runs inline under the test driver, so a worker touching widgets races the test. | Shell runs work inline when not on screen. | `shell.TestPerformRunsInlineWhenHeadless` |
 | 12 | Fyne ignores fontconfig and has no font chooser. | `theme` scans font directories and loads faces itself. | none |
 | 13 | No per-app interface scale API; only `FYNE_SCALE`. | Scale preference is written into the environment after `app.New` and before the window; a restart applies it. | `TestScalePreferenceYieldsToEnvironment` (planned) |
 | 14 | No resize callback on `fyne.Window`. | Programs that persist geometry poll every 500 ms. | none |
@@ -31,7 +31,8 @@ the target names for the implementation specs; a row without a test yet says
 | 18 | No multi-select file dialog. | "Add..." reopens a single-file chooser. | none |
 | 19 | Glyphs outside the bundled font (the right arrow `→` among them) draw from a fallback face and mark the run boundary as a missing glyph. | No such symbols in labels; use words or theme icons. The up and down arrows `↑` `↓` are covered and are what sort headers use. | none (copy rule) |
 | 20 | `widget.Table` has no double-tap. | Row actions live in buttons enabled by selection. | none |
-| 21 | Relative image paths in Markdown cannot be resolved by Fyne at runtime. | `markdown.Pane` takes an `fs.FS` for images and diagrams. | `TestRelativeImagesResolveThroughTheFS` (planned) |
+| 21 | Relative image paths in Markdown cannot be resolved by Fyne at runtime: the image segment takes a URI. | `markdown.Pane` reads whole-block images from `Options.FS`. | `markdown.TestRelativeImagesResolveThroughTheFS` |
+| 22 | `widget.NewRichTextFromMarkdown` renders a pipe table as a `TableSegment` inside a scroller, which takes the wheel like a code block does. | `markdown.Pane` draws pipe tables as a grid of inline-rendered cells. | `markdown.TestFyneStillDrawsMarkdownTablesInsideAScroll` |
 
 ## Adding an entry
 

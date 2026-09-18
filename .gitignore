@@ -11,8 +11,6 @@ coverage.out
 *.swp
 .DS_Store
 
-# Mermaid render scratch (rendered PNGs under */diagrams/ are committed)
-/.mermaid-cache/
 
 # Local agent state
 .claude/settings.local.json

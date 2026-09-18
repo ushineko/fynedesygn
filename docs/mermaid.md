@@ -8,17 +8,19 @@ this module never needs node, a browser, or network access to show a diagram.
 1. Diagram sources live next to the document that uses them, either as
    `.mmd` files or as ```` ```mermaid ```` fences inside a Markdown file.
 2. `go generate` runs `fynedesygn-mermaid` (in `cmd/`), which finds every
-   source under the package directory, hashes each diagram's text, and renders
-   it with `mmdc` (mermaid-cli) to PNG twice: once with a light theme and once
-   with a dark theme, both on a transparent background. Output lands in
-   `diagrams/<hash>-light.png` and `diagrams/<hash>-dark.png` beside the
-   sources.
+   source under the package directory, hashes each diagram's text
+   (`mermaid.Hash`: SHA-256 of the trimmed source, first 16 hex characters),
+   and renders the missing ones with `mmdc` (mermaid-cli) to PNG twice: once
+   with mermaid's `default` theme and once with `dark`, both on a transparent
+   background at 2x scale. Output lands in `diagrams/<hash>-light.png` and
+   `diagrams/<hash>-dark.png` beside the sources.
 3. The PNGs are committed and embedded with `//go:embed diagrams/*`.
-4. At runtime `mermaid.Diagram(fs, source)` hashes the source, picks the
-   variant matching the active scheme's `dark` flag, and returns a
-   `canvas.Image` with `ImageFillContain` and a minimum height derived from the
-   image's aspect ratio at the current width. `markdown.Pane` calls this for
-   every mermaid fence.
+4. At runtime `mermaid.NewSet(fs, "diagrams").Lookup(source, dark)` hashes
+   the source and returns the variant matching the active palette's `Dark`
+   flag (falling back to the other when only one exists); `mermaid.NewDiagram`
+   draws it contained, at natural size divided by the render scale, with a
+   minimum height that follows its width. `markdown.Pane` does this for every
+   mermaid fence.
 5. A diagram whose PNG is missing (source edited without `make generate`)
    renders as a code panel with the source and a caption "Diagram not
    rendered; run make generate". A test in the consuming program can assert
@@ -41,8 +43,9 @@ is detected rather than shown, and no author maintains a mapping by hand.
 - `mmdc` on the PATH (mermaid-cli 11 or newer). Installation is the
   developer's choice: a global npm install, a distribution package, or a
   container. The module does not install it.
-- CI does not run `make generate`; it fails a build if a committed diagram's
-  hash does not match its source. Rendering happens on a developer machine.
+- CI does not run `make generate`; it runs `fynedesygn-mermaid -check`,
+  which needs no `mmdc` and fails the build when a source has no image pair
+  or an image has no source. Rendering happens on a developer machine.
 
 ## Guidance for diagrams in a window
 

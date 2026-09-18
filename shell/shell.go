@@ -268,6 +268,11 @@ func (s *Shell) Select(title string) {
 	s.nav.Select(i)
 }
 
+// Scroller is the content pane's scroller, for components that follow the
+// section's scroll (a document pane). Nil when the shell is headless: a
+// component with no viewport to be outside of renders everything.
+func (s *Shell) Scroller() *container.Scroll { return s.content }
+
 // OnScreen reports whether there is a window to draw into. False in a
 // headless test, and in the gap between a load finishing and the process
 // exiting. Builders that would start a load for nobody check it.

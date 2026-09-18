@@ -1,0 +1,317 @@
+package markdown
+
+import (
+	"image/color"
+	"io/fs"
+	"path"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
+	fynetheme "fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
+
+	"github.com/ushineko/fynedesygn/mermaid"
+	fdtheme "github.com/ushineko/fynedesygn/theme"
+)
+
+/*
+Overscan is how much of a viewport's worth of document is kept rendered above
+and below what is on screen, so that a fast scroll never reaches a block
+before the block is rendered.
+
+Half a screen of runway either side is several wheel notches, and it is what
+the cost is paid for: with a 44-block README in a 900 x 700 pane, a frame
+costs about a third less than the same document as one RichText. A larger
+margin renders more of the document than anyone is looking at; a smaller one
+saves little more and starts to matter when the scrollbar is thrown.
+*/
+const Overscan = 0.5
+
+// NotRenderedCaption is shown over a mermaid fence that has no image yet.
+const NotRenderedCaption = "Diagram not rendered; run make generate"
+
+// Options tell a Pane where a document's images and diagrams live.
+type Options struct {
+	// FS resolves relative image paths; nil leaves them unresolved.
+	FS fs.FS
+	// Dir is the directory within FS the document was read from, so its
+	// relative paths resolve beside it. Empty means the FS root.
+	Dir string
+	// Diagrams are the pre-rendered mermaid images; nil means mermaid fences
+	// show their source.
+	Diagrams *mermaid.Set
+}
+
+// Pane is a Markdown document rendered per block, only near the viewport.
+type Pane struct {
+	widget.BaseWidget
+
+	opts Options
+	// blocks is the document split into paragraph-sized pieces, in order.
+	blocks []string
+	// vis[i] is block i rendered; built by the measuring pass and kept, so a
+	// block that scrolls back into view is not parsed again.
+	vis []fyne.CanvasObject
+	// spacers[i] holds block i's height whether or not its text is in the
+	// tree; cells[i] is what the document's column actually contains.
+	spacers []*canvas.Rectangle
+	cells   []*fyne.Container
+	// live[i] says block i's text is currently in the tree.
+	live []bool
+
+	// body is the column of cells, and the widget's only child.
+	body *fyne.Container
+	// view is the scroll this pane is inside, watched for movement. Nil means
+	// nobody is scrolling it, and then every block is rendered: a pane with no
+	// viewport to be outside of is a plain document.
+	view *container.Scroll
+	// width is the width the blocks were last measured at.
+	width float32
+}
+
+/*
+New renders src, which is Markdown.
+
+The pane is not scrollable itself. It is meant to go inside a section's
+scroller and be handed that scroller with Follow, so that one scrollbar
+governs the document and whatever the section puts above it.
+*/
+func New(src string, o Options) *Pane {
+	p := &Pane{opts: o, blocks: Blocks(src)}
+	n := len(p.blocks)
+	p.vis = make([]fyne.CanvasObject, n)
+	p.spacers = make([]*canvas.Rectangle, n)
+	p.cells = make([]*fyne.Container, n)
+	p.live = make([]bool, n)
+
+	cells := make([]fyne.CanvasObject, n)
+	for i := range p.blocks {
+		p.spacers[i] = canvas.NewRectangle(color.Transparent)
+		p.cells[i] = container.NewStack(p.spacers[i])
+		cells[i] = p.cells[i]
+	}
+	p.body = container.NewVBox(cells...)
+	p.ExtendBaseWidget(p)
+	return p
+}
+
+/*
+Follow watches sc for movement, so the pane can render the blocks the user is
+looking at. Call Detach before the section holding the pane is replaced: the
+scroll outlives it.
+
+A nil scroll is not an error: a section built with no window (which is how
+headless tests build every section) has no viewport, and a pane with no
+viewport renders the whole document.
+*/
+func (p *Pane) Follow(sc *container.Scroll) {
+	if sc == nil {
+		p.sync()
+		return
+	}
+	p.view = sc
+	sc.OnScrolled = func(fyne.Position) { p.sync() }
+	p.sync()
+}
+
+// Detach gives the scroll back: its callback would otherwise keep calling
+// into a pane that is no longer on screen.
+func (p *Pane) Detach() {
+	if p.view != nil {
+		p.view.OnScrolled = nil
+		p.view = nil
+	}
+}
+
+// Blocks is how many blocks the document split into.
+func (p *Pane) Blocks() int { return len(p.blocks) }
+
+// Live is how many blocks currently have their rendering in the tree.
+func (p *Pane) Live() int {
+	n := 0
+	for _, l := range p.live {
+		if l {
+			n++
+		}
+	}
+	return n
+}
+
+// IsLive reports whether block i is currently rendered.
+func (p *Pane) IsLive(i int) bool { return i >= 0 && i < len(p.live) && p.live[i] }
+
+// Visual is block i rendered, built on first use. Tests use it to inspect
+// what a block became.
+func (p *Pane) Visual(i int) fyne.CanvasObject {
+	if p.vis[i] == nil {
+		p.vis[i] = RenderBlock(p.blocks[i], p.opts)
+	}
+	return p.vis[i]
+}
+
+// CreateRenderer implements fyne.Widget.
+func (p *Pane) CreateRenderer() fyne.WidgetRenderer {
+	return widget.NewSimpleRenderer(p.body)
+}
+
+// Resize measures the blocks again when the width changes (a narrower window
+// wraps the same paragraph into more lines) and then renders what is in view.
+func (p *Pane) Resize(s fyne.Size) {
+	p.BaseWidget.Resize(s)
+	p.measure(s.Width)
+	p.sync()
+}
+
+/*
+measure sizes every block's spacer to the height that block needs at width w.
+
+It is the one place the document's shape is decided. Blocks are measured, not
+estimated: an estimate that came out short would clip the last line of a
+paragraph, and one that came out long would leave a gap, and both would be
+visible only on the machines whose font differs from the one that was guessed
+against.
+*/
+func (p *Pane) measure(w float32) {
+	if w <= 0 || w == p.width {
+		return
+	}
+	p.width = w
+	for i := range p.blocks {
+		o := p.Visual(i)
+		o.Resize(fyne.NewSize(w, o.MinSize().Height))
+		p.spacers[i].SetMinSize(fyne.NewSize(0, o.MinSize().Height))
+	}
+	p.body.Refresh()
+}
+
+/*
+sync puts the blocks near the viewport in the tree and takes the rest out.
+
+"Near" is Overscan viewports above and below what is on screen, so a fling
+does not outrun the rendering: by the time a block is on screen it has been in
+the tree since it was half a screen away.
+*/
+func (p *Pane) sync() {
+	if p.view == nil {
+		for i := range p.blocks {
+			p.render(i, true)
+		}
+		return
+	}
+	// The pane's own coordinates: where the viewport is over this widget, not
+	// over the scroll's content, which also holds whatever is above the pane.
+	viewH := p.view.Size().Height
+	over := viewH * Overscan
+	top := p.view.Offset.Y - p.Position().Y - over
+	bottom := p.view.Offset.Y - p.Position().Y + viewH + over
+
+	var y float32
+	for i := range p.blocks {
+		h := p.spacers[i].MinSize().Height
+		p.render(i, y+h >= top && y <= bottom)
+		y += h + fynetheme.Padding()
+	}
+}
+
+// render puts block i's rendering in the tree, or takes it out. The spacer
+// stays in both cases: the block keeps its height and the document its shape.
+func (p *Pane) render(i int, want bool) {
+	if p.live[i] == want {
+		return
+	}
+	p.live[i] = want
+	if want {
+		p.cells[i].Objects = []fyne.CanvasObject{p.spacers[i], p.Visual(i)}
+	} else {
+		p.cells[i].Objects = []fyne.CanvasObject{p.spacers[i]}
+	}
+	p.cells[i].Refresh()
+}
+
+/*
+RenderBlock renders one block: a mermaid fence as its pre-rendered diagram,
+other code through CodePanel, a whole-block image from the document's
+filesystem, and prose through Fyne's Markdown widget.
+
+Code is not left to the Markdown widget because since Fyne 2.8 it draws a code
+block as a label inside a horizontal scroll. A scroll takes the wheel from
+whatever is under the pointer and does not pass it on, and when the code is
+wider than the pane and the block is not taller than it, the scroller turns a
+vertical wheel notch into a horizontal one. A README is mostly commands, so
+the section stopped dead wherever the pointer happened to rest on one.
+*/
+func RenderBlock(src string, o Options) fyne.CanvasObject {
+	if lang, code, ok := CodeBlock(src); ok {
+		if lang == "mermaid" {
+			return renderDiagram(code, o)
+		}
+		return NewCodePanel(code)
+	}
+	if alt, p, ok := ImageBlock(src); ok && isRelative(p) {
+		return renderImage(alt, p, o)
+	}
+	if rows, ok := TableBlock(src); ok {
+		return renderTable(rows)
+	}
+	rt := widget.NewRichTextFromMarkdown(src)
+	rt.Wrapping = fyne.TextWrapWord
+	return rt
+}
+
+// renderTable draws a pipe table as a grid of cells with a bold header row,
+// each cell rendered as inline Markdown so code spans and emphasis survive.
+// Fyne's own table segment lives in a scroller, which would take the wheel.
+func renderTable(rows [][]string) fyne.CanvasObject {
+	cols := len(rows[0])
+	cells := make([]fyne.CanvasObject, 0, len(rows)*cols)
+	for r, row := range rows {
+		for _, cell := range row {
+			if r == 0 {
+				cell = "**" + cell + "**"
+			}
+			rt := widget.NewRichTextFromMarkdown(cell)
+			rt.Wrapping = fyne.TextWrapWord
+			cells = append(cells, rt)
+		}
+	}
+	return container.NewGridWithColumns(cols, cells...)
+}
+
+// renderDiagram looks the diagram up for the active palette's darkness, and
+// falls back to the source under a caption when there is no image.
+func renderDiagram(code string, o Options) fyne.CanvasObject {
+	if res, ok := o.Diagrams.Lookup(code, activeDark()); ok {
+		return mermaid.NewDiagram(res, mermaid.Scale)
+	}
+	caption := widget.NewLabel(NotRenderedCaption)
+	caption.Importance = widget.LowImportance
+	return container.NewVBox(caption, NewCodePanel(code))
+}
+
+// renderImage reads a relative image from the document's filesystem. A
+// missing file shows the alt text, dimmed, so the reader knows what was meant.
+func renderImage(alt, rel string, o Options) fyne.CanvasObject {
+	if o.FS != nil {
+		if b, err := fs.ReadFile(o.FS, path.Join(o.Dir, rel)); err == nil {
+			return mermaid.NewDiagram(fyne.NewStaticResource(path.Base(rel), b), 1)
+		}
+	}
+	l := widget.NewLabel("[" + alt + "]")
+	l.Importance = widget.LowImportance
+	l.Wrapping = fyne.TextWrapWord
+	return l
+}
+
+// activeDark reports whether the running app's theme is a dark palette. A
+// theme that is not this module's answers through Fyne's variant.
+func activeDark() bool {
+	a := fyne.CurrentApp()
+	if a == nil {
+		return true
+	}
+	if th, ok := a.Settings().Theme().(fdtheme.Theme); ok {
+		return th.Palette().Dark
+	}
+	return a.Settings().ThemeVariant() == fynetheme.VariantDark
+}

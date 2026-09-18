@@ -78,8 +78,12 @@ vuln: ## Scan the module for known vulnerabilities
 # are committed and embedded; consumers of the library never need node or a
 # browser. See docs/mermaid.md.
 .PHONY: generate
-generate: ## Re-render mermaid diagrams and other generated files
+generate: ## Render missing mermaid diagrams and other generated files (needs mmdc)
 	@go generate ./...
+
+.PHONY: check-diagrams
+check-diagrams: ## Fail if a mermaid source has no image or an image has no source
+	@go run ./cmd/fynedesygn-mermaid -check -root docs
 
 .PHONY: gallery
 gallery: ## Build the reference gallery for the host platform (needs CGO)

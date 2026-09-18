@@ -12,6 +12,15 @@ The rules the components follow are written down in docs/design-system.md.
 */
 package fynedesygn
 
+import _ "embed"
+
+//go:embed README.md
+var readme []byte
+
+// README is this module's README, embedded so a program (the gallery) can
+// show it in a window without carrying a second copy of the text.
+func README() string { return string(readme) }
+
 // Status ranks a fact for presentation. It is the one presentation type the
 // whole library shares: every component that paints a verdict, a banner or a
 // table row takes a Status and asks the active colour scheme for the colour.

@@ -130,6 +130,7 @@ type Shell struct {
 	navPlace  NavPlacement
 	navShown  NavMode
 	navHolder *fyne.Container
+	navBtn    *widget.Button // the shape control, kept so a test can tap it
 
 	nav     *widget.List
 	content *container.Scroll

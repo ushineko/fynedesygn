@@ -6,7 +6,9 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/test"
 	fynetheme "fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ushineko/fynedesygn/fynetest"
@@ -327,4 +329,60 @@ func TestEveryShapeRendersInEveryScheme(t *testing.T) {
 			})
 		}
 	}
+}
+
+/*
+The shape menu opens under the button that raises it.
+
+A widget's Position is measured from its parent, so the button in the header's
+row reports a position near the origin of that row. Opening the menu there put
+it in the top-left corner of the window, across the navigation it was offering
+to change.
+*/
+func TestTheShapeMenuOpensUnderItsButton(t *testing.T) {
+	s, _ := shaped(t, everyShape)
+	s.Window.Resize(fyne.NewSize(900, 400))
+	// The button the window is drawing, not a fresh one: navControl builds a
+	// new button each time the header is composed, and one that is not in the
+	// tree has no absolute position to speak of.
+	require.NotNil(t, s.navBtn)
+
+	test.Tap(s.navBtn)
+	top := s.Window.Canvas().Overlays().Top()
+	require.NotNil(t, top, "the menu is up")
+
+	// The overlay covers the canvas; the menu inside it is what was placed.
+	menu := findPopUpMenu(top)
+	require.NotNil(t, menu, "the overlay holds a menu")
+
+	at := fyne.CurrentApp().Driver().AbsolutePositionForObject(s.navBtn)
+	require.Greater(t, at.X, float32(0), "the button is near the trailing edge")
+
+	// Directly below the button, and at its left edge or a little to the left
+	// of it: Fyne slides a menu that would run off the canvas back inside.
+	require.InDelta(t, at.Y+s.navBtn.Size().Height, menu.Position().Y, 1)
+	require.LessOrEqual(t, menu.Position().X, at.X+1)
+	require.Greater(t, menu.Position().X, at.X-menu.Size().Width,
+		"beside the button, not in the corner of the window")
+}
+
+// findPopUpMenu is the menu inside an overlay, or nil.
+func findPopUpMenu(o fyne.CanvasObject) *widget.PopUpMenu {
+	switch w := o.(type) {
+	case *widget.PopUpMenu:
+		return w
+	case *fyne.Container:
+		for _, child := range w.Objects {
+			if got := findPopUpMenu(child); got != nil {
+				return got
+			}
+		}
+	case fyne.Widget:
+		for _, child := range w.CreateRenderer().Objects() {
+			if got := findPopUpMenu(child); got != nil {
+				return got
+			}
+		}
+	}
+	return nil
 }

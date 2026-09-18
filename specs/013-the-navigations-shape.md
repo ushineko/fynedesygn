@@ -192,6 +192,14 @@ Verified in `shell/nav_test.go`:
 shape and its About section names the control, "The navigation's shape" in
 `docs/design-system.md`, 0.1.10 in the README changelog.
 
+Fixed after the first live run: the menu opened in the corner of the window
+rather than under its button, because a widget's `Position` is measured from its
+parent and the control sits in the header's row. `ShowPopUpMenuAtRelativePosition`
+places it against the button instead, and
+`TestTheShapeMenuOpensUnderItsButton` pins it -- Fyne slides a menu that would
+run off the canvas back inside, so the test asserts the menu is beside the
+button rather than at an exact offset from it.
+
 Two things the implementation added that the spec did not name:
 
 - `widgets.TipText` and `fynetest.Tips`. R7 says an icon carries its title as a

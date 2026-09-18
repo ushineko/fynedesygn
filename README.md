@@ -117,6 +117,13 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.11 (2026-09-18)
+
+Fix: the navigation's shape menu opened in the corner of the window rather than
+under the button that raises it. A widget's `Position` is measured from its
+parent, so the button in the header's row reported a position near the origin of
+that row.
+
 ### 0.1.10 (2026-09-18)
 
 `settings.Store` and `Shell.Settings()`: a program's settings in one file the

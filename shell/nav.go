@@ -235,9 +235,14 @@ func (s *Shell) navControl() fyne.CanvasObject {
 
 	items := s.navMenuItems()
 	btn := widget.NewButtonWithIcon("", fynetheme.MenuIcon(), nil)
+	s.navBtn = btn
 	btn.OnTapped = func() {
-		widget.ShowPopUpMenuAtPosition(fyne.NewMenu("", items...), s.Window.Canvas(),
-			btn.Position().Add(fyne.NewPos(0, btn.Size().Height)))
+		// Relative to the button, not at its Position: a widget's Position is
+		// measured from its parent, so a button in the header's row reports
+		// something near the origin of that row and the menu opened in the
+		// corner of the window.
+		widget.ShowPopUpMenuAtRelativePosition(fyne.NewMenu("", items...), s.Window.Canvas(),
+			fyne.NewPos(0, btn.Size().Height), btn)
 	}
 	tip := "Where the section list is drawn, and how much of it."
 	if s.allowsMode(NavHidden) {

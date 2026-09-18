@@ -315,3 +315,69 @@ func TestAPaneWithNoWidthYetKeepsItsLines(t *testing.T) {
 	p.rewrap() // no list size yet
 	require.Len(t, p.rows, 1)
 }
+
+// logRows is the log text the pane has drawn: the rows, not the chrome around
+// them.
+func logRows(win fyne.Window) []string {
+	var out []string
+	for _, text := range fynetest.Texts(win.Canvas().Content()) {
+		if strings.HasPrefix(text, sample) || strings.HasPrefix(text, Continued) {
+			out = append(out, text)
+		}
+	}
+	return out
+}
+
+// sample is the start of the line the reflow test wraps, long enough to be
+// unmistakable and short enough to match its first row at any width.
+const sample = "a line long enough"
+
+/*
+The pane reflows when the window is resized, and the reflow reaches the screen.
+
+Wrapping to the width the pane happened to be drawn at first is not wrapping:
+the divider above a log is draggable and the window is resizable, and both leave
+the rows describing a width that is gone.
+
+The assertion is that nothing drawn is wider than the pane, which is the thing
+that was wrong: the rows were rebuilt correctly and the list went on drawing the
+first of them at its old width, so the tail of a line appeared underneath it
+while the head still ran off the edge.
+*/
+func TestThePaneReflowsWhenTheWindowIsResized(t *testing.T) {
+	fynetest.Sandbox(t)
+	app := test.NewApp()
+	t.Cleanup(app.Quit)
+
+	m := NewModel(50)
+	p := New(m)
+	w := p.Widget(Options{Title: "Output", Height: 200})
+	win := test.NewWindow(w)
+	t.Cleanup(win.Close)
+
+	m.Append(Info, sample+" that how many rows it takes depends entirely on "+
+		"how wide the pane it is being drawn into happens to be at the time")
+
+	win.Resize(fyne.NewSize(1200, 400))
+	w.Refresh()
+	wideCols, wideRows := p.wrapCols, len(p.rows)
+	require.Positive(t, wideCols)
+
+	// Narrower, with no refresh of its own: the resize is the whole trigger.
+	win.Resize(fyne.NewSize(520, 400))
+	require.Less(t, p.wrapCols, wideCols, "a narrower pane is fewer columns")
+	require.Greater(t, len(p.rows), wideRows, "and the line takes more rows in it")
+	require.True(t, strings.HasPrefix(p.rows[1].Text, Continued))
+
+	drawn := logRows(win)
+	require.NotEmpty(t, drawn)
+	for _, row := range drawn {
+		require.LessOrEqualf(t, utf8.RuneCountInString(row), p.wrapCols,
+			"%q is still drawn at the width the pane used to be", row)
+	}
+
+	// And back again.
+	win.Resize(fyne.NewSize(1200, 400))
+	require.Equal(t, wideCols, p.wrapCols)
+	require.Equal(t, wideRows, len(p.rows))
+}

@@ -117,6 +117,15 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.19 (2026-09-18)
+
+Fix: a log pane did not reflow when the window or the divider above it moved. It
+wrapped to whatever width it was first drawn at and stayed there. Two things
+were wrong and the second hid the first: the pane had no way to learn its width
+had changed, and `widget.List` will not re-run the update for a row index it
+already has, so even a correct rewrap left the first row drawn at the old width
+while the rest of the line appeared underneath it.
+
 ### 0.1.18 (2026-09-18)
 
 A wrapped log line's continuation rows are indented and marked, so where a

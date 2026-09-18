@@ -167,9 +167,9 @@ func TestReportIsSilentOnCancellation(t *testing.T) {
 // after the operation starts, so every test that looks for it waits.
 func busyCancelButton(t *testing.T, s *Shell) *widget.Button {
 	t.Helper()
-	require.Eventually(t, func() bool { return s.busyPop != nil },
+	require.Eventually(t, func() bool { return s.busyPopup() != nil },
 		2*time.Second, 10*time.Millisecond, "the busy popup never appeared")
-	return fynetest.FindButton(s.busyPop.Content, "Cancel")
+	return fynetest.FindButton(s.busyPopup().Content, "Cancel")
 }
 
 func TestPerformCancellableCancelsThroughTheContext(t *testing.T) {
@@ -210,7 +210,7 @@ func TestBusyCancellablePutsTheJobsOwnCancelOnThePopup(t *testing.T) {
 	require.Equal(t, 1, called, "the button calls the cancel it was given")
 	// AC3: dead once pressed, and the popup stays up while the job winds down.
 	require.True(t, cancel.Disabled())
-	require.NotNil(t, s.busyPop)
+	require.NotNil(t, s.busyPopup())
 	test.Tap(cancel)
 	require.Equal(t, 1, called, "a disabled Cancel does not cancel twice")
 }
@@ -229,8 +229,9 @@ func TestTheCancelButtonFollowsTheCancellableOperationNotThePopup(t *testing.T) 
 	// The job ends while the load still holds the popup: the button goes with
 	// it, because a Cancel that outlives its job cancels nothing.
 	job()
-	require.NotNil(t, s.busyPop, "the load is still holding the popup up")
-	require.Nil(t, fynetest.FindButton(s.busyPop.Content, "Cancel"))
+	pop := s.busyPopup()
+	require.NotNil(t, pop, "the load is still holding the popup up")
+	require.Nil(t, fynetest.FindButton(pop.Content, "Cancel"))
 
 	// AC4: with everything finished, the next plain Busy shows no Cancel.
 	load()

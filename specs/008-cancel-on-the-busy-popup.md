@@ -89,6 +89,15 @@ results" in `docs/design-system.md`, 0.1.4 in the README changelog; `go test
 - **Risk**: `busyCancel` is read and written on the UI thread only. `Busy`
   hops there itself, so `BusyCancellable` must set the cancel inside that hop
   rather than before it, as `perform` does today.
+- **Found while implementing**: the popup fields were not actually guarded,
+  though `busyMu`'s comment claimed the busy fields were. The delay timer is a
+  second goroutine and writes `busyPop`; under the real driver `fyne.Do`
+  serialises it onto the main loop, but under the test driver it runs inline
+  on whichever goroutine called (quirk 11), so a test that observes the popup
+  races the timer. `busyMu` now covers `busyPop`, `busyLabel`, `busyCancel`,
+  `busyCancelBtn` and `busySeq`; `regate` is called outside it, because it
+  rebuilds the section and a builder calls `Working()`. `go test -race`
+  catches this and plain `go test` does not — `make test` is the gate.
 - **Rollback**: additive. `git revert`; `Busy` and `PerformCancellable` keep
   their signatures and `BusyCancellable` is new.
 - Supersedes spec 007's "recorded and left as is" on the modal popup.

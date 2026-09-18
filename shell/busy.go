@@ -70,11 +70,13 @@ func (s *Shell) busy(what string, cancel context.CancelFunc) func() {
 		s.busyCount++
 		s.busyWhat = what
 		first := s.busyCount == 1
-		s.busyMu.Unlock()
 		if cancel != nil {
 			s.busyCancel = job
 		}
 		s.showBusy()
+		s.busyMu.Unlock()
+		// regate outside the lock: it rebuilds the section, and a builder
+		// calling Working() would meet a mutex this goroutine already holds.
 		if first {
 			s.regate()
 		}
@@ -90,7 +92,6 @@ func (s *Shell) busy(what string, cancel context.CancelFunc) func() {
 				if last {
 					s.busyCount, s.busyWhat = 0, ""
 				}
-				s.busyMu.Unlock()
 				// This operation's cancel goes when this operation does, even
 				// if a load beside it is still holding the popup up: a Cancel
 				// button that outlives the job it cancels does nothing when
@@ -102,9 +103,12 @@ func (s *Shell) busy(what string, cancel context.CancelFunc) func() {
 				}
 				if last {
 					s.hideBusy()
-					s.regate()
 				} else {
 					s.showBusy()
+				}
+				s.busyMu.Unlock()
+				if last {
+					s.regate()
 				}
 			})
 		})
@@ -169,6 +173,12 @@ popup, where it is the one control in front of the user.
 Called again while the popup is up: the caption is updated, and the popup is
 rebuilt if a cancel has appeared or gone, so the button tracks the operation
 rather than the moment the popup happened to be built.
+
+Call with busyMu held. The popup is written here, on the delay timer's
+goroutine, and read by the next caller of Busy on theirs; Fyne's real driver
+serialises both onto the main loop but its test driver runs fyne.Do inline on
+whichever goroutine called (quirk 11), so the lock is what makes the busy
+fields safe rather than the toolkit.
 */
 func (s *Shell) showBusy() {
 	if !s.OnScreen() {
@@ -193,19 +203,26 @@ func (s *Shell) showBusy() {
 		time.Sleep(BusyDelay)
 		fyne.Do(func() {
 			s.busyMu.Lock()
-			count, what := s.busyCount, s.busyWhat
-			s.busyMu.Unlock()
-			if s.busySeq != seq || count == 0 || s.busyPop != nil {
+			defer s.busyMu.Unlock()
+			if s.busySeq != seq || s.busyCount == 0 || s.busyPop != nil {
 				return
 			}
-			s.busyPop = s.busyPopUp(what)
+			s.busyPop = s.busyPopUp(s.busyWhat)
 			s.busyPop.Show()
 		})
 	}()
 }
 
+// busyPopup returns the popup that is up, if any. The busy fields are behind
+// busyMu, so a reader not already holding it comes through here.
+func (s *Shell) busyPopup() *widget.PopUp {
+	s.busyMu.Lock()
+	defer s.busyMu.Unlock()
+	return s.busyPop
+}
+
 // busyPopUp builds the popup for the caption, with a Cancel button when a
-// cancellable operation is holding it. Call on the UI thread.
+// cancellable operation is holding it. Call with busyMu held.
 func (s *Shell) busyPopUp(what string) *widget.PopUp {
 	s.busyLabel = widget.NewLabel(what)
 	s.busyLabel.Alignment = fyne.TextAlignCenter
@@ -228,7 +245,7 @@ func (s *Shell) busyPopUp(what string) *widget.PopUp {
 	return widget.NewModalPopUp(container.NewPadded(container.NewVBox(items...)), s.Window.Canvas())
 }
 
-// hideBusy takes the progress popup down.
+// hideBusy takes the progress popup down. Call with busyMu held.
 func (s *Shell) hideBusy() {
 	s.busySeq++ // a pending showBusy timer finds a different sequence and stops
 	if s.busyPop != nil {

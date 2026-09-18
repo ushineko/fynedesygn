@@ -117,6 +117,14 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.20 (2026-09-18)
+
+A refused operation says what is running. "Something is already running" told
+the user nothing they could act on; the banner now names the operation holding
+the indicator and offers Cancel only when that operation has one.
+`Shell.BusyWhat` and `Shell.BusyReason` are exported for a program that gates
+its own buttons.
+
 ### 0.1.19 (2026-09-18)
 
 Fix: a log pane did not reflow when the window or the divider above it moved. It

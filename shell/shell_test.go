@@ -90,7 +90,11 @@ func TestPerformRefusesWhileSomethingIsRunning(t *testing.T) {
 	ran := false
 	s.Perform("Second...", func(context.Context) error { ran = true; return nil })
 	require.False(t, ran)
-	require.Contains(t, s.FlashText(), "already running")
+	// The refusal names what is running: "something is already running" tells
+	// the user nothing they can act on.
+	require.Contains(t, s.FlashText(), "Loading is still running")
+	require.Contains(t, s.FlashText(), "Wait for it to finish")
+	require.NotContains(t, s.FlashText(), "Cancel", "this one cannot be cancelled")
 	release()
 	release() // idempotent
 	require.False(t, s.Working())
@@ -99,6 +103,9 @@ func TestPerformRefusesWhileSomethingIsRunning(t *testing.T) {
 	s = headless(t, Options{AppID: "x", Name: "x", Sections: []Section{NewSection("A", nil, nil)}, AlsoWorking: func() bool { return external }})
 	s.Perform("Third...", func(context.Context) error { ran = true; return nil })
 	require.False(t, ran)
+	// Work the shell was never told the name of: it says what to do instead of
+	// naming something it does not know.
+	require.Contains(t, s.FlashText(), "Something else is running")
 	external = false
 	s.Perform("Third...", func(context.Context) error { ran = true; return nil })
 	require.True(t, ran)
@@ -617,4 +624,33 @@ func everyNavShape(o Options) Options {
 	o.NavModes = []NavMode{NavLabels, NavIcons, NavHidden}
 	o.NavPlacements = []NavPlacement{NavLeft, NavTop}
 	return o
+}
+
+/*
+A refusal names what is running, and offers Cancel only when there is one.
+
+"Something is already running" is a refusal with nothing in it: it does not say
+what is being waited for, how long it might take, or whether it can be stopped.
+The shell knows all three and used to throw them away.
+*/
+func TestARefusalSaysWhatIsRunningAndWhatToDo(t *testing.T) {
+	s := headless(t, testOptions(NewSection("A", nil, blank)))
+	require.Empty(t, s.BusyWhat(), "nothing is running")
+
+	release := s.Busy("Reading the game...")
+	require.Equal(t, "Reading the game...", s.BusyWhat())
+	require.Equal(t, "Reading the game is still running. Wait for it to finish.",
+		s.BusyReason(), "the trailing dots are not part of a sentence")
+	release()
+
+	// A cancellable operation says so, because then there is something to do
+	// besides wait.
+	done := s.BusyCancellable("Applying 3 patches...", func() {})
+	require.Equal(t, "Applying 3 patches is still running. Cancel it, or wait for it to finish.",
+		s.BusyReason())
+	done()
+
+	require.Empty(t, s.BusyWhat())
+	require.Contains(t, s.BusyReason(), "Something else is running",
+		"with nothing holding the indicator there is no name to give")
 }

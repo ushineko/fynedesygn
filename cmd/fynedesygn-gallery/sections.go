@@ -378,7 +378,7 @@ func (d *jobDemo) build(s *shell.Shell) fyne.CanvasObject {
 	// Cancel is on the popup where it can actually be clicked.
 	held := widget.NewButton("Run holding Busy (30 s)", func() {
 		if s.Working() {
-			s.Flash("Something is already running.", fd.StatusWarn)
+			s.Flash(s.BusyReason(), fd.StatusWarn)
 			return
 		}
 		ctx, cancel := context.WithCancel(context.Background())

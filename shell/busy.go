@@ -3,6 +3,7 @@ package shell
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -127,6 +128,46 @@ func (s *Shell) Working() bool {
 		return true
 	}
 	return s.opts.AlsoWorking != nil && s.opts.AlsoWorking()
+}
+
+/*
+BusyWhat is the caption of the operation holding the indicator, or "" when
+nothing is, or when the work is the program's own (Options.AlsoWorking) and the
+shell was never told what it is.
+
+For a program that gates its own buttons: what it tells the user should name the
+same thing this does.
+*/
+func (s *Shell) BusyWhat() string {
+	s.busyMu.Lock()
+	defer s.busyMu.Unlock()
+	if s.busyCount == 0 {
+		return ""
+	}
+	return s.busyWhat
+}
+
+/*
+BusyReason is what to tell someone who asked for a second operation.
+
+It names what is already running, because "something is already running" is a
+refusal with nothing in it: the user cannot tell what they are waiting for, how
+long it might be, or whether they can stop it. When the running operation can be
+cancelled it says so, and when it cannot it does not offer.
+*/
+func (s *Shell) BusyReason() string {
+	what := strings.TrimRight(s.BusyWhat(), ". ")
+	s.busyMu.Lock()
+	cancellable := s.busyCancel != nil
+	s.busyMu.Unlock()
+
+	if what == "" {
+		return "Something else is running. Wait for it to finish."
+	}
+	if cancellable {
+		return what + " is still running. Cancel it, or wait for it to finish."
+	}
+	return what + " is still running. Wait for it to finish."
 }
 
 // Gate disables the buttons that start work while something is running. A
@@ -282,7 +323,7 @@ func (s *Shell) PerformCancellable(what string, fn func(ctx context.Context) err
 
 func (s *Shell) perform(what string, cancellable bool, fn func(ctx context.Context) error) {
 	if s.Working() {
-		s.Flash("Something is already running. Wait for it to finish, or cancel it.", fd.StatusWarn)
+		s.Flash(s.BusyReason(), fd.StatusWarn)
 		return
 	}
 	if !s.OnScreen() {

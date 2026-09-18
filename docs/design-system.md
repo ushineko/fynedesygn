@@ -238,7 +238,12 @@ Border{
 - The `what` text is a present participle with an ellipsis ("Clearing the
   history..."), because it is the popup's caption.
 - One operation at a time. A second request while one runs is refused with a
-  warning banner.
+  warning banner that **names what is running** and says what can be done about
+  it — `Shell.BusyReason`, which a program gating its own buttons should use so
+  it says the same thing. "Something is already running" is a refusal with
+  nothing in it: it does not say what is being waited for, how long it might be,
+  or whether it can be stopped. Cancel is offered only when the running
+  operation has one.
 - A cancellable job puts its Cancel **on the popup**, not in the toolbar
   behind it. The popup is modal, so a toolbar Cancel left enabled while
   everything else is disabled is on screen, enabled and unclickable from the

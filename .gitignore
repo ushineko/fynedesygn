@@ -1,0 +1,18 @@
+# Build output
+/bin/
+/dist/
+/fynedesygn-gallery
+/fynedesygn-gallery.exe
+coverage.out
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Mermaid render scratch (rendered PNGs under */diagrams/ are committed)
+/.mermaid-cache/
+
+# Local agent state
+.claude/settings.local.json

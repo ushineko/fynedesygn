@@ -117,6 +117,15 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.15 (2026-09-18)
+
+Fix: a result banner was unreadable over a busy section. The status tint is
+translucent so text stays legible over it, which was fine while a banner was a
+popup drawing an opaque background of its own; moved into a layer of the content
+in 0.1.13 it had nothing underneath but the section, and a log behind it read
+straight through the message. Banners now bring their own background and a
+hairline edge, and every layer fades together.
+
 ### 0.1.14 (2026-09-18)
 
 `widgets.TipDelay` is a second, up from half of one. Half a second is about how

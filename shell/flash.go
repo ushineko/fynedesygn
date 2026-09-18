@@ -33,6 +33,10 @@ const (
 	// FlashFade is the fade itself: long enough to read as intentional, short
 	// enough that the banner is not sitting there half-gone.
 	FlashFade = 700 * time.Millisecond
+	// flashRadius and flashStroke are the banner's own box, drawn now that it
+	// is not a popup with a box of its own.
+	flashRadius float32 = 4
+	flashStroke float32 = 1
 )
 
 // flashHold says how long a banner of this status stays up, and whether it
@@ -70,9 +74,19 @@ func (s *Shell) Flash(text string, st fd.Status) {
 	s.flashSeq++
 	seq := s.flashSeq
 
+	// Two rectangles, not one. The tint is translucent so text stays readable
+	// over it in every scheme, which was fine while a banner was a popup and
+	// the popup drew an opaque background underneath. Drawn in a layer of the
+	// content there is nothing underneath but the section, so the banner needs
+	// to bring its own: without it the log behind a banner reads straight
+	// through the message.
 	tint := s.flashTint(st)
+	back := canvas.NewRectangle(s.flashBacking())
+	back.CornerRadius = flashRadius
+	back.StrokeColor = s.flashEdge()
+	back.StrokeWidth = flashStroke
 	bg := canvas.NewRectangle(tint)
-	bg.CornerRadius = 2
+	bg.CornerRadius = flashRadius
 
 	label := widget.NewLabel(text)
 	label.Wrapping = fyne.TextWrapWord
@@ -83,7 +97,7 @@ func (s *Shell) Flash(text string, st fd.Status) {
 	dismiss := widget.NewButtonWithIcon("", fynetheme.CancelIcon(), func() { s.clearFlash(seq) })
 	dismiss.Importance = widget.LowImportance
 
-	banner := container.NewStack(bg, container.NewPadded(
+	banner := container.NewStack(back, bg, container.NewPadded(
 		container.NewBorder(nil, nil, widgets.Marker(st), dismiss, label)))
 	s.flashes.Objects = []fyne.CanvasObject{banner}
 	s.flashes.Refresh()
@@ -96,15 +110,22 @@ func (s *Shell) Flash(text string, st fd.Status) {
 		return
 	}
 
-	transparent := color.NRGBA{R: tint.R, G: tint.G, B: tint.B, A: 0}
+	backing, edge := s.flashBacking(), s.flashEdge()
 	go func() {
 		time.Sleep(hold)
 		fyne.Do(func() {
 			if s.flashSeq != seq {
 				return // a newer banner owns the slot
 			}
-			fade := canvas.NewColorRGBAAnimation(tint, transparent, FlashFade, func(c color.Color) {
-				bg.FillColor = c
+			// One animation driving every layer. Fading the tint alone would
+			// leave the banner's own opaque backing sitting there, which is
+			// the whole banner minus its colour.
+			fade := fyne.NewAnimation(FlashFade, func(done float32) {
+				left := 1 - done
+				bg.FillColor = faded(tint, left)
+				back.FillColor = faded(backing, left)
+				back.StrokeColor = faded(edge, left)
+				canvas.Refresh(back)
 				canvas.Refresh(bg)
 			})
 			fade.Curve = fyne.AnimationEaseIn
@@ -192,6 +213,42 @@ func (flashLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
 		o.Resize(fyne.NewSize(width, height))
 		o.Move(fyne.NewPos((size.Width-width)/2, size.Height-height-flashBottom))
 	}
+}
+
+/*
+flashBacking is what the banner is drawn on: the window's own background,
+opaque, so the section behind it does not read through the message.
+
+flashEdge is a hairline around it, so a banner over content of a similar colour
+still reads as a separate thing rather than as text that has appeared in the
+middle of the section.
+*/
+func (s *Shell) flashBacking() color.NRGBA {
+	if th, ok := s.App.Settings().Theme().(fdtheme.Theme); ok {
+		return opaque(th.Palette().WindowBG)
+	}
+	return opaque(fynetheme.Color(fynetheme.ColorNameOverlayBackground))
+}
+
+func (s *Shell) flashEdge() color.NRGBA {
+	if th, ok := s.App.Settings().Theme().(fdtheme.Theme); ok {
+		return opaque(th.Palette().Separator)
+	}
+	return opaque(fynetheme.Color(fynetheme.ColorNameSeparator))
+}
+
+// opaque is c at full alpha, because a backing that is not opaque is not a
+// backing.
+func opaque(c color.Color) color.NRGBA {
+	r, g, b, _ := c.RGBA()
+	return color.NRGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: 0xff}
+}
+
+// faded is c at a fraction of its own alpha, for the animation that takes every
+// layer of the banner down together.
+func faded(c color.NRGBA, left float32) color.NRGBA {
+	c.A = uint8(float32(c.A) * left)
+	return c
 }
 
 // flashTint is the banner's starting colour: the status role from the active

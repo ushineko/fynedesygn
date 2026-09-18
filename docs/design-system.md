@@ -199,6 +199,13 @@ Border{
   history..."), because it is the popup's caption.
 - One operation at a time. A second request while one runs is refused with a
   warning banner.
+- A cancellable job puts its Cancel **on the popup**, not in the toolbar
+  behind it. The popup is modal, so a toolbar Cancel left enabled while
+  everything else is disabled is on screen, enabled and unclickable from the
+  moment the popup appears. `shell.PerformCancellable` when the runner owns
+  the job; `shell.BusyCancellable` when the job holds the indicator itself
+  (a log pump around the call, its own cancellation record, its own outcome
+  banner). The button is dead once pressed: cancelling is rarely instant.
 - Results are banners (`shell.Flash`, `Report`, `OK`): a non-modal popup
   centred near the bottom of the window, at most 720 wide, one at a time. Good holds 6 s, warn 12 s, bad
   stays until dismissed. Fyne animates properties, not opacity, so the fade

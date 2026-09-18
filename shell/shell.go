@@ -1,7 +1,6 @@
 package shell
 
 import (
-	"context"
 	"strings"
 	"sync"
 
@@ -96,13 +95,16 @@ type Shell struct {
 	frame   *fyne.Container // holds the status bar at index frameStatusBar
 	current int
 
-	busyMu     sync.Mutex // guards the busy fields from Busy's goroutine callers
-	busyCount  int
-	busyWhat   string
-	busyPop    *widget.PopUp
-	busyLabel  *widget.Label
-	busySeq    int
-	busyCancel context.CancelFunc
+	busyMu    sync.Mutex // guards the busy fields from Busy's goroutine callers
+	busyCount int
+	busyWhat  string
+	busyPop   *widget.PopUp
+	busyLabel *widget.Label
+	busySeq   int
+	// busyCancel is the cancellable operation currently holding the popup, and
+	// busyCancelBtn the button it put there. UI thread only.
+	busyCancel    *busyJob
+	busyCancelBtn *widget.Button
 
 	flashPop *widget.PopUp
 	flashes  *fyne.Container

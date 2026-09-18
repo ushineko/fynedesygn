@@ -317,7 +317,27 @@ func (d *jobDemo) build(s *shell.Shell) fyne.CanvasObject {
 	long := widget.NewButton("Run cancellable (30 s)", start(30, true, false))
 	failing := widget.NewButton("Run and fail (2 s)", start(2, false, true))
 	failing.Importance = widget.DangerImportance
-	s.Gate(quick, long, failing)
+
+	// The third shape: a job that holds the indicator itself rather than
+	// running through Perform, because it pumps a log around the call and
+	// reports its own outcome. It hands its cancel to BusyCancellable, so the
+	// Cancel is on the popup where it can actually be clicked.
+	held := widget.NewButton("Run holding Busy (30 s)", func() {
+		if s.Working() {
+			s.Flash("Something is already running.", fd.StatusWarn)
+			return
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		d.lastState = "running"
+		s.RedrawStatus()
+		go func() {
+			defer cancel()
+			done := s.BusyCancellable("Running the held job...", cancel)
+			defer done()
+			_ = job(ctx, 30, false)
+		}()
+	})
+	s.Gate(quick, long, failing, held)
 
 	banners := container.NewHBox(
 		widget.NewButton("Info", func() { s.Flash("An informational banner. It fades after six seconds.", fd.StatusInfo) }),
@@ -338,9 +358,10 @@ func (d *jobDemo) build(s *shell.Shell) fyne.CanvasObject {
 
 	return container.NewVScroll(container.NewVBox(
 		widgets.Heading("Shell", "The window skeleton and its runner. Every core call goes through Perform, which puts the busy popup up after 300 ms, refuses a second call, and reports failures as banners that stay."),
-		widgets.Card("shell.Perform / PerformCancellable",
+		widgets.Card("shell.Perform / PerformCancellable / BusyCancellable",
 			widgets.Wrapped("The buttons below are gated: they disable while the job runs and come back when it stops, because the section is rebuilt from state at both transitions."),
-			container.NewHBox(quick, long, failing),
+			container.NewHBox(quick, long, failing, held),
+			widgets.DimWrapped("The busy popup is modal, so a Cancel left enabled in a toolbar behind it cannot be clicked. A cancellable job puts its Cancel on the popup instead: through PerformCancellable when the runner owns the job, through BusyCancellable when the job holds the indicator itself."),
 			widgets.DimWrapped(fmt.Sprintf("State: %s. Runs: %d. The status bar at the bottom shows the same from every section.", d.lastState, d.runs)),
 		),
 		widgets.Card("shell.Flash", widgets.Wrapped("One banner at a time, floated over the content, never inserted into it."), banners),

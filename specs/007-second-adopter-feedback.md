@@ -42,7 +42,8 @@ job in clockwork-orange.
 Recorded and left as is: the shell's busy popup is modal, so a toolbar
 Cancel is reachable only before the popup appears; a job that must be
 cancellable mid-run uses `PerformCancellable`, whose Cancel lives on the
-popup.
+popup. (Superseded by spec 008: a job that holds the indicator itself uses
+`BusyCancellable` and gets the same Cancel.)
 
 ## Acceptance Criteria
 

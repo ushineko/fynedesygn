@@ -42,12 +42,38 @@ explanation reads as frozen, and the button that looks like it did nothing is
 the button that gets clicked twice.
 */
 func (s *Shell) Busy(what string) func() {
+	return s.busy(what, nil)
+}
+
+/*
+BusyCancellable is Busy with a Cancel button on the popup, which calls cancel.
+
+For a job that holds the indicator itself rather than running through
+PerformCancellable: one that pumps a log around the call, keeps its own record
+of whether it was cancelled, or reports its own outcome. The popup is modal, so
+while it is up the Cancel on it is the only Cancel the user can reach; a
+toolbar button left enabled behind it cannot be clicked.
+
+The button goes when the operation does. The cancel is the caller's own, so it
+may be a context's CancelFunc or a method that does the program's cancelling
+bookkeeping as well.
+*/
+func (s *Shell) BusyCancellable(what string, cancel context.CancelFunc) func() {
+	return s.busy(what, cancel)
+}
+
+// busy is Busy and BusyCancellable: cancel nil means no button.
+func (s *Shell) busy(what string, cancel context.CancelFunc) func() {
+	job := &busyJob{cancel: cancel}
 	fyne.Do(func() {
 		s.busyMu.Lock()
 		s.busyCount++
 		s.busyWhat = what
 		first := s.busyCount == 1
 		s.busyMu.Unlock()
+		if cancel != nil {
+			s.busyCancel = job
+		}
 		s.showBusy()
 		if first {
 			s.regate()
@@ -65,9 +91,20 @@ func (s *Shell) Busy(what string) func() {
 					s.busyCount, s.busyWhat = 0, ""
 				}
 				s.busyMu.Unlock()
+				// This operation's cancel goes when this operation does, even
+				// if a load beside it is still holding the popup up: a Cancel
+				// button that outlives the job it cancels does nothing when
+				// pressed. Compared by pointer because func values are not
+				// comparable, and a second cancellable operation may have
+				// replaced this one.
+				if s.busyCancel == job {
+					s.busyCancel = nil
+				}
 				if last {
 					s.hideBusy()
 					s.regate()
+				} else {
+					s.showBusy()
 				}
 			})
 		})
@@ -118,17 +155,36 @@ func (s *Shell) regate() {
 	s.RedrawStatus()
 }
 
-// showBusy puts the progress popup up, centred and modal, once the operation
-// has lasted long enough to deserve one. Modal on purpose: the window runs one
-// operation at a time and every button is disabled while one runs, so a popup
-// that also swallows clicks changes nothing about what can be done, and says
-// plainly why the window is not answering.
+/*
+showBusy puts the progress popup up, centred and modal, once the operation has
+lasted long enough to deserve one.
+
+Modal on purpose: the window runs one operation at a time and every button that
+starts work is disabled while one runs, so a popup that also swallows clicks
+changes nothing about what can be done, and says plainly why the window is not
+answering. The exception is a cancellable job, which leaves its Cancel enabled
+— and the modal would swallow that click too. So the Cancel comes onto the
+popup, where it is the one control in front of the user.
+
+Called again while the popup is up: the caption is updated, and the popup is
+rebuilt if a cancel has appeared or gone, so the button tracks the operation
+rather than the moment the popup happened to be built.
+*/
 func (s *Shell) showBusy() {
 	if !s.OnScreen() {
 		return
 	}
 	if s.busyPop != nil {
 		s.busyLabel.SetText(s.busyWhat)
+		if (s.busyCancel != nil) == (s.busyCancelBtn != nil) {
+			return
+		}
+		// Rebuilt rather than re-laid out: a modal popup sizes and centres
+		// itself on the content it was made with, and this happens at most
+		// twice in an operation.
+		s.busyPop.Hide()
+		s.busyPop = s.busyPopUp(s.busyWhat)
+		s.busyPop.Show()
 		return
 	}
 	s.busySeq++
@@ -142,22 +198,34 @@ func (s *Shell) showBusy() {
 			if s.busySeq != seq || count == 0 || s.busyPop != nil {
 				return
 			}
-			s.busyLabel = widget.NewLabel(what)
-			s.busyLabel.Alignment = fyne.TextAlignCenter
-			bar := widget.NewProgressBarInfinite()
-			items := []fyne.CanvasObject{s.busyLabel, widgets.FixedWidth(bar, busyBarWidth)}
-			if s.busyCancel != nil {
-				cancel := widget.NewButton("Cancel", func() {
-					if s.busyCancel != nil {
-						s.busyCancel()
-					}
-				})
-				items = append(items, container.NewCenter(cancel))
-			}
-			s.busyPop = widget.NewModalPopUp(container.NewPadded(container.NewVBox(items...)), s.Window.Canvas())
+			s.busyPop = s.busyPopUp(what)
 			s.busyPop.Show()
 		})
 	}()
+}
+
+// busyPopUp builds the popup for the caption, with a Cancel button when a
+// cancellable operation is holding it. Call on the UI thread.
+func (s *Shell) busyPopUp(what string) *widget.PopUp {
+	s.busyLabel = widget.NewLabel(what)
+	s.busyLabel.Alignment = fyne.TextAlignCenter
+	bar := widget.NewProgressBarInfinite()
+	items := []fyne.CanvasObject{s.busyLabel, widgets.FixedWidth(bar, busyBarWidth)}
+
+	s.busyCancelBtn = nil
+	if job := s.busyCancel; job != nil {
+		btn := widget.NewButton("Cancel", nil)
+		btn.OnTapped = func() {
+			// Dead the moment it has been pressed. Cancelling is rarely
+			// instant — processes have to be stopped, a previous output put
+			// back — and a button that still looks live is one pressed again.
+			btn.Disable()
+			job.cancel()
+		}
+		s.busyCancelBtn = btn
+		items = append(items, container.NewCenter(btn))
+	}
+	return widget.NewModalPopUp(container.NewPadded(container.NewVBox(items...)), s.Window.Canvas())
 }
 
 // hideBusy takes the progress popup down.
@@ -167,7 +235,7 @@ func (s *Shell) hideBusy() {
 		s.busyPop.Hide()
 		s.busyPop, s.busyLabel = nil, nil
 	}
-	s.busyCancel = nil
+	s.busyCancel, s.busyCancelBtn = nil, nil
 }
 
 /*
@@ -207,12 +275,15 @@ func (s *Shell) perform(what string, cancellable bool, fn func(ctx context.Conte
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	// The popup's Cancel is the operation's own context cancel; a
+	// non-cancellable one hands busy no cancel and gets no button.
+	var button context.CancelFunc
 	if cancellable {
-		s.busyCancel = cancel
+		button = cancel
 	}
 	go func() {
 		defer cancel()
-		done := s.Busy(what)
+		done := s.busy(what, button)
 		defer done()
 		if err := fn(ctx); err != nil {
 			fyne.Do(func() { s.Report(what, err) })
@@ -260,3 +331,9 @@ func (s *Shell) Load(what string, fn func(ctx context.Context) error) {
 		}
 	}()
 }
+
+// busyJob is one cancellable operation's claim on the popup's Cancel button.
+// A pointer, so the operation that set it can tell when it finishes whether
+// the button is still its own: func values are not comparable, and a second
+// operation may have taken the popup over.
+type busyJob struct{ cancel context.CancelFunc }

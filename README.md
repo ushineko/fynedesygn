@@ -117,6 +117,14 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.4 (2026-09-17)
+
+`shell.BusyCancellable` (spec 008): a job that holds the busy indicator itself
+can put its Cancel on the popup. The popup is modal, so a Cancel left enabled
+in the toolbar behind it could not be clicked — found in nmsbonker's build
+section, where it had been unreachable since before the adoption. Additive;
+`PerformCancellable` now runs through the same path.
+
 ### 0.1.3 (2026-09-18)
 
 Second adopter feedback (spec 007): `steps.Advance` never reopens a finished

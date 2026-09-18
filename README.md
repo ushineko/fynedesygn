@@ -117,6 +117,11 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.18 (2026-09-18)
+
+A wrapped log line's continuation rows are indented and marked, so where a
+message starts is visible without reading it.
+
 ### 0.1.17 (2026-09-18)
 
 Fix: the wrapping added in 0.1.16 never ran. It hung off `Draw`, which runs on

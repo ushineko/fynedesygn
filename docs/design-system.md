@@ -340,7 +340,8 @@ Border{
   uniform heights, no layout pass per row -- and the cost was that a long line
   was drawn past the right edge and could not be read. The pane wraps the model
   to its own width instead, so a long line becomes several rows and the rows
-  stay uniform. The width is read on the pump's tick, because Fyne has no resize
+  stay uniform. A continuation row is indented and marked with `logpane.Continued`,
+  so where a message starts is visible without reading it. The width is read on the pump's tick, because Fyne has no resize
   callback (quirk 14). Copy renders the model, not the rows, so a line broken
   for the screen arrives whole on the clipboard.
 

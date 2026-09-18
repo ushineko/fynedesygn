@@ -19,30 +19,59 @@ measurement per row, and the rows stay uniform.
 What the user copies is unaffected: Copy renders the model, not the rows.
 */
 
-// wrapLine breaks text to fit cols columns, at a space where there is a usable
-// one and mid-word where there is not. A cols of zero or less means the pane
-// has no width yet, and the line is left alone.
+/*
+Continued marks a row that is the rest of the line above it.
+
+Indented, so the eye can see where a message starts without reading it, and with
+a mark, so an indented continuation is not mistaken for a message that happens
+to begin with spaces. The ellipsis rather than an arrow: a glyph outside the
+bundled font draws from a fallback face and marks the run boundary as missing
+(docs/fyne-quirks.md, 19), and the ellipsis is one the font has.
+*/
+const Continued = "  … "
+
+/*
+wrapLine breaks text to fit cols columns, at a space where there is a usable one
+and mid-word where there is not.
+
+Every row after the first carries Continued and is that much narrower for it, so
+a continuation still ends inside the pane rather than one mark past its edge. A
+cols of zero or less means the pane has no width yet, and the line is left alone.
+*/
 func wrapLine(text string, cols int) []string {
 	if cols <= 0 || utf8.RuneCountInString(text) <= cols {
 		return []string{text}
 	}
-
-	var out []string
 	rest := []rune(text)
-	for len(rest) > cols {
-		cut := breakAt(rest, cols)
-		out = append(out, string(rest[:cut]))
+	width := cols
+	out := []string{}
+
+	for len(rest) > width {
+		cut := breakAt(rest, width)
+		out = append(out, mark(len(out), string(rest[:cut])))
 		// The space a line was broken at is consumed with it: a row starting
 		// with a space reads as an indent nobody wrote.
 		for cut < len(rest) && rest[cut] == ' ' {
 			cut++
 		}
 		rest = rest[cut:]
+		width = cols - utf8.RuneCountInString(Continued)
+		if width < minColumns/2 {
+			width = cols // too narrow to indent into; better long than empty
+		}
 	}
 	if len(rest) > 0 {
-		out = append(out, string(rest))
+		out = append(out, mark(len(out), string(rest)))
 	}
 	return out
+}
+
+// mark prefixes every row but the first.
+func mark(row int, text string) string {
+	if row == 0 {
+		return text
+	}
+	return Continued + text
 }
 
 /*

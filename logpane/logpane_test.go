@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
@@ -158,13 +159,26 @@ at the twelfth.
 */
 func TestALongLineBecomesSeveralRows(t *testing.T) {
 	got := wrapLine("the quick brown fox jumps over the lazy dog", 20)
-	require.Equal(t, []string{"the quick brown fox", "jumps over the lazy", "dog"}, got)
+	require.Equal(t, []string{
+		"the quick brown fox",
+		Continued + "jumps over the",
+		Continued + "lazy dog",
+	}, got)
 
 	for _, row := range got {
-		require.LessOrEqual(t, len(row), 20)
+		require.LessOrEqual(t, utf8.RuneCountInString(row), 20)
 	}
-	require.Equal(t, "the quick brown fox jumps over the lazy dog",
-		strings.Join(got, " "), "and nothing is lost in the breaking")
+
+	// Every row after the first says so, and nothing is lost in the breaking.
+	var back []string
+	for i, row := range got {
+		if i > 0 {
+			require.True(t, strings.HasPrefix(row, Continued), "%q is not marked", row)
+			row = strings.TrimPrefix(row, Continued)
+		}
+		back = append(back, row)
+	}
+	require.Equal(t, "the quick brown fox jumps over the lazy dog", strings.Join(back, " "))
 }
 
 // A line that fits is one row, unchanged. Wrapping must not touch the ordinary
@@ -185,11 +199,16 @@ and losing its tail is worse than breaking it.
 func TestSomethingWithNoSpacesIsBrokenAnyway(t *testing.T) {
 	got := wrapLine("/home/someone/.cache/terrariabonker/sprites/1.4.5.8/Item_3507.png", 20)
 	require.Greater(t, len(got), 2)
-	for _, row := range got {
-		require.LessOrEqual(t, len(row), 20)
+	var back []string
+	for i, row := range got {
+		require.LessOrEqual(t, utf8.RuneCountInString(row), 20)
+		if i > 0 {
+			row = strings.TrimPrefix(row, Continued)
+		}
+		back = append(back, row)
 	}
 	require.Equal(t, "/home/someone/.cache/terrariabonker/sprites/1.4.5.8/Item_3507.png",
-		strings.Join(got, ""))
+		strings.Join(back, ""))
 }
 
 /*
@@ -274,10 +293,15 @@ func TestThePaneWrapsWithoutDrawOrPump(t *testing.T) {
 	require.Greater(t, len(p.rows), 2, "and they are drawn as more rows than that")
 	require.NotPanics(t, func() { _ = win.Canvas().Capture() })
 
+	marked := 0
 	for _, row := range p.rows {
-		require.LessOrEqualf(t, len(row.Text), p.wrapCols,
+		require.LessOrEqualf(t, utf8.RuneCountInString(row.Text), p.wrapCols,
 			"%q is wider than the pane", row.Text)
+		if strings.HasPrefix(row.Text, Continued) {
+			marked++
+		}
 	}
+	require.Positive(t, marked, "a continued row says that it is one")
 }
 
 // A pane nobody has laid out yet does not wrap, and does not lose anything by

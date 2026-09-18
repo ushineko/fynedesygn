@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"image/color"
 	"sync"
 	"time"
 
@@ -67,8 +68,13 @@ type tipArea struct {
 
 // CreateRenderer implements fyne.Widget. Nothing is drawn: the control beneath
 // is the thing being looked at.
+//
+// Transparent rather than a nil colour. A nil fill is invisible under the GL
+// painter and a nil dereference under the software one, so a nil here is a
+// widget that works in the window and crashes anything that renders it to an
+// image -- a test, or a screenshot.
 func (t *tipArea) CreateRenderer() fyne.WidgetRenderer {
-	return widget.NewSimpleRenderer(canvas.NewRectangle(nil))
+	return widget.NewSimpleRenderer(canvas.NewRectangle(color.Transparent))
 }
 
 // MouseIn starts the wait. The tip is not shown yet: a pointer crossing a form

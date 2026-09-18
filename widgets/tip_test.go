@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"image"
 	"testing"
 	"time"
 
@@ -234,3 +235,31 @@ func wrappedLabel(text string) *widget.Label {
 	l.Wrapping = fyne.TextWrapWord
 	return l
 }
+
+/*
+A tip must survive being rendered to an image, not only to a window.
+
+The catcher draws a transparent rectangle, and the first version gave it a nil
+colour. Nil is invisible under the GL painter and a nil dereference under the
+software one, so it worked in the window and segfaulted anything that rendered
+it to an image -- a screenshot, or this test. The difference never shows up
+while clicking around the app.
+*/
+func TestATipRendersToAnImage(t *testing.T) {
+	test.NewApp()
+	area, win := tipOnScreen(t, "a note long enough to wrap onto a second line in the box")
+	defer win.Close()
+
+	area.MouseIn(&desktop.MouseEvent{})
+	require.Eventually(t, func() bool {
+		area.mu.Lock()
+		defer area.mu.Unlock()
+		return area.pop != nil
+	}, 2*time.Second, 20*time.Millisecond)
+
+	require.NotPanics(t, func() { _ = softwareRender(win.Canvas()) },
+		"the software painter must be able to draw every part of a tip")
+}
+
+// softwareRender draws a canvas the way a screenshot or an image test would.
+func softwareRender(c fyne.Canvas) image.Image { return c.Capture() }

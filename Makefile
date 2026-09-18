@@ -84,11 +84,21 @@ generate: ## Render missing mermaid diagrams and other generated files (needs mm
 .PHONY: check-diagrams
 check-diagrams: ## Fail if a mermaid source has no image or an image has no source
 	@go run ./cmd/fynedesygn-mermaid -check -root docs
+	@go run ./cmd/fynedesygn-mermaid -check -root examples/document-viewer
 
 .PHONY: gallery
 gallery: ## Build the reference gallery for the host platform (needs CGO)
 	CGO_ENABLED=1 go build -trimpath -o fynedesygn-gallery ./cmd/fynedesygn-gallery
 
+.PHONY: build-examples
+build-examples: ## Build every example program into bin/
+	@mkdir -p bin
+	@for d in examples/*/; do n=$$(basename $$d); CGO_ENABLED=1 go build -trimpath -o bin/$$n ./$$d || exit 1; echo "  bin/$$n"; done
+
+.PHONY: screenshots
+screenshots: gallery ## Refresh docs/img from the gallery (KDE/Wayland; needs kdotool, spectacle, Pillow)
+	./tools/screenshot.sh --all
+
 .PHONY: clean
 clean: ## Remove build output
-	@rm -f fynedesygn-gallery fynedesygn-gallery.exe coverage.out
+	@rm -rf fynedesygn-gallery fynedesygn-gallery.exe coverage.out bin/

@@ -12,6 +12,8 @@ hand-synced copies.
 ## Contents
 
 - [What is in it](#what-is-in-it)
+- [Screenshots](#screenshots)
+- [Examples](#examples)
 - [Status](#status)
 - [Using it](#using-it)
 - [Documentation](#documentation)
@@ -33,13 +35,44 @@ hand-synced copies.
 | `mermaid` | Hash-keyed lookup of pre-rendered diagram PNGs (light and dark), the widget that draws them, and the `mmdc` renderer and checker behind `go generate`. |
 | `dialogs` | Destructive confirmation, prompt and detail dialogs, file and folder choosers that do not crash, the desktop opener, and a yes-or-no question a worker goroutine can ask. |
 | `shell` | The window skeleton: header, section nav, content pane, status bar, busy indicator, banners, `Perform`, section lifecycle, plus the standard Appearance and About sections. |
+| `steps` | The step list a job shows beside its log, updated in place. |
 | `fynetest` | Headless test helpers: tree walking, finders, text extraction, scrollable detection. |
 | `cmd/fynedesygn-gallery` | The reference program. Every component in every scheme, with `--section` and `--scheme` for screenshots. |
 | `cmd/fynedesygn-mermaid` | The `go generate` helper that renders missing diagrams; `-check` in CI fails on stale ones. |
 | `docs` | The documents in `docs/` and their diagrams, embedded for the gallery. |
-| `examples/` | Small programs, one per UI pattern. |
+| `examples/` | Small programs, one per UI pattern; see [Examples](#examples). |
+| `tools/` | The screenshot harness for KDE/Wayland. |
 
 The rules the components follow are in [docs/design-system.md](docs/design-system.md).
+
+## Screenshots
+
+Captured from the gallery in Breeze Dark by `make screenshots`; refresh them
+with the same command and check the alt text still matches.
+
+![The Shell section of the gallery: a card with three job buttons, a card with four banner buttons, and a grid of six colour swatches for the active scheme's roles, with the section list on the left and a status bar showing the job state at the bottom.](docs/img/gallery-shell.png)
+
+![The Widgets section: the shared vocabulary drawn one primitive at a time, each captioned with its Go name, including a card of fact rows with status markers and a danger action row.](docs/img/gallery-widgets.png)
+
+![The Table section: a detail table with rows coloured by status, a second table with a 64 px thumbnail column, and three sort header buttons.](docs/img/gallery-table.png)
+
+![The Documents section: docs/markdown.md rendered in the window, with a flowchart of the rendering pipeline drawn from a pre-rendered PNG and a code panel that wraps.](docs/img/gallery-documents.png)
+
+![The Forms section: a form with Save and Revert, a slider with its entry beside it, and a validated numeric field.](docs/img/gallery-forms.png)
+
+![The Appearance section: pickers for the colour scheme, fonts, text size and interface scale over a live sample of regular, bold, monospace and status-coloured text.](docs/img/gallery-appearance.png)
+
+## Examples
+
+Each example is a complete program on `shell.Run`, with a headless test, in
+`examples/`. Build them all with `make build-examples`.
+
+| Example | Pattern |
+|---|---|
+| `master-detail` | A table with one status per row, a detail card for the selected row, Refresh through `Perform`, a count in the status bar, and the loaded-flag pattern. |
+| `settings` | A `forms.Form` over a JSON file, saved a second after the last change through `forms.Saver`, with Revert and the standard Appearance section. |
+| `job-runner` | A `steps.List` beside a `logpane.Pane`, a job run through `PerformCancellable` that advances steps and logs, and one banner for the result. |
+| `document-viewer` | `markdown.Section` over an embedded guide with a mermaid diagram rendered by `go generate`. |
 
 ## Status
 

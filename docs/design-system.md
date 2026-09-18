@@ -347,6 +347,14 @@ is worse than none.
   result that depends on the developer's machine is not a test.
 - Every Fyne quirk the module works around has a canary test named after the
   quirk. When a canary fails, Fyne has changed and the workaround can go.
+- Screenshots come from `tools/screenshot.sh`, which drives a program through
+  `--section` and `--scheme` under a throwaway HOME, confirms the window has
+  focus and checks the captured aspect ratio before trusting a shot. Alt text
+  describes what is in the image.
+- Under the Fyne test driver `fyne.Do` runs inline on the calling goroutine.
+  A test must not inspect widgets while a worker goroutine (a log pump, a
+  blocking question) draws them; stop and join the worker first, or drive the
+  UI-thread half directly.
 
 ## Platform
 

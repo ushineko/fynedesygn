@@ -146,3 +146,94 @@ func TestSetFollowingReArmsTheTailAndTheBoxSaysSo(t *testing.T) {
 	p.Detach()
 	require.NotPanics(t, func() { p.SetFollowing(false) })
 }
+
+/*
+A line longer than the pane is wrapped, not lost off the right edge.
+
+Every row is one line of monospace text in a widget.List, which is what makes a
+thousand-line log scroll like a terminal: uniform heights, no layout pass per
+row. The cost was that a long line was drawn past the edge and the rest of it
+could not be read at all -- an auto-restore line naming fifteen cheats stopped
+at the twelfth.
+*/
+func TestALongLineBecomesSeveralRows(t *testing.T) {
+	got := wrapLine("the quick brown fox jumps over the lazy dog", 20)
+	require.Equal(t, []string{"the quick brown fox", "jumps over the lazy", "dog"}, got)
+
+	for _, row := range got {
+		require.LessOrEqual(t, len(row), 20)
+	}
+	require.Equal(t, "the quick brown fox jumps over the lazy dog",
+		strings.Join(got, " "), "and nothing is lost in the breaking")
+}
+
+// A line that fits is one row, unchanged. Wrapping must not touch the ordinary
+// case, which is almost every line.
+func TestALineThatFitsIsLeftAlone(t *testing.T) {
+	require.Equal(t, []string{"short"}, wrapLine("short", 20))
+	require.Equal(t, []string{"exactly twenty chars"}, wrapLine("exactly twenty chars", 20))
+	require.Equal(t, []string{"anything"}, wrapLine("anything", 0),
+		"a pane with no width yet leaves lines alone")
+}
+
+/*
+A word with no spaces in it is broken mid-word.
+
+A path, a JSON blob or a cheat list joined by underscores has nowhere to break,
+and losing its tail is worse than breaking it.
+*/
+func TestSomethingWithNoSpacesIsBrokenAnyway(t *testing.T) {
+	got := wrapLine("/home/someone/.cache/terrariabonker/sprites/1.4.5.8/Item_3507.png", 20)
+	require.Greater(t, len(got), 2)
+	for _, row := range got {
+		require.LessOrEqual(t, len(row), 20)
+	}
+	require.Equal(t, "/home/someone/.cache/terrariabonker/sprites/1.4.5.8/Item_3507.png",
+		strings.Join(got, ""))
+}
+
+/*
+A break near the start of a line is not taken.
+
+Breaking at the first space of "a verylongunbreakabletoken" would leave a row
+holding one character and push the rest down, which reads worse than a broken
+word.
+*/
+func TestAWrapDoesNotLeaveAnAlmostEmptyRow(t *testing.T) {
+	got := wrapLine("a verylongwordthatcannotbebroken", 20)
+	require.Equal(t, "a verylongwordthatca", got[0])
+}
+
+// Wrapping keeps each row's level, so a broken error line stays red all the way
+// down.
+func TestAWrappedLineKeepsItsLevel(t *testing.T) {
+	m := NewModel(10)
+	m.Append(Error, "an error message far longer than the pane can show in one row")
+	m.Append(Info, "short")
+
+	rows := wrapRows(m, 20)
+	require.Greater(t, len(rows), 2)
+	for _, row := range rows[:len(rows)-1] {
+		require.Equal(t, Error, row.Level)
+	}
+	require.Equal(t, Info, rows[len(rows)-1].Level)
+}
+
+// What is copied is the log, not the rows: a line broken for the screen must
+// arrive in one piece on the clipboard.
+func TestCopyingIsUnaffectedByWrapping(t *testing.T) {
+	m := NewModel(10)
+	long := "a line far longer than any pane is wide, with several words in it"
+	m.Append(Info, long)
+	require.Greater(t, len(wrapRows(m, 20)), 1)
+	require.Contains(t, m.Text(), long)
+}
+
+// The column count is measured short by a little: wrapping a column early is
+// invisible, and a column late clips a character off every long line.
+func TestTheColumnCountIsConservative(t *testing.T) {
+	require.Equal(t, 0, columnsFor(0, 8), "a pane with no width yet does not wrap")
+	require.Equal(t, 0, columnsFor(80, 8), "nor one too narrow to be worth it")
+	require.Equal(t, 98, columnsFor(800, 8))
+	require.Equal(t, 0, columnsFor(800, 0), "and an unmeasurable font does not either")
+}

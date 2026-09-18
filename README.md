@@ -117,6 +117,15 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.16 (2026-09-18)
+
+`logpane` wraps. A line longer than the pane was drawn past the right edge and
+the rest of it could not be read at all. Every row is still one line of
+monospace text in a `widget.List` -- that is what makes a long log scroll like a
+terminal -- so the wrapping is done in the pane's own terms: a long line becomes
+several rows of the same height. Copy still renders the model, so a line broken
+for the screen arrives whole on the clipboard.
+
 ### 0.1.15 (2026-09-18)
 
 Fix: a result banner was unreadable over a busy section. The status tint is

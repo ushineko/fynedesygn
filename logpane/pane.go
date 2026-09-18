@@ -70,6 +70,17 @@ type Pane struct {
 	followBox *widget.Check
 	stamp     *widget.Label
 	updated   time.Time
+
+	// rows is the model wrapped to the pane's width: one row per drawn line,
+	// which is what keeps every row the same height. wrapCols, wrapLen and
+	// wrapDropped are what they were built from, so a tick that changed
+	// nothing rebuilds nothing.
+	rows        []Line
+	wrapCols    int
+	wrapLen     int
+	wrapDropped int
+	textSize    float32
+	charW       float32
 }
 
 // New makes a pane over model; nil makes a model with the default cap.
@@ -100,6 +111,8 @@ func (p *Pane) SetFollowing(on bool) {
 // Detach forgets the live widgets. Called when the content pane is replaced.
 func (p *Pane) Detach() {
 	p.list, p.counter, p.followBox, p.stamp = nil, nil, nil, nil
+	// The rows describe a width the next pane has not got yet.
+	p.rows, p.wrapCols, p.wrapLen, p.wrapDropped = nil, 0, 0, 0
 	// The next list starts at the top, so the offset the last automatic scroll
 	// left behind describes a widget that no longer exists.
 	p.wantOffset = 0
@@ -147,8 +160,10 @@ func (p *Pane) Widget(o Options) fyne.CanvasObject {
 	if size <= 0 {
 		size = fynetheme.TextSize()
 	}
+	p.textSize = size
+	p.rows = wrapRows(log, 0) // one row per line until the pane has a width
 	list := widget.NewList(
-		func() int { return log.Len() },
+		func() int { return len(p.rows) },
 		func() fyne.CanvasObject {
 			t := canvas.NewText("", fynetheme.Color(fynetheme.ColorNameForeground))
 			t.TextStyle = fyne.TextStyle{Monospace: true}
@@ -156,8 +171,13 @@ func (p *Pane) Widget(o Options) fyne.CanvasObject {
 			return t
 		},
 		func(i widget.ListItemID, obj fyne.CanvasObject) {
-			line := log.At(i)
 			t := obj.(*canvas.Text)
+			if i < 0 || i >= len(p.rows) {
+				t.Text = ""
+				t.Refresh()
+				return
+			}
+			line := p.rows[i]
 			t.Color = rowColor(line.Level)
 			t.TextSize = size
 			t.Text = line.Text
@@ -234,6 +254,7 @@ func (p *Pane) Draw() {
 	if p.stamp != nil && !p.updated.IsZero() {
 		p.stamp.SetText(fmt.Sprintf("Last updated %s", p.updated.Format("15:04:05")))
 	}
+	p.rewrap()
 	p.follow = FollowTail(p.follow, p.list.GetScrollOffset(), p.wantOffset)
 	// The box is the state, so it has to say what the state is.
 	if p.followBox != nil && p.followBox.Checked != p.follow {
@@ -245,6 +266,36 @@ func (p *Pane) Draw() {
 	}
 	p.list.ScrollToBottom()
 	p.wantOffset = p.list.GetScrollOffset()
+}
+
+/*
+rewrap rebuilds the visual rows when the pane's width or its content changed.
+
+On the pump's tick rather than on a resize, because Fyne has no resize callback
+(docs/fyne-quirks.md, 14) -- and the width is read from the list itself, which
+is the object the rows are drawn in. Rebuilt only when something moved: a log
+that is not changing, in a window that is not being resized, costs one
+comparison per tick.
+*/
+func (p *Pane) rewrap() {
+	if p.list == nil {
+		return
+	}
+	cols := columnsFor(p.list.Size().Width, p.charWidth())
+	if cols == p.wrapCols && p.log.Len() == p.wrapLen && p.log.Dropped() == p.wrapDropped {
+		return
+	}
+	p.wrapCols, p.wrapLen, p.wrapDropped = cols, p.log.Len(), p.log.Dropped()
+	p.rows = wrapRows(p.log, cols)
+}
+
+// charWidth is one monospace character at the pane's text size, measured once.
+func (p *Pane) charWidth() float32 {
+	if p.charW > 0 {
+		return p.charW
+	}
+	p.charW = fyne.MeasureText("0", p.textSize, fyne.TextStyle{Monospace: true}).Width
+	return p.charW
 }
 
 // Touch records that content arrived, for the "Last updated" stamp.

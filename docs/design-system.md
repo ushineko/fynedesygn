@@ -335,6 +335,14 @@ Border{
 - `logpane.Options.Height` is a minimum, not a size: in a fixed region the
   minimum is the height; inside a divider it is how small the pane may be
   dragged.
+- **A log pane wraps.** Every row is one line of monospace text in a
+  `widget.List`, which is what lets a thousand lines scroll like a terminal --
+  uniform heights, no layout pass per row -- and the cost was that a long line
+  was drawn past the right edge and could not be read. The pane wraps the model
+  to its own width instead, so a long line becomes several rows and the rows
+  stay uniform. The width is read on the pump's tick, because Fyne has no resize
+  callback (quirk 14). Copy renders the model, not the rows, so a line broken
+  for the screen arrives whole on the clipboard.
 
 ## Tables and lists
 

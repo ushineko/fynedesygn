@@ -53,12 +53,19 @@ func (j *job) run(ctx context.Context, s *shell.Shell, fail bool) error {
 		fyne.Do(func() { j.steps.Advance(i, "working") })
 		j.pane.Log(logpane.Info, "starting "+name)
 		for k := range 3 {
-			select {
-			case <-ctx.Done():
+			// Check before waiting as well as while waiting: a select with a
+			// ready timer and a ready cancellation picks either at random, and
+			// a job that was cancelled before it started must not do work.
+			if ctx.Err() == nil {
+				select {
+				case <-ctx.Done():
+				case <-time.After(j.tick):
+				}
+			}
+			if err := ctx.Err(); err != nil {
 				fyne.Do(func() { j.steps.Stop(steps.Cancelled, "stopped"); j.outcome = "cancelled"; s.RedrawStatus() })
 				j.pane.Log(logpane.Warn, "cancelled during "+name)
-				return fmt.Errorf("job cancelled during %s: %w", name, ctx.Err())
-			case <-time.After(j.tick):
+				return fmt.Errorf("job cancelled during %s: %w", name, err)
 			}
 			j.pane.Log(logpane.Debug, fmt.Sprintf("%s: part %d of 3", name, k+1))
 		}

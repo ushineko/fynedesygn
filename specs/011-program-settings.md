@@ -95,7 +95,7 @@ deleted, because it is the user's, and not left in place, because leaving it
 would mean every save from then on refuses or overwrites it unannounced. The
 store reports what it did; `Shell` surfaces that through `Report`.
 
-### Format
+### Format: both, chosen by the file's extension
 
 The encoding sits behind a two-method interface:
 
@@ -104,18 +104,40 @@ The encoding sits behind a two-method interface:
 	    Unmarshal(b []byte, v any) error
 	}
 
-`settings.JSON` is the default and lives in the core, because `encoding/json` is
-in the standard library and the library's rule is that Fyne is the only required
-runtime dependency of the core packages.
+Two ship. `settings.JSON` is in the core, because `encoding/json` is in the
+standard library and the core's rule is that Fyne is its only required runtime
+dependency. `settings/yamlcodec` is a subpackage over `go.yaml.in/yaml/v3`.
 
-A YAML codec would be `settings/yamlcodec`, a subpackage, added without changing
-this API. The cost is stated plainly rather than assumed away: a dependency in
-any package of a module is a line in the module's `go.mod` and in every
-consumer's `go.sum`, even for a consumer that never imports that subpackage. It
-does not reach a binary that does not import it.
+**The cost of the second one is already paid.** All four consumers carry
+`go.yaml.in/yaml/v3 v3.0.5` in their module graphs today, and clockwork-orange
+depends on `gopkg.in/yaml.v3` directly. The subpackage adds a line to the
+module's `go.mod` and to a `go.sum` that already has it, and reaches a binary
+only when that binary imports it.
 
-**Open question for review**: JSON only, or JSON now with the YAML subpackage in
-the same change? The interface makes the second cheap and reversible either way.
+**A codec registers itself for its extensions**, the way `image/png` registers a
+decoder:
+
+	import _ "github.com/ushineko/fynedesygn/settings/yamlcodec"
+
+	settings.Open(".../settings.yaml")   // YAML, because of the extension
+
+`settings.Register(ext string, c Codec)` is the seam; `yamlcodec`'s `init` calls
+it for `.yaml` and `.yml`, and the core registers `.json` for itself. This is
+what keeps the core free of the dependency: nothing in it names the YAML package,
+so a program that does not want a YAML parser in its binary does not get one.
+`settings.OpenWith(path, codec)` sets a codec explicitly for a path whose
+extension says nothing.
+
+A path whose extension has no registered codec is an error naming the blank
+import, not a JSON file written under a `.yaml` name.
+
+**One set of struct tags for both formats.** The YAML codec marshals through
+JSON — encode with `encoding/json`, decode into a generic value, emit YAML, and
+the reverse — so the `json:` tags on a caller's struct decide the field names in
+both files and the two formats hold the same keys. Numbers are decoded with
+`UseNumber` so a whole number does not come back out as `4e+00`. The alternative,
+`yaml:` tags beside the `json:` ones, is two sets of names to keep in step and
+one silent difference the first time they drift.
 
 ### What moves onto it
 
@@ -144,8 +166,17 @@ stops writing to `fyne.Preferences` once the move is done.
   such. The library reads and writes nothing else.
 - R8 `Options.SettingsPath` overrides the default location; the default is
   `os.UserConfigDir()/<AppID>/settings.json`.
-- R9 The encoding is behind `Codec`; `settings.JSON` is the default and the core
-  gains no new dependency.
+- R9 The encoding is behind `Codec`. `settings.JSON` is in the core and the core
+  gains no new dependency; `settings/yamlcodec` is a subpackage over
+  `go.yaml.in/yaml/v3`.
+- R9a A codec registers itself for its extensions through `settings.Register`,
+  and `Open` picks one from the path. Nothing in the core names the YAML
+  package. `OpenWith` sets one explicitly.
+- R9b An extension with no registered codec is an error that names the blank
+  import needed for it.
+- R9c A value written as JSON and read as YAML, or the reverse, has the same
+  keys: the YAML codec goes through `encoding/json`, so `json:` tags decide both
+  and whole numbers stay whole.
 - R10 `theme.Appearance` is read from and written to the store, migrating once
   from `fyne.Preferences`.
 - R11 The store is safe to use from the UI thread and the saver's goroutine at
@@ -170,7 +201,15 @@ stops writing to `fyne.Preferences` once the move is done.
   other; neither writes the other's key (R7).
 - [ ] AC7 With no `SettingsPath`, the shell uses
   `os.UserConfigDir()/<AppID>/settings.json`; with one, it uses that (R8).
-- [ ] AC8 A store built with a second `Codec` round-trips the same values (R9).
+- [ ] AC8 A store over `settings.yaml` with `yamlcodec` imported writes YAML and
+  reads it back; the same values written as JSON and renamed produce the same
+  `Get` results, key for key (R9, R9a, R9c).
+- [ ] AC8a `Open` on a `.yaml` path without the codec imported returns an error
+  naming the blank import, and writes nothing (R9b).
+- [ ] AC8b An integer set through the store is an integer in the YAML file, not
+  a float (R9c).
+- [ ] AC8c The core package's import graph does not reach the YAML package —
+  asserted by a test, not by reading (R9, R9a).
 - [ ] AC9 A program whose appearance is only in `fyne.Preferences` opens with
   that appearance and has it in the settings file afterwards (R10).
 - [ ] AC10 `go test -race` passes with a test that reads and writes the store
@@ -186,6 +225,11 @@ stops writing to `fyne.Preferences` once the move is done.
 - **Risk**: the appearance migration is the one part that can lose something a
   user set. It is one-way and one-time, and AC9 is the test that pins it. The
   old keys are read and not deleted, so a rollback finds them where they were.
+- **Risk**: a save rewrites the file, so comments a user wrote into a YAML
+  settings file do not survive the next change made in the window. No Go YAML
+  encoder round-trips comments through a marshal of arbitrary values. Recorded
+  rather than worked around: it is the one thing hand-editing YAML buys that
+  this store cannot keep.
 - **Risk**: `Set` takes `any` and encodes it, so a value that cannot be encoded
   fails at save rather than at the call. The store reports it through the same
   path as a failed write.
@@ -201,6 +245,12 @@ stops writing to `fyne.Preferences` once the move is done.
   every consumer would rebuild its own struct from loose keys, which is the work
   `encoding/json` already does. One section decoded into the caller's own type
   is less API and less code on both sides.
-- **YAML in the core.** Deferred rather than rejected; see "Format" and the open
-  question. It buys comments in a hand-edited file at the price of the core's
-  only-Fyne dependency rule.
+- **JSON alone.** Rejected at review: both formats ship. The dependency is
+  already in every consumer's module graph, so the price the core's only-Fyne
+  rule was protecting against is not being paid twice.
+- **YAML in the core rather than a subpackage.** Rejected: it would put a YAML
+  parser in the binary of every program that links the library, including the
+  ones that write JSON. A blank import is one line for the programs that want it.
+- **`yaml:` tags beside `json:` tags.** Rejected: two sets of names for one
+  struct, kept in step by hand, and a file whose keys change when the format
+  does. Marshalling through JSON gives one set of names for both.

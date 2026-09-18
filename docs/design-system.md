@@ -258,11 +258,21 @@ Border{
   before any builder; one whose theme depends on its own configuration (a
   console font) supplies `Options.Theme`; keyboard navigation beyond the
   shell's F5 goes through `Options.OnTypedKey`.
-- Appearance (scheme, font, text size, scale) persists through
-  `fyne.Preferences` under `appearance.*` keys and nothing else does. Every
-  setting a command-line front end can also see lives in the program's own
-  config file so both agree. A stale preference value falls back silently; it
-  is not an error worth a dialog.
+- Settings live in one file the user can read: `settings.Store`, reached
+  through `Shell.Settings()`. One file per program, one section per top-level
+  key, each decoded into the caller's own type. Keys beginning `fynedesygn.`
+  are the library's; everything else is the program's and the library never
+  looks inside it. Written a second after the last change and when the window
+  closes.
+- A section the running build never asks for is kept, not dropped, so an older
+  binary cannot quietly delete what a newer one wrote.
+- The file's extension chooses the format. JSON is the default and is in the
+  core; `.yaml` and `.yml` need `settings/yamlcodec` imported for its effect,
+  which keeps a YAML parser out of the binary of a program that writes JSON.
+- Appearance (scheme, font, text size, scale) is one of the library's
+  sections, `fynedesygn.appearance`. It used to live in `fyne.Preferences` and
+  is read from there once, for an installation that predates the file. A stale
+  value falls back silently; it is not an error worth a dialog.
 - A one-run override of the scheme (for screenshots) is applied without
   persisting.
 

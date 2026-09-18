@@ -17,9 +17,7 @@ save is written and any lock released; exec(2) keeps the pid, so a tray or
 launcher watching it sees one program.
 */
 func (s *Shell) Restart() {
-	if s.opts.OnStop != nil {
-		s.opts.OnStop(s)
-	}
+	s.Stop()
 	exe, err := os.Executable()
 	if err != nil {
 		s.App.Quit()

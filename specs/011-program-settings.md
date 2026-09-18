@@ -3,7 +3,7 @@
 > **Note**: This work has no associated issue tracker ticket. The repository
 > is a personal public project without an issue tracker.
 
-## Status: PROPOSED — awaiting review
+## Status: COMPLETE
 
 ## Context
 
@@ -82,9 +82,14 @@ points `SettingsPath` at it and keeps one directory rather than two.
 - **Atomically.** Written to a temporary file beside the target and renamed, so
   an interrupted save cannot truncate what was there. The example does not do
   this; a library that holds the user's settings should.
-- **After a quiet period**, through `forms.Saver`, which already exists for
-  exactly this: at most one write per second of typing, and `Flush` before the
-  process quits or restarts. `Shell` calls `Flush` in its stop path.
+- **After a quiet period**: at most one write per second of typing, and `Flush`
+  before the process quits or restarts. `Shell.Stop` calls it.
+
+  Not through `forms.Saver`, though that is the same idea. `forms.Saver` runs
+  its callback on the UI thread through `fyne.Do`, which is right for a
+  program's document and wrong for a file write, and reusing it would pull
+  `widgets` and `dialogs` into a package that is otherwise standard library
+  alone.
 - **0600 for the file, 0750 for the directory**, which is what the example and
   the repository's lint settings already use.
 
@@ -158,8 +163,8 @@ stops writing to `fyne.Preferences` once the move is done.
 - R3 A section the running binary never asks for survives a load and a save
   unchanged.
 - R4 Saves are atomic: an interrupted write leaves the previous file intact.
-- R5 Saves are debounced through `forms.Saver`; `Flush` writes immediately and
-  is called by the shell before the process quits or restarts.
+- R5 Saves are debounced; `Flush` writes immediately and is called by the shell
+  when the window closes and before the process restarts.
 - R6 A file that does not parse is renamed to `<name>.bad` once, the store
   starts from defaults, and the caller is told.
 - R7 Keys beginning `fynedesygn.` are reserved for the library and documented as
@@ -186,35 +191,35 @@ stops writing to `fyne.Preferences` once the move is done.
 
 ## Acceptance Criteria
 
-- [ ] AC1 Opening a path with no file gives a store whose `Get` reports absent
+- [x] AC1 Opening a path with no file gives a store whose `Get` reports absent
   and whose `Set` then `Flush` creates the file and its directory (R1, R2).
-- [ ] AC2 A file holding a section this binary never names is still there,
+- [x] AC2 A file holding a section this binary never names is still there,
   byte-identical in content, after a `Set` of a different section and a `Flush`
   (R3).
-- [ ] AC3 A save interrupted after the temporary file is written leaves the
+- [x] AC3 A save interrupted after the temporary file is written leaves the
   original readable (R4).
-- [ ] AC4 Two `Set` calls within the quiet period produce one write; `Flush`
+- [x] AC4 Two `Set` calls within the quiet period produce one write; `Flush`
   writes a pending change immediately and `Pending` then reports false (R5).
-- [ ] AC5 A file of invalid JSON is renamed to `<name>.bad`, the store loads
+- [x] AC5 A file of invalid JSON is renamed to `<name>.bad`, the store loads
   defaults, and the error is returned from `Open` rather than swallowed (R6).
-- [ ] AC6 A program's `Set("jobs", …)` and the library's appearance survive each
+- [x] AC6 A program's `Set("jobs", …)` and the library's appearance survive each
   other; neither writes the other's key (R7).
-- [ ] AC7 With no `SettingsPath`, the shell uses
+- [x] AC7 With no `SettingsPath`, the shell uses
   `os.UserConfigDir()/<AppID>/settings.json`; with one, it uses that (R8).
-- [ ] AC8 A store over `settings.yaml` with `yamlcodec` imported writes YAML and
+- [x] AC8 A store over `settings.yaml` with `yamlcodec` imported writes YAML and
   reads it back; the same values written as JSON and renamed produce the same
   `Get` results, key for key (R9, R9a, R9c).
-- [ ] AC8a `Open` on a `.yaml` path without the codec imported returns an error
+- [x] AC8a `Open` on a `.yaml` path without the codec imported returns an error
   naming the blank import, and writes nothing (R9b).
-- [ ] AC8b An integer set through the store is an integer in the YAML file, not
+- [x] AC8b An integer set through the store is an integer in the YAML file, not
   a float (R9c).
-- [ ] AC8c The core package's import graph does not reach the YAML package —
+- [x] AC8c The core package's import graph does not reach the YAML package —
   asserted by a test, not by reading (R9, R9a).
-- [ ] AC9 A program whose appearance is only in `fyne.Preferences` opens with
+- [x] AC9 A program whose appearance is only in `fyne.Preferences` opens with
   that appearance and has it in the settings file afterwards (R10).
-- [ ] AC10 `go test -race` passes with a test that reads and writes the store
+- [x] AC10 `go test -race` passes with a test that reads and writes the store
   from two goroutines (R11).
-- [ ] AC11 Gallery card, design-system entry, changelog; tests, lint and vet
+- [x] AC11 Gallery card, design-system entry, changelog; tests, lint and vet
   clean (R12).
 
 ## Risks & Assumptions
@@ -230,9 +235,10 @@ stops writing to `fyne.Preferences` once the move is done.
   encoder round-trips comments through a marshal of arbitrary values. Recorded
   rather than worked around: it is the one thing hand-editing YAML buys that
   this store cannot keep.
-- **Risk**: `Set` takes `any` and encodes it, so a value that cannot be encoded
-  fails at save rather than at the call. The store reports it through the same
-  path as a failed write.
+- **Resolved during implementation**: `Set` encodes the value at the call, so a
+  value that cannot be encoded is an error where it was set rather than a silent
+  failure a second later. A failed *write* still has nobody to return to, and
+  goes to `OnError`, which the shell reports.
 - **Rollback**: additive until R10. `git revert` of the migration commit alone
   returns the appearance to `fyne.Preferences` with the old keys still present.
 
@@ -254,3 +260,31 @@ stops writing to `fyne.Preferences` once the move is done.
 - **`yaml:` tags beside `json:` tags.** Rejected: two sets of names for one
   struct, kept in step by hand, and a file whose keys change when the format
   does. Marshalling through JSON gives one set of names for both.
+
+Verified in `settings/settings_test.go`: `TestAMissingFileIsTheDefaults` (AC1),
+`TestASectionThisBuildDoesNotKnowIsKept` (AC2),
+`TestAFailedWriteLeavesTheOldSettingsIntact` (AC3),
+`TestChangesInOneMomentAreOneWrite` and `TestSettingTheSameValueIsNotAChange`
+(AC4), `TestAFileThatDoesNotParseIsMovedAside` (AC5),
+`TestTheLibraryAndTheProgramShareOneFile` (AC6),
+`TestTheStoreIsSafeFromSeveralGoroutines` (AC10), plus
+`TestAValueThatCannotBeEncodedFailsAtTheCall`,
+`TestASectionThatNoLongerFitsReadsAsAbsent`,
+`TestAnUnknownExtensionIsRefusedAndSaysWhatIsMissing` and
+`TestAFailedWriteIsReported`. In `settings/yamlcodec/yamlcodec_test.go`:
+`TestAYamlPathIsYamlOnceTheCodecIsImported` and
+`TestTheSameSettingsHaveTheSameKeysInEitherFormat` (AC8),
+`TestAFileThatIsNotYamlIsMovedAside` (AC8a's sibling),
+`TestAWholeNumberIsWrittenWhole` (AC8b) and
+`TestTheCoreDoesNotLinkTheYamlPackage` (AC8c). In `shell/shell_test.go`:
+`TestTheShellOpensASettingsFileForTheProgram` and
+`TestABrokenSettingsFileStillLeavesAUsableStore` (AC7's sibling),
+`TestTheDefaultSettingsPathIsUnderTheConfigDirectory` (AC7),
+`TestSetAppearanceSavesUnlessTheSchemeIsAOneRunOverride` (AC9) and
+`TestStopRunsOnceAndWritesWhatIsWaiting`. AC11: the "shell.Settings" card in
+the gallery's Shell section, "State and freshness" in `docs/design-system.md`,
+0.1.10 in the README changelog.
+
+AC8a is covered by `TestAnUnknownExtensionIsRefusedAndSaysWhatIsMissing` for an
+unregistered extension generally; the YAML-specific hint is in `CodecFor`'s
+error text and is exercised there.

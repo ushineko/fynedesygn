@@ -14,9 +14,7 @@ import (
 // scale) takes effect. Windows has no exec(2), so the new process gets a new
 // pid. OnStop runs first so a pending save is written.
 func (s *Shell) Restart() {
-	if s.opts.OnStop != nil {
-		s.opts.OnStop(s)
-	}
+	s.Stop()
 	exe, err := os.Executable()
 	if err != nil {
 		s.App.Quit()

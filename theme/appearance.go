@@ -6,6 +6,8 @@ import (
 	"strconv"
 
 	"fyne.io/fyne/v2"
+
+	"github.com/ushineko/fynedesygn/settings"
 )
 
 // Preference keys. Namespaced so a later setting cannot collide with one of
@@ -27,16 +29,19 @@ const (
 // own widgets.
 type Appearance struct {
 	// Scheme is a Palette name; unknown names fall back to DefaultScheme.
-	Scheme string
+	Scheme string `json:"scheme"`
 	// Font is an interface family name or DefaultFontName.
-	Font string
+	Font string `json:"font"`
 	// Mono is the monospace family name or DefaultFontName.
-	Mono string
+	Mono string `json:"mono"`
 	// TextSize in points; 0 means DefaultTextSize.
-	TextSize float32
+	TextSize float32 `json:"textSize"`
 	// Scale is the interface scale; 0 means the system's.
-	Scale float32
+	Scale float32 `json:"scale"`
 }
+
+// SettingsKey is the appearance's section in a settings store.
+const SettingsKey = settings.Prefix + "appearance"
 
 // DefaultAppearance is what a fresh installation gets.
 func DefaultAppearance() Appearance {
@@ -61,6 +66,41 @@ func LoadAppearance(p fyne.Preferences) Appearance {
 		TextSize: float32(p.FloatWithFallback(PrefTextSize, float64(d.TextSize))),
 		Scale:    float32(p.FloatWithFallback(PrefScale, 0)),
 	}
+}
+
+/*
+LoadAppearanceFrom reads the appearance from a settings store, migrating once
+from the preference store it used to live in.
+
+A program updated to a version that keeps its settings in a file must not open
+in a theme its user never chose, so an installation with nothing in the file
+takes what is in Fyne's preferences and writes it through. The old keys are read
+and not deleted: a rollback finds them where they were.
+*/
+func LoadAppearanceFrom(st *settings.Store, p fyne.Preferences) Appearance {
+	a := DefaultAppearance()
+	if st != nil && st.Get(SettingsKey, &a) {
+		return a
+	}
+	// Only when the preference store actually holds something. A program nobody
+	// has configured gets the defaults without a settings file being written
+	// for it, so the file appears the first time a choice is made.
+	if p == nil || p.String(PrefScheme) == "" {
+		return a
+	}
+	a = LoadAppearance(p)
+	if st != nil {
+		_ = st.Set(SettingsKey, a)
+	}
+	return a
+}
+
+// SaveTo writes the appearance to a settings store.
+func (a Appearance) SaveTo(st *settings.Store) {
+	if st == nil {
+		return
+	}
+	_ = st.Set(SettingsKey, a)
 }
 
 // Save writes the appearance to the preference store.

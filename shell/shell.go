@@ -12,6 +12,7 @@ import (
 	fynetheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/ushineko/fynedesygn/settings"
 	fdtheme "github.com/ushineko/fynedesygn/theme"
 )
 
@@ -35,6 +36,14 @@ type Options struct {
 	Version string
 	// Icon is the window and application icon; nil leaves Fyne's.
 	Icon fyne.Resource
+	// SettingsPath is the program's settings file. Empty means the default:
+	// the user's configuration directory, a directory named for AppID, and
+	// settings.json in it. A program that already owns a configuration
+	// directory points this at it and keeps one directory rather than two.
+	//
+	// The extension chooses the format. ".yaml" needs the YAML codec imported
+	// for its effect; see the settings package.
+	SettingsPath string
 	// Sections in navigation order. At least one.
 	Sections []Section
 	// Section is the title to open on; empty or unknown opens the first. A
@@ -58,8 +67,8 @@ type Options struct {
 	// OnInvalidate runs at the start of Invalidate: drop loaded flags and start
 	// the reloads. The shell rebuilds afterwards when it is on screen.
 	OnInvalidate func(s *Shell)
-	// OnStop runs before Restart replaces the process: flush a pending save,
-	// release a lock.
+	// OnStop runs when the window closes and before Restart replaces the
+	// process: flush a pending save, release a lock. It runs once.
 	OnStop func(s *Shell)
 	// AlsoWorking reports program work that runs outside Perform (a job with
 	// its own step list). Working() includes it.
@@ -89,6 +98,13 @@ type Shell struct {
 	opts       Options
 	appearance fdtheme.Appearance
 	oneRun     bool // Scheme was forced for this run
+
+	// store is the program's settings file, and settingsErr what went wrong
+	// opening it -- reported once there is a window to report in, because
+	// newShell runs before there is one.
+	store       *settings.Store
+	settingsErr error
+	stopOnce    sync.Once
 
 	nav     *widget.List
 	content *container.Scroll
@@ -137,10 +153,35 @@ func New(o Options) *Shell {
 		s.Window.SetIcon(o.Icon)
 	}
 	s.buildWindow()
+	// Closing the window is a stop like any other: a pending settings write has
+	// to reach the disk, and a program with a lock to release gets the same
+	// notice it gets before a restart.
+	s.Window.SetOnClosed(s.Stop)
+	if s.settingsErr != nil {
+		s.Report("Reading settings", s.settingsErr)
+	}
 	if o.OnStart != nil {
 		o.OnStart(s)
 	}
 	return s
+}
+
+/*
+Stop runs the program's OnStop and writes any pending settings.
+
+Called when the window closes and before Restart replaces the process, and it
+runs once however many times it is called: a restart that goes through both
+paths must not release a lock twice.
+*/
+func (s *Shell) Stop() {
+	s.stopOnce.Do(func() {
+		if s.opts.OnStop != nil {
+			s.opts.OnStop(s)
+		}
+		if err := s.store.Flush(); err != nil {
+			s.Report("Saving settings", err)
+		}
+	})
 }
 
 // Run is New followed by ShowAndRun; it blocks until the window closes.
@@ -160,7 +201,8 @@ func Headless(a fyne.App, o Options) *Shell {
 // newShell is the part of construction New and Headless share.
 func newShell(a fyne.App, o Options) *Shell {
 	s := &Shell{App: a, opts: o, flashes: container.NewVBox()}
-	s.appearance = fdtheme.LoadAppearance(a.Preferences())
+	s.openSettings()
+	s.appearance = fdtheme.LoadAppearanceFrom(s.store, a.Preferences())
 	if o.Scheme != "" {
 		s.appearance.Scheme = fdtheme.SchemeByName(o.Scheme).Name
 		s.oneRun = true
@@ -171,6 +213,45 @@ func newShell(a fyne.App, o Options) *Shell {
 	}
 	return s
 }
+
+/*
+openSettings opens the program's settings file.
+
+A store that could not be opened is not a reason to refuse to start: the shell
+carries on with one that holds nothing, so the window opens on defaults and says
+what happened rather than not opening at all.
+*/
+func (s *Shell) openSettings() {
+	path := s.opts.SettingsPath
+	if path == "" {
+		got, err := settings.DefaultPath(s.opts.AppID)
+		if err != nil {
+			s.settingsErr, s.store = err, settings.Memory()
+			return
+		}
+		path = got
+	}
+	st, err := settings.Open(path)
+	s.store, s.settingsErr = st, err
+	if st == nil {
+		s.store = settings.Memory()
+		return
+	}
+	st.OnError(func(err error) { fyne.Do(func() { s.Report("Saving settings", err) }) })
+}
+
+/*
+Settings is the program's settings file: one section per key, decoded into
+whatever the caller hands it.
+
+	var cfg jobs
+	s.Settings().Get("jobs", &cfg)
+	s.Settings().Set("jobs", cfg)
+
+Keys beginning settings.Prefix are the library's. Never nil: a store that could
+not be opened is an empty one, so a caller needs no branch.
+*/
+func (s *Shell) Settings() *settings.Store { return s.store }
 
 // theme builds the theme for the current appearance, through the program's
 // Theme hook when it has one.
@@ -322,9 +403,9 @@ func (s *Shell) SetAppearance(a fdtheme.Appearance) {
 	s.App.Settings().SetTheme(s.theme())
 	saved := a
 	if s.oneRun {
-		saved.Scheme = fdtheme.LoadAppearance(s.App.Preferences()).Scheme
+		saved.Scheme = fdtheme.LoadAppearanceFrom(s.store, s.App.Preferences()).Scheme
 	}
-	saved.Save(s.App.Preferences())
+	saved.SaveTo(s.store)
 }
 
 // RedrawStatus repaints the status bar and nothing else. This is the whole

@@ -3,6 +3,8 @@ package shell
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -246,7 +248,8 @@ func TestSetAppearanceSavesUnlessTheSchemeIsAOneRunOverride(t *testing.T) {
 	a := s.Appearance()
 	a.Scheme = "macOS Dark"
 	s.SetAppearance(a)
-	require.Equal(t, "macOS Dark", s.App.Preferences().String(fdtheme.PrefScheme))
+	require.NoError(t, s.Settings().Flush())
+	require.Equal(t, "macOS Dark", storedScheme(t, s))
 
 	o := testOptions(NewSection("A", nil, nil))
 	o.Scheme = "Oxygen Dark"
@@ -256,11 +259,24 @@ func TestSetAppearanceSavesUnlessTheSchemeIsAOneRunOverride(t *testing.T) {
 	a.Scheme = "Windows Light"
 	a.TextSize = 14
 	s2.SetAppearance(a)
-	require.Equal(t, "macOS Dark", s.App.Preferences().String(fdtheme.PrefScheme), "the override never reaches the store")
-	require.InDelta(t, 14, s.App.Preferences().Float(fdtheme.PrefTextSize), 0.001, "the other choices do")
+	require.NoError(t, s2.Settings().Flush())
+	require.Equal(t, "macOS Dark", storedScheme(t, s2), "the override never reaches the store")
+
+	var saved fdtheme.Appearance
+	require.True(t, s2.Settings().Get(fdtheme.SettingsKey, &saved))
+	require.InDelta(t, 14, saved.TextSize, 0.001, "the other choices do")
+
 	th, ok := s.App.Settings().Theme().(fdtheme.Theme)
 	require.True(t, ok)
 	require.Equal(t, "Windows Light", th.Palette().Name)
+}
+
+// storedScheme is the scheme in a shell's settings file.
+func storedScheme(t *testing.T, s *Shell) string {
+	t.Helper()
+	var a fdtheme.Appearance
+	s.Settings().Get(fdtheme.SettingsKey, &a)
+	return a.Scheme
 }
 
 func TestAppearanceSectionRendersWithItsPickerPopulated(t *testing.T) {
@@ -487,4 +503,84 @@ func countOf(log []string, want string) int {
 		}
 	}
 	return n
+}
+
+/*
+The shell opens a settings file and hands it to the program.
+
+One store, in one file, for the library's own choices and the program's: the
+alternative is a second hand-rolled document per consumer, which is what
+examples/settings had to be before this existed.
+*/
+func TestTheShellOpensASettingsFileForTheProgram(t *testing.T) {
+	dir := t.TempDir()
+	o := testOptions(NewSection("A", nil, nil))
+	o.SettingsPath = filepath.Join(dir, "settings.json")
+	s := headless(t, o)
+
+	require.NotNil(t, s.Settings())
+	require.Equal(t, o.SettingsPath, s.Settings().Path())
+
+	type jobs struct {
+		Parallel int `json:"parallel"`
+	}
+	require.NoError(t, s.Settings().Set("jobs", jobs{Parallel: 4}))
+	s.Stop() // closing the window writes what is waiting
+
+	again := Headless(s.App, o)
+	var got jobs
+	require.True(t, again.Settings().Get("jobs", &got))
+	require.Equal(t, 4, got.Parallel)
+}
+
+// A program that says nothing gets a file in the user's configuration
+// directory, in a directory named for it.
+func TestTheDefaultSettingsPathIsUnderTheConfigDirectory(t *testing.T) {
+	s := headless(t, testOptions(NewSection("A", nil, nil)))
+	dir, err := os.UserConfigDir()
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(dir, "io.ushineko.fynedesygn.test", "settings.json"),
+		s.Settings().Path())
+}
+
+/*
+A settings file that cannot be read does not stop the window opening.
+
+The store is empty rather than absent, so nothing has to check for one, and what
+went wrong is reported where the user can see it instead of on a terminal nobody
+is looking at.
+*/
+func TestABrokenSettingsFileStillLeavesAUsableStore(t *testing.T) {
+	o := testOptions(NewSection("A", nil, nil))
+	o.SettingsPath = filepath.Join(t.TempDir(), "settings.conf") // no codec for it
+	s := headless(t, o)
+
+	require.NotNil(t, s.Settings(), "never nil, so no caller needs a branch")
+	require.Error(t, s.settingsErr)
+	require.NoError(t, s.Settings().Set("jobs", 1), "and it still works for this run")
+}
+
+/*
+Closing the window is a stop: OnStop runs and pending settings are written.
+
+It used to run only before a restart, so a program that released a lock or
+flushed a document there did neither when the user simply closed the window.
+Stop runs once however many times it is called, so a restart that goes through
+both paths does not release a lock twice.
+*/
+func TestStopRunsOnceAndWritesWhatIsWaiting(t *testing.T) {
+	stopped := 0
+	o := testOptions(NewSection("A", nil, nil))
+	o.SettingsPath = filepath.Join(t.TempDir(), "settings.json")
+	o.OnStop = func(*Shell) { stopped++ }
+	s := headless(t, o)
+
+	require.NoError(t, s.Settings().Set("jobs", 1))
+	require.True(t, s.Settings().Pending())
+
+	s.Stop()
+	s.Stop()
+	require.Equal(t, 1, stopped)
+	require.False(t, s.Settings().Pending())
+	require.FileExists(t, o.SettingsPath)
 }

@@ -117,6 +117,19 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.10 (2026-09-18)
+
+`settings.Store` and `Shell.Settings()`: a program's settings in one file the
+user can read, one section per key, decoded into the caller's own type
+(spec 011). The extension chooses the format — JSON in the core,
+`settings/yamlcodec` for `.yaml` and `.yml`. Sections a build does not know are
+kept rather than dropped. The appearance moves into it, read once from
+`fyne.Preferences` for an installation that predates the file.
+
+`Shell.Stop` runs `Options.OnStop` and writes pending settings when the window
+closes, not only before a restart, and runs once however many times it is
+called.
+
 ### 0.1.9 (2026-09-18)
 
 Fix: `widgets.FixedWidth` and `FixedHeight` padded with a nil-coloured

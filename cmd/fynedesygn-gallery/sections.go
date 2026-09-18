@@ -241,6 +241,48 @@ func buildFonts(_ *shell.Shell) fyne.CanvasObject {
 
 // --- Shell -------------------------------------------------------------------
 
+/*
+settingsCard demonstrates the program's own settings file.
+
+The counter is the point: it is written to the file a second after it changes
+and read back when the gallery next starts, without the gallery holding a
+document of its own.
+*/
+func (d *jobDemo) settingsCard(s *shell.Shell) fyne.CanvasObject {
+	type visits struct {
+		Count int    `json:"count"`
+		Last  string `json:"last"`
+	}
+	var v visits
+	s.Settings().Get("gallery.visits", &v)
+
+	say := func(v visits) string {
+		return fmt.Sprintf("%d visit(s), last %s", v.Count, widgets.OrNone(v.Last, "never"))
+	}
+	count := widget.NewLabel(say(v))
+	note := func() {
+		v.Count++
+		v.Last = time.Now().Format("15:04:05")
+		if err := s.Settings().Set("gallery.visits", v); err != nil {
+			s.Report("Saving", err)
+			return
+		}
+		count.SetText(say(v))
+	}
+
+	return container.NewVBox(
+		widgets.Wrapped("One file per program, one section per key, decoded into the caller's own type."),
+		container.NewHBox(widget.NewButton("Count this visit", note), count),
+		widgets.DimWrapped("Written to "+s.Settings().Path()+" a second after the last change, "+
+			"and whenever the window closes. Sections beginning \"fynedesygn.\" are the "+
+			"library's -- the appearance picker's choices are one of them. A section this "+
+			"build does not know is kept rather than dropped, so an older binary cannot "+
+			"quietly delete a setting a newer one wrote."),
+		widgets.DimWrapped("The extension chooses the format: settings.yaml is YAML once "+
+			"settings/yamlcodec is imported for its effect."),
+	)
+}
+
 // jobDemo is the fake job the Shell section runs: it drives Perform, the
 // cancellable form, the banners and the status bar, and shows what gating does
 // to buttons while it runs.
@@ -388,6 +430,7 @@ func (d *jobDemo) build(s *shell.Shell) fyne.CanvasObject {
 				"control, which wins the hover because Fyne gives a pointer event to the last "+
 				"match in the tree walk."),
 		),
+		widgets.Card("shell.Settings", d.settingsCard(s)),
 		widgets.Card("shell.Flash", widgets.Wrapped("One banner at a time, floated over the content, never inserted into it."), banners),
 		widgets.Card("Scheme roles",
 			swatches,

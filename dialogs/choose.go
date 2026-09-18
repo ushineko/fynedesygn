@@ -9,8 +9,10 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/storage"
+
 	fynetheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/ushineko/fynedesygn/widgets"
 )
 
 // PickerStart is where a chooser should open: the path already in the field
@@ -53,6 +55,7 @@ func expandHome(p, home string) string {
 // which in Fyne 2.8.1 dereferences that nil window and takes the process with
 // it (docs/fyne-quirks.md, 1).
 func showSized(d *dialog.FileDialog) {
+	widgets.HideTips()
 	d.Show()
 	d.Resize(ChooserSize)
 }

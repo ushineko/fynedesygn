@@ -132,6 +132,7 @@ func (t *tipArea) MouseIn(e *desktop.MouseEvent) {
 	}
 	t.timer = time.AfterFunc(TipDelay, func() { fyne.Do(t.show) })
 	t.mu.Unlock()
+	arm(t)
 
 	// The control underneath still highlights: it is only the hover routing
 	// that has been taken from it, not its behaviour.
@@ -190,6 +191,54 @@ type tipLayout struct{}
 
 func (tipLayout) Layout([]fyne.CanvasObject, fyne.Size) {}
 func (tipLayout) MinSize([]fyne.CanvasObject) fyne.Size { return fyne.Size{} }
+
+/*
+HideTips takes down every tip that is showing or waiting.
+
+For the moment a control is used rather than merely hovered: clicking a button
+that opens a menu, a dialog or anything else over the window leaves the tip
+where it was, because the pointer never left the control and nothing said it
+had. Whatever opens something calls this first.
+
+It is not the same as the pointer leaving: a waiting tip is cancelled too, so
+one that was half a second from appearing does not arrive on top of the menu
+that was just opened.
+
+Every tip rather than one window's, because a pointer rests on one control at a
+time: whatever is showing is the tip for the control that was just used.
+*/
+func HideTips() {
+	armedMu.Lock()
+	on := make([]*tipArea, 0, len(armed))
+	for t := range armed {
+		on = append(on, t)
+	}
+	armedMu.Unlock()
+
+	for _, t := range on {
+		t.hide()
+	}
+}
+
+// armed is every tip that is waiting or showing. Small -- one or two at a time
+// in practice -- and emptied by hide, which every path ends in.
+var (
+	armedMu sync.Mutex
+	armed   = map[*tipArea]struct{}{}
+)
+
+// arm and disarm keep that set.
+func arm(t *tipArea) {
+	armedMu.Lock()
+	armed[t] = struct{}{}
+	armedMu.Unlock()
+}
+
+func disarm(t *tipArea) {
+	armedMu.Lock()
+	delete(armed, t)
+	armedMu.Unlock()
+}
 
 // TipLayerIn is a canvas's tip layer, or nil when its window has none. For a
 // window that assembles itself and wants to check it did.
@@ -360,6 +409,7 @@ func (t *tipArea) hide() {
 	timer, shown, layer, pop := t.timer, t.shown, t.layer, t.pop
 	t.timer, t.shown, t.layer, t.pop = nil, nil, nil, nil
 	t.mu.Unlock()
+	disarm(t)
 	if timer != nil {
 		timer.Stop()
 	}

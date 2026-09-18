@@ -216,6 +216,11 @@ Border{
   `widgets.NewTipLayer` over every window it builds; a program that assembles
   its own window puts one last in its content, and gets a popup that eats the
   next click if it does not.
+- **Anything that opens over the window calls `widgets.HideTips` first.**
+  Clicking a control leaves the pointer where it was, so nothing tells its tip
+  the control has been used and it sits behind the menu or dialog that just
+  opened (quirk 27). The shell's own controls and every dialog in `dialogs` do
+  this; a program that opens something of its own does the same.
 
 ## Progress and results
 

@@ -237,6 +237,10 @@ func (s *Shell) navControl() fyne.CanvasObject {
 	btn := widget.NewButtonWithIcon("", fynetheme.MenuIcon(), nil)
 	s.navBtn = btn
 	btn.OnTapped = func() {
+		// The button's own tip first: opening a menu leaves the pointer where
+		// it was, so nothing else would take it down and it would sit behind
+		// the menu until the pointer moved.
+		widgets.HideTips()
 		// Relative to the button, not at its Position: a widget's Position is
 		// measured from its parent, so a button in the header's row reports
 		// something near the origin of that row and the menu opened in the

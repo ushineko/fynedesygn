@@ -117,6 +117,20 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.13 (2026-09-18)
+
+Fix: a result banner took every click in the window while it was up. Same cause
+as the tip in 0.1.12 — a banner was a popup, and a popup is an overlay — but for
+six to twelve seconds after every operation, and the first click dismissed the
+banner instead of doing what it was aimed at. Banners are drawn in a layer of
+the content now; their own dismiss still works. The busy popup stays an overlay,
+because blocking input is what it is for.
+
+Fix: a tip stayed up when its control opened a menu or a dialog, because the
+pointer never left it. `widgets.HideTips` takes down every tip, shown or
+waiting, and the shell's controls and every dialog call it before they open.
+Quirk 27.
+
 ### 0.1.12 (2026-09-18)
 
 Fix: a hover tip took every click in the window while it was showing. A tip was

@@ -21,8 +21,10 @@ const (
 	// rather than spanning the window.
 	FlashWidth float32 = 720
 	// flashBottom is the gap between the banner and the bottom of the canvas,
-	// enough to clear the status bar.
-	flashBottom float32 = 56
+	// enough to clear the status bar, and flashSideGap the margin it keeps
+	// from the window's edges in a window narrower than FlashWidth.
+	flashBottom  float32 = 56
+	flashSideGap float32 = 40
 	// FlashHoldGood and FlashHoldWarn are how long a banner stays before it
 	// fades. A warning gets longer because it usually names a condition to
 	// act on. A failure never fades.
@@ -85,7 +87,6 @@ func (s *Shell) Flash(text string, st fd.Status) {
 		container.NewBorder(nil, nil, widgets.Marker(st), dismiss, label)))
 	s.flashes.Objects = []fyne.CanvasObject{banner}
 	s.flashes.Refresh()
-	s.showFlashPop()
 
 	hold, fades := flashHold(st)
 	if !fades || !s.OnScreen() {
@@ -150,28 +151,47 @@ func (s *Shell) clearFlash(seq int) {
 	}
 	s.flashes.Objects = nil
 	s.flashes.Refresh()
-	if s.flashPop != nil {
-		s.flashPop.Hide()
-	}
 }
 
-// showFlashPop floats the banner over the content, centred, a little above
-// the status bar. Not modal: a result is something to read, not something to
-// answer, and the section behind it stays usable.
-func (s *Shell) showFlashPop() {
-	if !s.OnScreen() {
+/*
+flashLayout floats the banner over the bottom of the content, centred.
+
+A layout rather than a popup, and that is the whole point: a popup is an
+overlay, and Fyne routes every pointer event to the top overlay, so a banner
+drawn as one took every click in the window for the six to twelve seconds it was
+up -- and the first click dismissed it rather than doing what it was aimed at
+(quirk 26). The comment above Flash has always said the section behind a banner
+stays usable. This is what makes that true.
+
+Drawn in a layer of the window's content instead, the banner's own dismiss
+button still takes its clicks, because it is walked last and is tappable, and
+everything else falls through to the section underneath, because nothing else in
+the banner is.
+*/
+type flashLayout struct{}
+
+// MinSize is nothing: the layer is a float over the content and must not make
+// the window any bigger.
+func (flashLayout) MinSize([]fyne.CanvasObject) fyne.Size { return fyne.Size{} }
+
+/*
+Layout centres one banner near the bottom, narrower than the window.
+
+Measured twice on purpose: a wrapping label does not know its own height until
+it has a width, so the width is chosen, the banner is resized to it, and only
+then does MinSize report the height the wrapping produced.
+*/
+func (flashLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
+	width := min(FlashWidth, size.Width-flashSideGap)
+	if width <= 0 {
 		return
 	}
-	c := s.Window.Canvas()
-	if s.flashPop == nil {
-		s.flashPop = widget.NewPopUp(widgets.FixedWidth(s.flashes, FlashWidth), c)
+	for _, o := range objs {
+		o.Resize(fyne.NewSize(width, o.MinSize().Height))
+		height := o.MinSize().Height
+		o.Resize(fyne.NewSize(width, height))
+		o.Move(fyne.NewPos((size.Width-width)/2, size.Height-height-flashBottom))
 	}
-	cs := c.Size()
-	width := min(FlashWidth, cs.Width-40)
-	s.flashPop.Content = widgets.FixedWidth(s.flashes, width)
-	size := s.flashPop.Content.MinSize()
-	pos := fyne.NewPos((cs.Width-size.Width)/2, cs.Height-size.Height-flashBottom)
-	s.flashPop.ShowAtPosition(pos)
 }
 
 // flashTint is the banner's starting colour: the status role from the active

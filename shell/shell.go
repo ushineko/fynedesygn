@@ -133,8 +133,10 @@ type Shell struct {
 	navHolder *fyne.Container
 	navBtn    *widget.Button // the shape control, kept so a test can tap it
 
-	// tips is the layer hover notes are drawn in, over everything else.
-	tips *fyne.Container
+	// tips is the layer hover notes are drawn in, over everything else, and
+	// floats the one result banners are drawn in, under them.
+	tips   *fyne.Container
+	floats *fyne.Container
 
 	nav     *widget.List
 	content *container.Scroll
@@ -152,7 +154,6 @@ type Shell struct {
 	busyCancel    *busyJob
 	busyCancelBtn *widget.Button
 
-	flashPop *widget.PopUp
 	flashes  *fyne.Container
 	flashSeq int
 }
@@ -381,8 +382,12 @@ func (s *Shell) layout() {
 	if s.tips == nil {
 		s.tips = widgets.NewTipLayer()
 	}
+	if s.floats == nil {
+		s.floats = container.New(flashLayout{}, s.flashes)
+	}
 	s.Window.SetContent(container.NewStack(
 		container.NewBorder(s.header(), s.frame, nil, nil, s.body()),
+		s.floats,
 		s.tips,
 	))
 }

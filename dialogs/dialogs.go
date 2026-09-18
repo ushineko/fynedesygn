@@ -15,7 +15,22 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
+
+	"github.com/ushineko/fynedesygn/widgets"
 )
+
+/*
+raise puts a dialog up, and takes down any hover tip first.
+
+A dialog opens because a control was used, and using a control leaves the
+pointer exactly where it was: nothing tells the tip its control has been
+clicked, so it sits behind the dialog until the pointer moves. Every dialog here
+goes through this.
+*/
+func raise(_ fyne.Window, d interface{ Show() }) {
+	widgets.HideTips()
+	d.Show()
+}
 
 // Dialog sizes. Wide enough for a sentence of consequences without a wall of
 // text; the choosers are the largest because a directory listing needs room.
@@ -48,7 +63,7 @@ func ConfirmDestructive(win fyne.Window, title, detail, confirm string, do func(
 	proceed.Importance = widget.DangerImportance
 	d.SetButtons([]fyne.CanvasObject{cancel, proceed})
 	d.Resize(DestructiveSize)
-	d.Show()
+	raise(win, d)
 }
 
 // ConfirmWithBody is ConfirmDestructive with widgets instead of a paragraph,
@@ -76,7 +91,7 @@ func Prompt(win fyne.Window, title, confirm string, body fyne.CanvasObject, do f
 		}
 	}, win)
 	d.Resize(PromptSize)
-	d.Show()
+	raise(win, d)
 }
 
 // ShowDetail puts a long, read-only answer on screen. A dialog rather than a
@@ -85,5 +100,5 @@ func Prompt(win fyne.Window, title, confirm string, body fyne.CanvasObject, do f
 func ShowDetail(win fyne.Window, title string, body fyne.CanvasObject, w, h float32) {
 	d := dialog.NewCustom(title, "Close", body, win)
 	d.Resize(fyne.NewSize(w, h))
-	d.Show()
+	raise(win, d)
 }

@@ -50,6 +50,6 @@ func ask(win fyne.Window, title, detail, yes, no string, answer chan<- bool) *di
 	d.SetButtons([]fyne.CanvasObject{noBtn, yesBtn})
 	d.SetOnClosed(func() { send(false) })
 	d.Resize(fyne.NewSize(500, 240))
-	d.Show()
+	raise(win, d)
 	return d
 }

@@ -348,3 +348,40 @@ func TestFyneStillSendsEveryClickToTheTopOverlay(t *testing.T) {
 	require.Zero(t, taps, "the overlay took it, not the button under the pointer")
 	require.Nil(t, win.Canvas().Overlays().Top(), "and it dismissed itself with it")
 }
+
+/*
+A tip comes down when its control is used, not only when the pointer leaves.
+
+Clicking a button that opens a menu leaves the pointer exactly where it was, so
+nothing tells the tip its control has been used and it sits behind whatever
+opened. HideTips is what whatever opened calls.
+*/
+func TestATipComesDownWhenSomethingElseOpens(t *testing.T) {
+	test.NewApp()
+	area, win := tipOnScreen(t, "behind the menu")
+	defer win.Close()
+
+	area.MouseIn(&desktop.MouseEvent{})
+	require.Eventually(t, func() bool { return area.tip() != nil }, 2*time.Second, 20*time.Millisecond)
+
+	HideTips()
+	require.Nil(t, area.tip(), "the pointer never left, and it is gone anyway")
+}
+
+/*
+A tip that has not appeared yet is cancelled too.
+
+Otherwise one half a second from appearing arrives on top of the menu that was
+just opened, which is the same bug a moment later.
+*/
+func TestAWaitingTipIsCancelledWhenSomethingElseOpens(t *testing.T) {
+	test.NewApp()
+	area, win := tipOnScreen(t, "never arrives")
+	defer win.Close()
+
+	area.MouseIn(&desktop.MouseEvent{})
+	HideTips()
+
+	time.Sleep(TipDelay + 200*time.Millisecond)
+	require.Nil(t, area.tip(), "the wait was cancelled, not merely the tip hidden")
+}

@@ -352,8 +352,8 @@ func TestTheShapeMenuOpensUnderItsButton(t *testing.T) {
 	require.NotNil(t, top, "the menu is up")
 
 	// The overlay covers the canvas; the menu inside it is what was placed.
-	menu := findPopUpMenu(top)
-	require.NotNil(t, menu, "the overlay holds a menu")
+	menu, ok := fynetest.First[*widget.PopUpMenu](top)
+	require.True(t, ok, "the overlay holds a menu")
 
 	at := fyne.CurrentApp().Driver().AbsolutePositionForObject(s.navBtn)
 	require.Greater(t, at.X, float32(0), "the button is near the trailing edge")
@@ -364,25 +364,4 @@ func TestTheShapeMenuOpensUnderItsButton(t *testing.T) {
 	require.LessOrEqual(t, menu.Position().X, at.X+1)
 	require.Greater(t, menu.Position().X, at.X-menu.Size().Width,
 		"beside the button, not in the corner of the window")
-}
-
-// findPopUpMenu is the menu inside an overlay, or nil.
-func findPopUpMenu(o fyne.CanvasObject) *widget.PopUpMenu {
-	switch w := o.(type) {
-	case *widget.PopUpMenu:
-		return w
-	case *fyne.Container:
-		for _, child := range w.Objects {
-			if got := findPopUpMenu(child); got != nil {
-				return got
-			}
-		}
-	case fyne.Widget:
-		for _, child := range w.CreateRenderer().Objects() {
-			if got := findPopUpMenu(child); got != nil {
-				return got
-			}
-		}
-	}
-	return nil
 }

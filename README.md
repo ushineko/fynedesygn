@@ -117,6 +117,13 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.25 (2026-09-18)
+
+`fynetest.All` and `First`: find the widgets a list or a dialog actually drew,
+through the cached renderer. A walker that descends through `CreateRenderer`
+reads a tree that was never on screen, because `CreateRenderer` builds one
+(quirk 29). `widgets`' own tip-layer lookup no longer calls it either.
+
 ### 0.1.24 (2026-09-18)
 
 `widgets.PickList` hands out the list itself (`Widget()`) rather than being a

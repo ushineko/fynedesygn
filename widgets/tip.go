@@ -258,23 +258,26 @@ func tipLayerIn(c fyne.Canvas) *fyne.Container {
 	return findTipLayer(c.Content())
 }
 
-// findTipLayer walks a tree for the marked container.
+/*
+findTipLayer walks a tree for the marked container.
+
+Containers only, and deliberately: a tip layer is put in a window's content by
+whoever assembles it, so it is always a structural child and never inside a
+widget's renderer. Descending into renderers would mean calling CreateRenderer
+on every widget in the window -- which *builds* one, a whole parallel tree, every
+time a tip is about to be shown.
+*/
 func findTipLayer(o fyne.CanvasObject) *fyne.Container {
-	switch w := o.(type) {
-	case *fyne.Container:
-		if _, ok := w.Layout.(tipLayout); ok {
-			return w
-		}
-		for _, child := range w.Objects {
-			if got := findTipLayer(child); got != nil {
-				return got
-			}
-		}
-	case fyne.Widget:
-		for _, child := range w.CreateRenderer().Objects() {
-			if got := findTipLayer(child); got != nil {
-				return got
-			}
+	box, ok := o.(*fyne.Container)
+	if !ok {
+		return nil
+	}
+	if _, ok := box.Layout.(tipLayout); ok {
+		return box
+	}
+	for _, child := range box.Objects {
+		if got := findTipLayer(child); got != nil {
+			return got
 		}
 	}
 	return nil

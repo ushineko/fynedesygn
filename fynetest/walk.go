@@ -92,3 +92,35 @@ func contains(objects []fyne.CanvasObject, o fyne.CanvasObject) bool {
 	}
 	return false
 }
+
+/*
+All is every object of type T that o draws, in the order they are drawn.
+
+For a test that has to reach the widgets a list or a dialog built rather than
+the ones it was given: the ticks in a pick list, the buttons in a toolbar.
+
+Use this rather than walking with CreateRenderer. CreateRenderer *builds* a
+renderer; calling it hands back a fresh one whose list has no rows and whose
+scroller has no size, so a hand-rolled walker reads a tree that was never on
+screen. This one goes through the cached renderer, which is the tree that was.
+*/
+func All[T fyne.CanvasObject](o fyne.CanvasObject) []T {
+	var out []T
+	WalkRendered(o, func(obj fyne.CanvasObject) bool {
+		if got, ok := obj.(T); ok {
+			out = append(out, got)
+		}
+		return false // every one of them, not the first
+	})
+	return out
+}
+
+// First is the first object of type T that o draws, and whether there was one.
+func First[T fyne.CanvasObject](o fyne.CanvasObject) (T, bool) {
+	all := All[T](o)
+	if len(all) == 0 {
+		var none T
+		return none, false
+	}
+	return all[0], true
+}

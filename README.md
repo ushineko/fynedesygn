@@ -130,6 +130,12 @@ kept rather than dropped. The appearance moves into it, read once from
 closes, not only before a restart, and runs once however many times it is
 called.
 
+The navigation's shape (spec 013): icons and labels, icons alone or hidden, down
+the left or along the top, with one stock control in the header and `Ctrl+B` to
+hide. A program declares which shapes it allows through `Options.NavModes` and
+`NavPlacements`; one that declares nothing keeps exactly the window it has, with
+no control and no shortcut.
+
 `Shell.VSplit` and `HSplit`: a divider the user can drag whose position outlives
 the section that drew it and the run that set it (spec 012). Fyne's split
 reports no drag and a section is rebuilt several times a minute, so the shell

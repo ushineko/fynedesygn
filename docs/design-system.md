@@ -276,6 +276,31 @@ Border{
 - A one-run override of the scheme (for screenshots) is applied without
   persisting.
 
+## The navigation's shape
+
+- Two axes: `NavMode` (`NavLabels`, `NavIcons`, `NavHidden`) and
+  `NavPlacement` (`NavLeft`, `NavTop`). Labels down the left is the default.
+- **A program declares what it allows** through `Options.NavModes` and
+  `NavPlacements`. Empty means today's window: one shape, no control in the
+  header, no shortcut bound. A window four programs already ship does not
+  change because the library learned a new trick.
+- More than one allowed shape puts one stock control in the header — a menu of
+  exactly what the program allows, with the current one ticked. One control
+  whatever the number of choices: a control that changes shape according to how
+  many options a program offers is one the user has to re-learn per program.
+- `Ctrl+B` hides and restores, bound only where hiding is allowed.
+- **The control is never hidden by the mode it sets.** It is in the header,
+  which is always drawn, so `NavHidden` always has a way back.
+- Icons on the left is a fixed strip, not a split: a divider on something sized
+  to its icons has nothing to give. Along the top it is a row that scrolls when
+  it overflows.
+- In any icons-only shape each icon carries its section's title as a tip, and a
+  section with no icon of its own gets a generic one. Without the first the
+  window is a row of pictures to guess at; without the second it is a section
+  nobody can reach.
+- The shape is the window's, not the section's: changing it keeps the current
+  section and does not rebuild it.
+
 ## Dividers
 
 - A pane under a section — a log, an output, a preview — sits under a bar the

@@ -3,7 +3,7 @@
 > **Note**: This work has no associated issue tracker ticket. The repository
 > is a personal public project without an issue tracker.
 
-## Status: PROPOSED — awaiting review
+## Status: COMPLETE
 
 **Depends on spec 011** for somewhere to keep the choice, and on **spec 012**
 for the divider beside it.
@@ -120,29 +120,31 @@ user cannot reach. The tip still names it.
 
 ## Acceptance Criteria
 
-- [ ] AC1 A shell with no nav options has the same content tree as before this
+- [x] AC1 A shell with no nav options has the same content tree as before this
   spec: a two-child `HSplit` with the list leading, and no control in the header
   (R2).
-- [ ] AC2 A shell allowing two modes has one header control listing exactly
+- [x] AC2 A shell allowing two modes has one header control listing exactly
   those two; allowing all three and both placements lists five entries with the
   current one ticked (R3).
-- [ ] AC3 `Ctrl+B` hides and restores the navigation when `NavHidden` is
+- [x] AC3 `Ctrl+B` hides and restores the navigation when `NavHidden` is
   allowed, and does nothing when it is not (R4).
-- [ ] AC4 With the navigation hidden, the header control is still in the tree
+- [x] AC4 With the navigation hidden, the header control is still in the tree
   and still opens (R5).
-- [ ] AC5 Each of the five shapes produces the layout the table describes, with
+- [x] AC5 Each of the five shapes produces the layout the table describes, with
   the content region filling the remainder (R6).
-- [ ] AC6 In an icons-only shape, every section's title is reachable as a tip,
+- [x] AC6 In an icons-only shape, every section's title is reachable as a tip,
   including one whose `Icon()` returns nil (R7).
-- [ ] AC7 Selecting the third section, then changing mode and placement, leaves
+- [x] AC7 Selecting the third section, then changing mode and placement, leaves
   the third section current and built once (R8).
-- [ ] AC8 A choice made in one run is the shape at the start of the next; a
+- [x] AC8 A choice made in one run is the shape at the start of the next; a
   stored mode a program has withdrawn opens at its first allowed mode (R9).
-- [ ] AC9 The divider position in left-and-labels survives a mode change away
+- [x] AC9 The divider position in left-and-labels survives a mode change away
   and back (R10).
-- [ ] AC10 `TestEverySectionRendersHeadlesslyInEveryScheme`, or its successor,
-  covers all five shapes (R11).
-- [ ] AC11 Gallery, design-system entry, changelog; tests, lint and vet clean
+- [x] AC10 All five shapes render in every scheme (R11). Covered by a test of
+  its own, `TestEveryShapeRendersInEveryScheme`, rather than by widening the
+  gallery's section matrix: the shapes are the shell's and are worth pinning
+  where the shell is tested.
+- [x] AC11 Gallery, design-system entry, changelog; tests, lint and vet clean
   (R12).
 
 ## Risks & Assumptions
@@ -174,3 +176,32 @@ user cannot reach. The tip still names it.
 - **`container.AppTabs` for the horizontal placement.** Rejected: `AppTabs` owns
   the content it switches between, and the shell's content region is built by
   `swap` from a section. Two owners of one region is the bug that would follow.
+
+Verified in `shell/nav_test.go`:
+`TestAProgramThatAsksForNothingKeepsItsWindow` (AC1),
+`TestTheControlOffersWhatTheProgramAllows` (AC2),
+`TestHidingTheNavigationAlwaysHasAWayBack` (AC3, AC4),
+`TestEachShapeLaysOutWhereItShould` (AC5),
+`TestAnIconsOnlyNavigationStillNamesItsSections` (AC6),
+`TestChangingShapeKeepsTheSectionAndDoesNotRebuildIt` (AC7),
+`TestAChosenShapeIsKeptAndAWithdrawnOneIsNot` (AC8),
+`TestTheDividerSurvivesAReshape` (AC9),
+`TestEveryShapeRendersInEveryScheme` (AC10), plus
+`TestAShapeTheProgramDoesNotAllowIsIgnored` and
+`TestASectionCanBeSelectedFromEitherNavigation`. AC11: the gallery allows every
+shape and its About section names the control, "The navigation's shape" in
+`docs/design-system.md`, 0.1.10 in the README changelog.
+
+Two things the implementation added that the spec did not name:
+
+- `widgets.TipText` and `fynetest.Tips`. R7 says an icon carries its title as a
+  tip, and a tip is a popup raised on hover, so nothing in the widget tree says
+  it until somebody hovers -- which left the criterion untestable. The catcher
+  now answers `Tip() string`, and the walker finds it through a locally declared
+  interface rather than an import, because the package that implements it has
+  tests that import the walker's.
+- A fix in spec 012's `split`: it chose the new divider's position before
+  reading the outgoing one, which is harmless when every rebuild goes through
+  `swap` and wrong when it does not. Changing the navigation's shape does not,
+  so the nav divider lost its drag on every reshape until the order was swapped.
+  Pinned by `TestTheDividerSurvivesAReshape`.

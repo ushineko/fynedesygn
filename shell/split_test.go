@@ -40,13 +40,18 @@ The caller's offset is the one for a program nobody has configured; a position
 the user dragged it to wins from then on.
 */
 func TestASplitOpensAtTheStoredPositionOrTheDefault(t *testing.T) {
-	s, _ := withSettings(t, NewSection("A", nil, nil))
+	path := filepath.Join(t.TempDir(), "settings.json")
+	fresh := headless(t, testOptionsAt(path, NewSection("A", nil, blank)))
+	body := fresh.VSplit("output", 0.8, widget.NewLabel("section"), widget.NewLabel("log"))
+	require.InDelta(t, 0.8, body.(*container.Split).Offset, 0.001,
+		"a program nobody has configured opens where the caller asked")
 
-	body := s.VSplit("output", 0.8, widget.NewLabel("section"), widget.NewLabel("log"))
-	require.InDelta(t, 0.8, body.(*container.Split).Offset, 0.001)
+	// Dragged, written, and opened again by a second shell over the same file.
+	body.(*container.Split).SetOffset(0.42)
+	fresh.Stop()
 
-	s.splitPos["output"] = 0.42
-	again := s.VSplit("output", 0.8, widget.NewLabel("section"), widget.NewLabel("log"))
+	next := Headless(fresh.App, testOptionsAt(path, NewSection("A", nil, blank)))
+	again := next.VSplit("output", 0.8, widget.NewLabel("section"), widget.NewLabel("log"))
 	require.InDelta(t, 0.42, again.(*container.Split).Offset, 0.001)
 }
 

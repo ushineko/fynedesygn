@@ -52,6 +52,11 @@ func (s *Shell) HSplit(key string, offset float64, leading, trailing fyne.Canvas
 
 // split positions a new divider and registers it as the live one for its key.
 func (s *Shell) split(sp *container.Split, key string, offset float64) fyne.CanvasObject {
+	// The outgoing divider is read first, and only then is the new one placed.
+	// The other way round, a rebuild that did not go through swap -- changing
+	// the navigation's shape does not -- would place the new divider from a
+	// position recorded before the drag and then overwrite the drag with it.
+	s.readSplit(key)
 	if got, ok := s.splitPos[key]; ok && usableOffset(got) {
 		offset = got
 	}
@@ -59,9 +64,6 @@ func (s *Shell) split(sp *container.Split, key string, offset float64) fyne.Canv
 	if s.splits == nil {
 		s.splits = map[string]*container.Split{}
 	}
-	// The previous split for this key is read before it is forgotten: a rebuild
-	// that happened without going through swap would otherwise lose the drag.
-	s.readSplit(key)
 	s.splits[key] = sp
 	return sp
 }

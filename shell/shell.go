@@ -86,6 +86,18 @@ type Options struct {
 	// OnTypedKey receives every typed key the shell did not handle itself (it
 	// binds F5 to Invalidate). Sections with keyboard navigation use it.
 	OnTypedKey func(e *fyne.KeyEvent)
+	// NavModes and NavPlacements are the navigation shapes this program
+	// allows. Empty means the one it has always had -- icons and labels down
+	// the left -- with no control to change it and no shortcut bound.
+	//
+	// A program that lists more than one shape gets a stock control in the
+	// header offering exactly what it listed. See spec 013.
+	NavModes      []NavMode
+	NavPlacements []NavPlacement
+	// Nav and NavPlace are the shape a program starts in before its user has
+	// chosen one. A stored choice wins over them.
+	Nav      NavMode
+	NavPlace NavPlacement
 }
 
 // Shell owns the window and everything transient in it.
@@ -110,6 +122,14 @@ type Shell struct {
 	// live one per key. See split.go.
 	splitPos map[string]float64
 	splits   map[string]*container.Split
+
+	// The navigation's shape, the last non-hidden mode (so Ctrl+B has
+	// something to come back to), and the holder the button navigations are
+	// redrawn in. See nav.go.
+	navMode   NavMode
+	navPlace  NavPlacement
+	navShown  NavMode
+	navHolder *fyne.Container
 
 	nav     *widget.List
 	content *container.Scroll
@@ -209,6 +229,7 @@ func newShell(a fyne.App, o Options) *Shell {
 	s := &Shell{App: a, opts: o, flashes: container.NewVBox()}
 	s.openSettings()
 	s.loadSplits()
+	s.loadNav()
 	s.appearance = fdtheme.LoadAppearanceFrom(s.store, a.Preferences())
 	if o.Scheme != "" {
 		s.appearance.Scheme = fdtheme.SchemeByName(o.Scheme).Name
@@ -298,18 +319,23 @@ func (s *Shell) buildWindow() {
 		s.swap(false)
 	}
 
-	split := s.HSplit(NavSplitKey, NavOffset, s.nav, s.content)
-
 	// Result banners and the progress indicator float over the content as
 	// popups, so nothing below the header reflows when an operation starts,
 	// finishes or reports. The frame holds the status bar alone.
 	s.frame = container.NewVBox(s.statusBar())
-	s.Window.SetContent(container.NewBorder(s.header(), s.frame, nil, nil, split))
+	s.layout()
 
 	// F5 and Ctrl+R reload, the two bindings people already try.
 	s.Window.Canvas().AddShortcut(
 		&desktop.CustomShortcut{KeyName: fyne.KeyR, Modifier: fyne.KeyModifierControl},
 		func(fyne.Shortcut) { s.Invalidate() })
+	// Ctrl+B is the binding people already try for a sidebar, and it is bound
+	// only where there is a sidebar to hide.
+	if s.allowsMode(NavHidden) {
+		s.Window.Canvas().AddShortcut(
+			&desktop.CustomShortcut{KeyName: fyne.KeyB, Modifier: fyne.KeyModifierControl},
+			func(fyne.Shortcut) { s.toggleNav() })
+	}
 	s.Window.Canvas().SetOnTypedKey(func(e *fyne.KeyEvent) {
 		if e.Name == fyne.KeyF5 {
 			s.Invalidate()
@@ -326,7 +352,24 @@ func (s *Shell) buildWindow() {
 	}
 	s.Window.Resize(size)
 	s.Window.SetMaster()
-	s.nav.Select(s.current)
+	s.selectIndex(s.current)
+	if !s.usesList() {
+		s.swap(false) // the list's selection is what swaps in the other shapes
+	}
+}
+
+/*
+layout assembles the window from the navigation's current shape.
+
+Called at build and whenever the shape changes. The content scroller and the
+section list survive it: only the region around them is rebuilt, so changing
+shape does not rebuild the section the user is looking at.
+*/
+func (s *Shell) layout() {
+	if s.Window == nil {
+		return
+	}
+	s.Window.SetContent(container.NewBorder(s.header(), s.frame, nil, nil, s.body()))
 }
 
 // header is the window's title strip: the program name, then Refresh and the
@@ -334,6 +377,9 @@ func (s *Shell) buildWindow() {
 func (s *Shell) header() fyne.CanvasObject {
 	title := widget.NewLabelWithStyle(s.opts.Name, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	items := []fyne.CanvasObject{title, layout.NewSpacer()}
+	if c := s.navControl(); c != nil {
+		items = append(items, c)
+	}
 	items = append(items, widget.NewButtonWithIcon("Refresh", fynetheme.ViewRefreshIcon(), func() { s.Invalidate() }))
 	if s.opts.Header != nil {
 		items = append(items, s.opts.Header(s)...)
@@ -383,7 +429,7 @@ func (s *Shell) Select(title string) {
 		s.current = i
 		return
 	}
-	s.nav.Select(i)
+	s.selectIndex(i)
 }
 
 // Scroller is the content pane's scroller, for components that follow the

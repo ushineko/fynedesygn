@@ -68,6 +68,11 @@ func options(section, scheme string) shell.Options {
 		Scheme:      scheme,
 		StatusBar:   demo.statusBar,
 		AlsoWorking: func() bool { return false },
+		// Every shape, because this is the reference program: the control in
+		// the header is the demonstration, and a component is judged here
+		// before it is judged in a program.
+		NavModes:      []shell.NavMode{shell.NavLabels, shell.NavIcons, shell.NavHidden},
+		NavPlacements: []shell.NavPlacement{shell.NavLeft, shell.NavTop},
 	}
 }
 

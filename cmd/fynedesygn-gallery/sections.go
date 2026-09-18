@@ -57,6 +57,10 @@ func sectionsWith(demo *jobDemo) []shell.Section {
 			URL: "https://github.com/ushineko/fynedesygn",
 			Notes: []shell.Note{
 				{Title: "Appearance", Detail: "The standard picker every program gets from shell.AppearanceSection."},
+				{Title: "The navigation's shape", Detail: "The button beside Refresh: icons and " +
+					"labels, icons alone or nothing, down the left or along the top. Ctrl+B hides " +
+					"it and brings it back. A program declares which shapes it allows, and one " +
+					"that declares nothing keeps the window it has."},
 				{Title: "Widgets, Table, Fonts", Detail: "Each component drawn with its Go name as the caption."},
 				{Title: "Shell", Detail: "Perform, cancellation, banners and gating, driven by a fake job."},
 			},

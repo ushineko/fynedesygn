@@ -53,6 +53,36 @@ func WithTip(o fyne.CanvasObject, text string) fyne.CanvasObject {
 	return container.NewStack(o, t)
 }
 
+/*
+TipText is the note a wrapped object carries, or "" when it carries none.
+
+A tip is a popup raised on hover, so its text is nowhere in the tree until
+somebody hovers -- which leaves no way to check that a control which shows only
+an icon still says what it is. This is that way.
+*/
+func TipText(o fyne.CanvasObject) string {
+	box, ok := o.(*fyne.Container)
+	if !ok {
+		return ""
+	}
+	for _, child := range box.Objects {
+		if t, is := child.(interface{ Tip() string }); is {
+			return t.Tip()
+		}
+	}
+	return ""
+}
+
+/*
+Tip is the note this catcher shows, which makes the text readable without
+hovering.
+
+An interface method rather than an exported field, so a walker can find a tip
+without importing this package -- which is what keeps the test helpers out of
+the import graph of the package they help test.
+*/
+func (t *tipArea) Tip() string { return t.text }
+
 // tipArea is the transparent catcher: it draws nothing and exists to notice the
 // pointer.
 type tipArea struct {

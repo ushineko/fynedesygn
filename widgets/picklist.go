@@ -113,6 +113,20 @@ func (p *PickList) CreateRenderer() fyne.WidgetRenderer {
 	return widget.NewSimpleRenderer(p.list)
 }
 
+/*
+Resize passes the size to the list inside.
+
+A simple renderer lays its object out when it is refreshed, and a container that
+resizes this widget does not necessarily refresh it -- a dialog does not. The
+list then keeps whatever size it was made at, which is nothing, and a list with
+no size builds no rows: the widget draws as an empty space that lays out
+correctly.
+*/
+func (p *PickList) Resize(size fyne.Size) {
+	p.BaseWidget.Resize(size)
+	p.list.Resize(size)
+}
+
 // Picked is the ticked rows, lowest first, as row numbers of the list as it
 // stands.
 func (p *PickList) Picked() []int {

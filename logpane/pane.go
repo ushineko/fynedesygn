@@ -18,7 +18,14 @@ import (
 	"github.com/ushineko/fynedesygn/widgets"
 )
 
-// DefaultHeight is the pane's fixed height unless Options says otherwise.
+/*
+DefaultHeight is the pane's height unless Options says otherwise.
+
+A minimum rather than a maximum. In a fixed region -- a Border's bottom, a VBox
+-- a minimum is the height, which is what a pane has always been. Inside a
+draggable divider (Shell.VSplit) it is as small as the pane may be dragged, and
+the pane takes whatever else the divider gives it.
+*/
 const DefaultHeight float32 = 360
 
 // PumpInterval is how often a pane redraws while lines arrive.
@@ -28,7 +35,9 @@ const PumpInterval = 100 * time.Millisecond
 type Options struct {
 	// Title is the bold label at the head of the pane.
 	Title string
-	// Height of the list; 0 means DefaultHeight.
+	// Height is the list's minimum height; 0 means DefaultHeight. In a fixed
+	// region that minimum is the height; inside Shell.VSplit it is how small
+	// the pane may be dragged.
 	Height float32
 	// TextSize of the rows; 0 means the theme's text size. Programs with a
 	// console font size pass it here.

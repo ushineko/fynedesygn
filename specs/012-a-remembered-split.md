@@ -3,7 +3,7 @@
 > **Note**: This work has no associated issue tracker ticket. The repository
 > is a personal public project without an issue tracker.
 
-## Status: PROPOSED — awaiting review
+## Status: COMPLETE
 
 **Depends on spec 011** for somewhere to keep the position between runs.
 
@@ -68,8 +68,13 @@ should not jump when the section changes.
   the window with one of the two panes invisible and no obvious way back. Out of
   range means the default, not the stored value.
 - **The pane's height becomes a minimum, not a size.** `logpane.Options.Height`
-  is restated: it is how small the pane may be dragged. The default drops
-  accordingly, because a floor that is most of the window is not a floor.
+  is restated: it is how small the pane may be dragged. In a fixed region a
+  minimum is still the height, which is what a pane has always been, so nothing
+  changes for a caller that has not moved its pane into a divider.
+
+  `DefaultHeight` keeps its value. Lowering it would shrink the log pane of
+  every program that passes it — clockwork-orange passes the constant by name —
+  and a consumer that wants a smaller floor passes one.
 - **Nothing floats over it.** A split is structural, so the standing rule that
   nothing transient may reflow the interface is not in play here; banners and
   the progress popup keep floating over whatever the split contains.
@@ -103,22 +108,22 @@ is not today, and the shell gets no second mechanism for the same job.
 
 ## Acceptance Criteria
 
-- [ ] AC1 `VSplit` with no stored position uses the caller's default; with one,
+- [x] AC1 `VSplit` with no stored position uses the caller's default; with one,
   it uses the stored one (R1).
-- [ ] AC2 Setting a split's `Offset`, then selecting another section and
+- [x] AC2 Setting a split's `Offset`, then selecting another section and
   returning, gives a split at the moved position (R2).
-- [ ] AC3 Setting a split's `Offset`, then running the shell's stop path, writes
+- [x] AC3 Setting a split's `Offset`, then running the shell's stop path, writes
   that position to the settings store; a new shell over the same store opens at
   it (R3).
-- [ ] AC4 Stored positions of 0, 1, -0.5 and 4 all yield the caller's default
+- [x] AC4 Stored positions of 0, 1, -0.5 and 4 all yield the caller's default
   (R4).
-- [ ] AC5 Two sections calling `VSplit("output", …)` both open at the position
+- [x] AC5 Two sections calling `VSplit("output", …)` both open at the position
   either of them was last dragged to (R5).
-- [ ] AC6 The section list's width survives a rebuild and a restart (R6).
-- [ ] AC7 A `logpane` inside a split grows when the divider is dragged towards
+- [x] AC6 The section list's width survives a rebuild and a restart (R6).
+- [x] AC7 A `logpane` inside a split grows when the divider is dragged towards
   the section and stops at its minimum when dragged away (R7).
-- [ ] AC8 Every criterion above is asserted against a headless shell (R8).
-- [ ] AC9 Gallery card, design-system entry, changelog; tests, lint and vet
+- [x] AC8 Every criterion above is asserted against a headless shell (R8).
+- [x] AC9 Gallery card, design-system entry, changelog; tests, lint and vet
   clean (R9).
 
 ## Risks & Assumptions
@@ -148,3 +153,14 @@ is not today, and the shell gets no second mechanism for the same job.
 - **Keep the position in `fyne.Preferences`.** Rejected for the reasons spec 011
   gives; it is also what terrariabonker did, and the position it stores is one a
   user might reasonably want to find and reset.
+
+Verified in `shell/split_test.go`:
+`TestASplitOpensAtTheStoredPositionOrTheDefault` (AC1),
+`TestADragSurvivesASectionRebuild` (AC2), `TestADragSurvivesTheProcess` (AC3),
+`TestAPositionThatWouldHideAPaneIsIgnored` (AC4),
+`TestTwoSectionsWithOneKeyShareOnePosition` (AC5),
+`TestTheNavigationDividerIsRememberedToo` (AC6) and
+`TestALogPaneInADividerGrowsAndStopsAtItsMinimum` (AC7). Every one of them runs
+against a headless shell (AC8). AC9: the Log section of the gallery is drawn
+under one, "Dividers" in `docs/design-system.md`, 0.1.10 in the README
+changelog.

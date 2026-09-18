@@ -130,6 +130,14 @@ kept rather than dropped. The appearance moves into it, read once from
 closes, not only before a restart, and runs once however many times it is
 called.
 
+`Shell.VSplit` and `HSplit`: a divider the user can drag whose position outlives
+the section that drew it and the run that set it (spec 012). Fyne's split
+reports no drag and a section is rebuilt several times a minute, so the shell
+reads each live divider before the content holding it is replaced. The
+navigation's own divider goes through the same call, so the width of the section
+list is now something the user can keep. `logpane.Options.Height` is documented
+as a minimum rather than a size.
+
 ### 0.1.9 (2026-09-18)
 
 Fix: `widgets.FixedWidth` and `FixedHeight` padded with a nil-coloured

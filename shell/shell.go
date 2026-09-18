@@ -106,6 +106,11 @@ type Shell struct {
 	settingsErr error
 	stopOnce    sync.Once
 
+	// splitPos is where each named divider was last dragged to, and splits the
+	// live one per key. See split.go.
+	splitPos map[string]float64
+	splits   map[string]*container.Split
+
 	nav     *widget.List
 	content *container.Scroll
 	frame   *fyne.Container // holds the status bar at index frameStatusBar
@@ -175,6 +180,7 @@ paths must not release a lock twice.
 */
 func (s *Shell) Stop() {
 	s.stopOnce.Do(func() {
+		s.rememberSplits()
 		if s.opts.OnStop != nil {
 			s.opts.OnStop(s)
 		}
@@ -202,6 +208,7 @@ func Headless(a fyne.App, o Options) *Shell {
 func newShell(a fyne.App, o Options) *Shell {
 	s := &Shell{App: a, opts: o, flashes: container.NewVBox()}
 	s.openSettings()
+	s.loadSplits()
 	s.appearance = fdtheme.LoadAppearanceFrom(s.store, a.Preferences())
 	if o.Scheme != "" {
 		s.appearance.Scheme = fdtheme.SchemeByName(o.Scheme).Name
@@ -291,8 +298,7 @@ func (s *Shell) buildWindow() {
 		s.swap(false)
 	}
 
-	split := container.NewHSplit(s.nav, s.content)
-	split.SetOffset(NavOffset)
+	split := s.HSplit(NavSplitKey, NavOffset, s.nav, s.content)
 
 	// Result banners and the progress indicator float over the content as
 	// popups, so nothing below the header reflows when an operation starts,
@@ -479,6 +485,8 @@ func (s *Shell) swap(keepScroll bool) {
 			a.Arrive()
 		}
 	}
+	// The last moment the outgoing section's dividers exist.
+	s.rememberSplits()
 	offset := s.content.Offset
 	s.content.Content = sec.Build(s)
 	s.content.Refresh()

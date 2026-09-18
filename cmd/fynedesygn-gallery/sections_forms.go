@@ -133,18 +133,31 @@ func (d *logDemo) build(s *shell.Shell) fyne.CanvasObject {
 			d.stop()
 		}
 	})
-	return container.NewVBox(
-		widgets.Heading("Log", "A fixed-height list of monospace rows drawn on a 100 ms timer, following the tail until you scroll up. The cap here is 300 lines so the drop shows."),
-		container.NewHBox(start, stop),
+	// Under a divider the user can drag, which is what a pane under a section
+	// should be: the section where the output matters is whichever one is
+	// failing, and a pane of fixed height gives it no more room. The position
+	// is the shell's, so it survives this section being rebuilt and the
+	// gallery being closed.
+	return s.VSplit("log", 0.55,
+		container.NewVScroll(container.NewVBox(
+			widgets.Heading("Log", "A list of monospace rows drawn on a 100 ms timer, following the tail until you scroll up. The cap here is 300 lines so the drop shows."),
+			container.NewHBox(start, stop),
+			widgets.DimWrapped("Copy puts the whole log on the clipboard with a line saying how many older rows were dropped; Clear empties it."),
+			widgets.DimWrapped("Drag the bar below. Options.Height is the pane's minimum, not its size, so it takes whatever the divider gives it and stops there."),
+		)),
 		d.pane.Widget(logpane.Options{
 			Title:     "logpane.Pane",
+			Height:    logDemoMinHeight,
 			Clipboard: s.App.Clipboard(),
 			Flash:     s.Flash,
 			OnClear:   func() {},
 		}),
-		widgets.DimWrapped("Copy puts the whole log on the clipboard with a line saying how many older rows were dropped; Clear empties it."),
 	)
 }
+
+// logDemoMinHeight is as small as the demo pane may be dragged: a few rows, so
+// there is something to see at either end of the bar.
+const logDemoMinHeight float32 = 120
 
 func (d *logDemo) detach() {
 	d.pane.Detach()

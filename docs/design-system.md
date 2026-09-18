@@ -276,6 +276,28 @@ Border{
 - A one-run override of the scheme (for screenshots) is applied without
   persisting.
 
+## Dividers
+
+- A pane under a section — a log, an output, a preview — sits under a bar the
+  user can drag: `Shell.VSplit(key, offset, top, bottom)`, `HSplit` for side by
+  side. A fixed region is wrong for the pane that matters, because the section
+  where the output is worth reading is whichever one is failing.
+- **The position belongs to the shell, not to the section.** Sections rebuild on
+  every refresh and every selection, and each rebuild makes a new split, so a
+  position the section owned would be undone by the next status-driven redraw.
+  Fyne's split reports no drag, so the shell reads each live divider just before
+  the content holding it is replaced, and again when the window closes.
+- Positions are keyed per program and kept in the settings file. Two splits with
+  the same key share one position on purpose: a log pane under every section is
+  one pane as far as the user is concerned.
+- A stored position that would hide a pane (0 or 1) is ignored in favour of the
+  caller's default. The pane that would be gone is often the one holding the
+  control that would bring it back.
+- The shell's own navigation divider is one of these, under `NavSplitKey`.
+- `logpane.Options.Height` is a minimum, not a size: in a fixed region the
+  minimum is the height; inside a divider it is how small the pane may be
+  dragged.
+
 ## Tables and lists
 
 - The detail table holds strings and one `Status` per row and hands back a

@@ -117,6 +117,12 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.22 (2026-09-18)
+
+`widgets.PickList`: a list whose rows can be ticked, for an action on several at
+once. Fyne's list selects one row, which is right for a list being read and
+wrong for one being edited.
+
 ### 0.1.21 (2026-09-18)
 
 A refused operation is explained only when the explanation is needed. The busy

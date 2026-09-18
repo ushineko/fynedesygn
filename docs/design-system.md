@@ -379,6 +379,14 @@ Border{
   `FixedHeight` to keep a section stable while it is being looked at.
 - The label column in fact rows is 190 wide, and unranked rows reserve the
   26 px marker gutter so they line up with ranked ones.
+- **A list that is edited rather than read uses `widgets.PickList`.** Fyne's
+  list selects one row; taking six things off a list one at a time, with a
+  reload between each, is six times the work for one decision. The tick is a
+  checkbox in the row rather than a modifier held while clicking: a checkbox
+  says what it does by being there, and Fyne does not pass the modifier to a
+  list's selection callback anyway. `OnPicked` reports the count so the action
+  button can say what it is about to do, and picks are row numbers, so a caller
+  whose list has changed calls `ClearPicks`.
 
 ## Forms
 

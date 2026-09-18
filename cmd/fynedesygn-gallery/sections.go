@@ -246,6 +246,46 @@ func buildFonts(_ *shell.Shell) fyne.CanvasObject {
 // --- Shell -------------------------------------------------------------------
 
 /*
+pickCard is the list whose rows can be ticked.
+
+Fyne's list selects one row, which is right for a list being read and wrong for
+one being edited: taking six things off a list one at a time is six times the
+work for one decision.
+*/
+func (d *jobDemo) pickCard() fyne.CanvasObject {
+	items := []string{"Terra Blade", "Wood", "Meowmere", "Zenith", "Copper Shortsword",
+		"Life Crystal", "Hallowed Bar", "Truffle Worm"}
+
+	picks := widgets.NewPickList(
+		func() int { return len(items) },
+		func() fyne.CanvasObject { return widget.NewLabel("") },
+		func(i int, row fyne.CanvasObject) { row.(*widget.Label).SetText(items[i]) },
+	)
+	act := widget.NewButton("Nothing picked", nil)
+	act.Disable()
+	picks.OnPicked = func(n int) {
+		act.SetText(fmt.Sprintf("Act on %d", n))
+		if n == 0 {
+			act.SetText("Nothing picked")
+			act.Disable()
+			return
+		}
+		act.Enable()
+	}
+	act.OnTapped = func() { picks.ClearPicks() }
+
+	return container.NewBorder(
+		widgets.DimWrapped("Tick a few. The button says what it is about to do, which is "+
+			"the point of picking several: one decision, one action."),
+		act, nil, nil,
+		widgets.FixedHeight(picks, pickDemoHeight),
+	)
+}
+
+// pickDemoHeight is the demo list's pane.
+const pickDemoHeight float32 = 200
+
+/*
 settingsCard demonstrates the program's own settings file.
 
 The counter is the point: it is written to the file a second after it changes
@@ -434,6 +474,7 @@ func (d *jobDemo) build(s *shell.Shell) fyne.CanvasObject {
 				"control, which wins the hover because Fyne gives a pointer event to the last "+
 				"match in the tree walk."),
 		),
+		widgets.Card("widgets.PickList", d.pickCard()),
 		widgets.Card("shell.Settings", d.settingsCard(s)),
 		widgets.Card("shell.Flash", widgets.Wrapped("One banner at a time, floated over the content, never inserted into it."), banners),
 		widgets.Card("Scheme roles",

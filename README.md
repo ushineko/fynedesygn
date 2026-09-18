@@ -117,6 +117,16 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.5 (2026-09-17)
+
+`shell.Arriver` (spec 009): the shell now tells a section whether it is being
+built because the navigation arrived at it or because it is being rebuilt
+where it stands. A section that refetches on arrival needs the difference —
+refetching in the builder loops, because the fetch finishing rebuilds the
+section that started it. Found in angou's adoption, which had worked around
+it by remembering the last section title. Additive; `Section` is unchanged
+and `Arriver` is optional.
+
 ### 0.1.4 (2026-09-17)
 
 `shell.BusyCancellable` (spec 008): a job that holds the busy indicator itself

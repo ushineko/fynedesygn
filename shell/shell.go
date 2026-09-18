@@ -369,8 +369,17 @@ func (s *Shell) Invalidate() {
 	s.Rebuild()
 }
 
-// swap replaces the content pane with a freshly built current section,
-// detaching the outgoing one first.
+/*
+swap replaces the content pane with a freshly built current section, detaching
+the outgoing one first.
+
+keepScroll is also what tells the two reasons for a swap apart. False is
+navigation — the list, Select, the section the window opens on — and the
+incoming section is told it has been arrived at. True is a rebuild of the
+section already on screen, which keeps its scroll offset and arrives at
+nothing: a section that refetched on every build would rebuild itself forever,
+because the fetch finishing is one of the things that rebuilds it.
+*/
 func (s *Shell) swap(keepScroll bool) {
 	if s.content == nil {
 		return
@@ -382,6 +391,11 @@ func (s *Shell) swap(keepScroll bool) {
 	for _, other := range s.opts.Sections {
 		if d, ok := other.(Detacher); ok {
 			d.Detach()
+		}
+	}
+	if !keepScroll {
+		if a, ok := sec.(Arriver); ok {
+			a.Arrive()
 		}
 	}
 	offset := s.content.Offset

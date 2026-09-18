@@ -402,3 +402,81 @@ func TestAboutLinkCaptionIsTheURLUnlessGiven(t *testing.T) {
 	s := headless(t, testOptions(AboutSection(About{Name: "d", URL: "https://example.invalid/x", URLText: "Project documentation"})))
 	require.Contains(t, fynetest.Text(s.Current().Build(s)), "Project documentation")
 }
+
+// A section is built for two reasons and Arrive draws the line between them:
+// navigation on one side, every rebuild in place on the other (spec 009). A
+// section that refetched on every build would rebuild itself forever, because
+// the fetch finishing is one of the things that rebuilds it.
+func TestArriveIsNavigationOnlyAndRebuildsDoNotCount(t *testing.T) {
+	var log []string
+	a := NewSection("A", nil, func(*Shell) fyne.CanvasObject {
+		log = append(log, "build A")
+		return widget.NewLabel("a")
+	}).OnArrive(func() { log = append(log, "arrive A") }).
+		OnDetach(func() { log = append(log, "detach A") })
+	b := NewSection("B", nil, func(*Shell) fyne.CanvasObject {
+		log = append(log, "build B")
+		return widget.NewLabel("b")
+	}).OnArrive(func() { log = append(log, "arrive B") })
+
+	s := onScreen(t, testOptions(a, b))
+	// AC3: the section the window opens on arrives, once, before it is built.
+	require.Equal(t, []string{"detach A", "arrive A", "build A"}, log)
+
+	// AC2: a rebuild in place builds without arriving.
+	log = nil
+	s.Refresh()
+	s.Rebuild()
+	s.Invalidate()
+	require.Equal(t, []string{"detach A", "build A", "detach A", "build A", "detach A", "build A"}, log,
+		"a rebuild of the section on screen must not arrive at it")
+
+	// AC1: navigating arrives, after the outgoing section is detached and
+	// before the incoming one is built.
+	log = nil
+	s.Select("B")
+	require.Equal(t, []string{"detach A", "arrive B", "build B"}, log)
+
+	// AC4: away and back arrives again.
+	log = nil
+	s.Select("A")
+	require.Contains(t, log, "arrive A")
+	require.Equal(t, 1, countOf(log, "arrive A"))
+}
+
+// AC5: off screen nothing is built, so nothing arrives either. A headless test
+// that calls Build itself gets the state it set up, not a hook's idea of it.
+func TestArriveDoesNotFireWithoutAWindow(t *testing.T) {
+	var arrived int
+	sec := NewSection("A", nil, func(*Shell) fyne.CanvasObject { return widget.NewLabel("a") }).
+		OnArrive(func() { arrived++ })
+	s := headless(t, testOptions(sec))
+	s.Select("A")
+	s.Refresh()
+	s.Invalidate()
+	require.Zero(t, arrived, "there is no navigation without a window")
+}
+
+// A section with no hook is left alone: Arriver is optional, and every section
+// written before it keeps working.
+func TestASectionWithoutTheHookIsUnaffected(t *testing.T) {
+	built := 0
+	sec := NewSection("A", nil, func(*Shell) fyne.CanvasObject {
+		built++
+		return widget.NewLabel("a")
+	})
+	s := onScreen(t, testOptions(sec))
+	require.Equal(t, 1, built)
+	s.Refresh()
+	require.Equal(t, 2, built)
+}
+
+func countOf(log []string, want string) int {
+	n := 0
+	for _, s := range log {
+		if s == want {
+			n++
+		}
+	}
+	return n
+}

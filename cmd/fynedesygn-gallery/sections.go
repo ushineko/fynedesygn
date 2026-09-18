@@ -39,7 +39,7 @@ func sectionsWith(demo *jobDemo) []shell.Section {
 		shell.NewSection("Widgets", fynetheme.ListIcon, buildWidgets),
 		shell.NewSection("Table", fynetheme.StorageIcon, buildTable),
 		shell.NewSection("Fonts", fynetheme.DocumentIcon, buildFonts),
-		shell.NewSection("Shell", fynetheme.MediaPlayIcon, demo.build),
+		shell.NewSection("Shell", fynetheme.MediaPlayIcon, demo.build).OnArrive(demo.arrive),
 		shell.NewSection("Dialogs", fynetheme.QuestionIcon, buildDialogs),
 		shell.NewSection("Log", fynetheme.ListIcon, logs.build).OnDetach(logs.detach),
 		shell.NewSection("Forms", fynetheme.SettingsIcon, form.build),
@@ -247,9 +247,16 @@ func buildFonts(_ *shell.Shell) fyne.CanvasObject {
 type jobDemo struct {
 	runs      int
 	lastState string
+	// arrivals and builds count the two reasons a section is drawn, so the
+	// card can show that they are not the same number.
+	arrivals, builds int
 }
 
 func newJobDemo() *jobDemo { return &jobDemo{lastState: "idle"} }
+
+// arrive counts a navigation to this section. A section that refetches does it
+// here rather than in build, which the shell calls again for every rebuild.
+func (d *jobDemo) arrive() { d.arrivals++ }
 
 // statusBar is the segment the shell draws from every section.
 func (d *jobDemo) statusBar(_ *shell.Shell) []fyne.CanvasObject {
@@ -280,6 +287,7 @@ func swatch(name string, bg, fg color.Color) fyne.CanvasObject {
 }
 
 func (d *jobDemo) build(s *shell.Shell) fyne.CanvasObject {
+	d.builds++
 	job := func(ctx context.Context, seconds int, fail bool) error {
 		for i := 0; i < seconds*10; i++ {
 			select {
@@ -363,6 +371,9 @@ func (d *jobDemo) build(s *shell.Shell) fyne.CanvasObject {
 			container.NewHBox(quick, long, failing, held),
 			widgets.DimWrapped("The busy popup is modal, so a Cancel left enabled in a toolbar behind it cannot be clicked. A cancellable job puts its Cancel on the popup instead: through PerformCancellable when the runner owns the job, through BusyCancellable when the job holds the indicator itself."),
 			widgets.DimWrapped(fmt.Sprintf("State: %s. Runs: %d. The status bar at the bottom shows the same from every section.", d.lastState, d.runs)),
+		),
+		widgets.Card("shell.Arriver",
+			widgets.DimWrapped(fmt.Sprintf("Arrived at %d time(s); built %d time(s). Navigate away and back to raise the first; run a job, or press F5, to raise only the second. A section that refetches on arrival hooks OnArrive, because refetching in the builder would rebuild itself forever: the fetch finishing is one of the things that rebuilds it.", d.arrivals, d.builds)),
 		),
 		widgets.Card("shell.Flash", widgets.Wrapped("One banner at a time, floated over the content, never inserted into it."), banners),
 		widgets.Card("Scheme roles",

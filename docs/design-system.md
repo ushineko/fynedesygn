@@ -183,6 +183,21 @@ Border{
 - Fonts are discovered, never embedded, so the module carries no font
   licences.
 
+## Sections
+
+- A section is built for two reasons and the shell tells them apart: the
+  navigation arriving at it, and a rebuild of the section already on screen
+  (an operation starting or finishing, a load landing, F5). `Build` runs for
+  both. `shell.Arriver` — `OnArrive` on a `FuncSection` — runs for the first
+  only.
+- **A section that refetches on arrival must use the hook, not the builder.**
+  Refetching in `Build` is a loop: the fetch finishing rebuilds the section
+  that started it, which refetches. This is what a program wants when its data
+  lives somewhere other programs write to, and it should be current when you
+  navigate to it without being fetched on every redraw.
+- `shell.Detacher` is the other end: the shell telling a section it is about
+  to be replaced, so it can release live widgets a worker writes into.
+
 ## Progress and results
 
 - Every long call goes through `shell.Perform` (an operation, one at a time)

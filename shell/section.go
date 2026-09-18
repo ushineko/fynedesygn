@@ -24,6 +24,26 @@ type Detacher interface {
 	Detach()
 }
 
+/*
+Arriver is implemented by a section that needs to know when the navigation
+arrives at it, as opposed to when the shell rebuilds it where it stands.
+
+The shell builds a section for both reasons and, without this, tells it
+neither: navigating to a section builds it, and so does every rebuild while it
+is on screen — an operation starting or finishing, a load landing, F5.
+
+A section that refetches on arrival needs the difference. Refetching on every
+build instead is a loop, because the fetch finishing rebuilds the section that
+started it. Arrive is called on navigation only: the list, Select, and the
+section the window opens on.
+
+The mirror of Detacher, which is the shell telling a section it is about to be
+replaced.
+*/
+type Arriver interface {
+	Arrive()
+}
+
 // FuncSection is a Section made of closures, for programs that do not want a
 // type per section.
 type FuncSection struct {
@@ -31,6 +51,7 @@ type FuncSection struct {
 	icon   func() fyne.Resource
 	build  func(*Shell) fyne.CanvasObject
 	detach func()
+	arrive func()
 }
 
 // NewSection builds a section from a title, a deferred icon and a builder.
@@ -43,6 +64,13 @@ func NewSection(title string, icon func() fyne.Resource, build func(*Shell) fyne
 // replaced, and returns the section for chaining.
 func (f *FuncSection) OnDetach(fn func()) *FuncSection {
 	f.detach = fn
+	return f
+}
+
+// OnArrive registers the hook the shell calls when the navigation reaches
+// this section, and returns the section for chaining.
+func (f *FuncSection) OnArrive(fn func()) *FuncSection {
+	f.arrive = fn
 	return f
 }
 
@@ -64,6 +92,13 @@ func (f *FuncSection) Build(s *Shell) fyne.CanvasObject { return f.build(s) }
 func (f *FuncSection) Detach() {
 	if f.detach != nil {
 		f.detach()
+	}
+}
+
+// Arrive implements Arriver; a no-op without a hook.
+func (f *FuncSection) Arrive() {
+	if f.arrive != nil {
+		f.arrive()
 	}
 }
 

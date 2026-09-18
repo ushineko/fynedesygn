@@ -375,6 +375,19 @@ func (d *jobDemo) build(s *shell.Shell) fyne.CanvasObject {
 		widgets.Card("shell.Arriver",
 			widgets.DimWrapped(fmt.Sprintf("Arrived at %d time(s); built %d time(s). Navigate away and back to raise the first; run a job, or press F5, to raise only the second. A section that refetches on arrival hooks OnArrive, because refetching in the builder would rebuild itself forever: the fetch finishing is one of the things that rebuilds it.", d.arrivals, d.builds)),
 		),
+		widgets.Card("widgets.WithTip",
+			widgets.Wrapped("Rest the pointer on either of these for half a second."),
+			container.NewHBox(
+				widgets.WithTip(widget.NewButton("Hover me", func() {}),
+					"The note a control cannot fit in its label. This one also still works: "+
+						"the tip takes the hover and the tap walks past it."),
+				widgets.WithTip(widget.NewCheck("And me", func(bool) {}),
+					"Wrapping a control does not change it. A check still checks."),
+			),
+			widgets.DimWrapped("Fyne has no tooltip. This stacks a transparent catcher over the "+
+				"control, which wins the hover because Fyne gives a pointer event to the last "+
+				"match in the tree walk."),
+		),
 		widgets.Card("shell.Flash", widgets.Wrapped("One banner at a time, floated over the content, never inserted into it."), banners),
 		widgets.Card("Scheme roles",
 			swatches,

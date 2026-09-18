@@ -117,6 +117,14 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.6 (2026-09-18)
+
+`widgets.WithTip` (spec 010): a hover note for the guidance a control cannot
+fit in its label. Fyne has no tooltip; this stacks a transparent catcher over
+the control, which takes the hover while taps walk past it to the control
+underneath. Asked for by terrariabonker's port, whose Qt panel keeps twenty-odd
+of these. Additive.
+
 ### 0.1.5 (2026-09-17)
 
 `shell.Arriver` (spec 009): the shell now tells a section whether it is being

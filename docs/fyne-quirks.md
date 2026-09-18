@@ -33,6 +33,8 @@ the target names for the implementation specs; a row without a test yet says
 | 20 | `widget.Table` has no double-tap. | Row actions live in buttons enabled by selection. | none |
 | 21 | Relative image paths in Markdown cannot be resolved by Fyne at runtime: the image segment takes a URI. | `markdown.Pane` reads whole-block images from `Options.FS`. | `markdown.TestRelativeImagesResolveThroughTheFS` |
 | 22 | `widget.NewRichTextFromMarkdown` renders a pipe table as a `TableSegment` inside a scroller, which takes the wheel like a code block does. | `markdown.Pane` draws pipe tables as a grid of inline-rendered cells. | `markdown.TestFyneStillDrawsMarkdownTablesInsideAScroll` |
+| 23 | No tooltip. `desktop.Hoverable` exists and nothing is built on it, so guidance a control cannot fit in its label has nowhere to go but under it, which turns a row into a paragraph. | `widgets.WithTip` stacks a transparent hover catcher over the control. | `widgets.TestATipWaitsAndThenAppears` |
+| 24 | A pointer event goes to the **last** match in the visible-tree walk, not the first: `FindObjectAtPositionMatching` assigns on every match and does not stop. So an object stacked over another takes its hover, and a widget merely wrapping a control never sees one. | `widgets.WithTip` relies on it deliberately: the catcher is stacked over, so it wins the hover, and is not `Tappable`, so taps walk past it to the control. | `widgets.TestFyneStillGivesAPointerEventToTheLastMatch` |
 
 ## Adding an entry
 

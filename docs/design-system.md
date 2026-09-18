@@ -92,21 +92,23 @@ Border{
 
 ## Sections
 
-- A section is a stateless build function: given the shell, return the
-  content. Any state change rebuilds the section from state rather than
-  patching widgets. Only the builder knows every reason a button is disabled.
+- A section is a stateless build function (`shell.Section`: `Title`, `Icon`,
+  `Build`): given the shell, return the content. Any state change rebuilds
+  the section from state rather than patching widgets. Only the builder knows
+  every reason a button is disabled.
 - Titles are computable before a Fyne app exists (for `--section` flag help
   and `--version`), so icons are deferred (`func() fyne.Resource`). Asking
   for a theme icon before `app.New` logs "Attempt to access current Fyne app
   when none is started".
 - A section that holds live widgets or a scroll callback (a log list, a
-  document pane following a scroller) implements `Detach()`, and the shell
-  calls it before building the replacement. Built first and dropped afterwards,
+  document pane following a scroller) implements `shell.Detacher`, and the
+  shell calls `Detach` before building the replacement. Built first and dropped afterwards,
   a section registers its brand-new list and then has it thrown away by the
   very call that put it on screen, so a running job streams into nothing.
-- Four redraw levels, cheapest first: redraw the status bar; rebuild the
-  current section (keeping its scroll offset); rebuild status bar and section;
-  invalidate (drop loaded data, reload, rebuild). Navigation starts at the top;
+- Four redraw levels, cheapest first: `RedrawStatus` (the status bar);
+  `Refresh` (the current section, keeping its scroll offset); `Rebuild`
+  (both); `Invalidate` (the program's `OnInvalidate` hook drops loaded data
+  and reloads, then `Rebuild`). Navigation starts at the top;
   a rebuild in place keeps the offset.
 - Sections whose bottom action strip must stay visible use
   `Border(nil, actions, nil, nil, VScroll(body))`. Sections built around one
@@ -179,7 +181,8 @@ Border{
 
 ## Progress and results
 
-- Every long call gets a busy indicator, not just the obviously slow ones. A
+- Every long call goes through `shell.Perform` (or a loader that calls
+  `shell.Busy`) and gets a busy indicator, not just the obviously slow ones. A
   window that sits still with no explanation reads as frozen, and the button
   that looks like it did nothing is the button that gets clicked twice.
 - The busy indicator is a centred modal popup with an infinite progress bar,
@@ -191,8 +194,8 @@ Border{
   history..."), because it is the popup's caption.
 - One operation at a time. A second request while one runs is refused with a
   warning banner.
-- Results are banners: a non-modal popup centred near the bottom of the
-  window, at most 720 wide, one at a time. Good holds 6 s, warn 12 s, bad
+- Results are banners (`shell.Flash`, `Report`, `OK`): a non-modal popup
+  centred near the bottom of the window, at most 720 wide, one at a time. Good holds 6 s, warn 12 s, bad
   stays until dismissed. Fyne animates properties, not opacity, so the fade
   runs on the banner's background rectangle; the text stays at full strength,
   which is also the accessible choice. A monotonic sequence number guards
@@ -210,8 +213,8 @@ Border{
   round. Set the flag before the goroutine starts so a rebuild mid-load does
   not start a second fetch.
 - Program-wide state (a session, a service status) belongs to the shell's
-  status bar and is loaded by the shell, not by whichever section happens to
-  be open.
+  status bar (`Options.StatusBar`) and is loaded in `Options.OnStart` and
+  `OnInvalidate`, not by whichever section happens to be open.
 - Appearance (scheme, font, text size, scale) persists through
   `fyne.Preferences` under `appearance.*` keys and nothing else does. Every
   setting a command-line front end can also see lives in the program's own

@@ -31,7 +31,7 @@ hand-synced copies.
 | `markdown` | A Markdown document pane that renders per block near the viewport and draws code blocks itself. |
 | `mermaid` | Build-time rendering of Mermaid diagrams to embedded PNG, and the widget that shows them. |
 | `dialogs` | Destructive confirmation, path and detail dialogs, file and folder choosers that do not crash. |
-| `shell` | The window skeleton: header, section nav, content pane, status bar, busy indicator, banners, section lifecycle. |
+| `shell` | The window skeleton: header, section nav, content pane, status bar, busy indicator, banners, `Perform`, section lifecycle, plus the standard Appearance and About sections. |
 | `fynetest` | Headless test helpers: tree walking, finders, text extraction, scrollable detection. |
 | `cmd/fynedesygn-gallery` | The reference program. Every component in every scheme, with `--section` and `--scheme` for screenshots. |
 | `cmd/fynedesygn-mermaid` | The `go generate` helper that renders diagrams. |

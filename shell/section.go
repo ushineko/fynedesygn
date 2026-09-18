@@ -1,0 +1,78 @@
+package shell
+
+import "fyne.io/fyne/v2"
+
+// Section is one entry in the navigation.
+//
+// Title must be computable before a Fyne app exists: flag help lists the
+// titles, and a theme icon constructed that early makes Fyne log "Attempt to
+// access current Fyne app when none is started". Icon is therefore only called
+// once the app exists. Build is stateless: the shell calls it again on every
+// change and throws the previous tree away.
+type Section interface {
+	Title() string
+	Icon() fyne.Resource
+	Build(s *Shell) fyne.CanvasObject
+}
+
+// Detacher is implemented by a section that holds live widgets (a list a
+// worker writes into) or a scroll callback. The shell calls Detach before it
+// builds the replacement, never after: built first and dropped afterwards, a
+// section registers its brand-new list and then has it thrown away by the
+// very call that put it on screen, so a running job streams into nothing.
+type Detacher interface {
+	Detach()
+}
+
+// FuncSection is a Section made of closures, for programs that do not want a
+// type per section.
+type FuncSection struct {
+	title  string
+	icon   func() fyne.Resource
+	build  func(*Shell) fyne.CanvasObject
+	detach func()
+}
+
+// NewSection builds a section from a title, a deferred icon and a builder.
+// icon may be nil for a section without one.
+func NewSection(title string, icon func() fyne.Resource, build func(*Shell) fyne.CanvasObject) *FuncSection {
+	return &FuncSection{title: title, icon: icon, build: build}
+}
+
+// OnDetach registers the hook the shell calls before this section is
+// replaced, and returns the section for chaining.
+func (f *FuncSection) OnDetach(fn func()) *FuncSection {
+	f.detach = fn
+	return f
+}
+
+// Title implements Section.
+func (f *FuncSection) Title() string { return f.title }
+
+// Icon implements Section; nil when the section has no icon.
+func (f *FuncSection) Icon() fyne.Resource {
+	if f.icon == nil {
+		return nil
+	}
+	return f.icon()
+}
+
+// Build implements Section.
+func (f *FuncSection) Build(s *Shell) fyne.CanvasObject { return f.build(s) }
+
+// Detach implements Detacher; a no-op without a hook.
+func (f *FuncSection) Detach() {
+	if f.detach != nil {
+		f.detach()
+	}
+}
+
+// Names lists the titles in order. It reads titles only, so it is safe to
+// call while parsing flags, before there is an app to hang an icon on.
+func Names(sections []Section) []string {
+	out := make([]string, 0, len(sections))
+	for _, s := range sections {
+		out = append(out, s.Title())
+	}
+	return out
+}

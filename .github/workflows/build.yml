@@ -25,8 +25,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-go@v5
+    - uses: actions/checkout@v5
+    - uses: actions/setup-go@v6
       with:
         go-version-file: go.mod
         check-latest: true
@@ -44,11 +44,14 @@ jobs:
     name: Lint + vulnerability scan
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-go@v5
+    - uses: actions/checkout@v5
+    # The test matrix builds with the minimum Go from go.mod. This job uses
+    # the latest stable Go instead, because govulncheck also reports standard
+    # library findings and the minimum's stdlib is behind on patches by
+    # design; `make lint` pins its own toolchain regardless.
+    - uses: actions/setup-go@v6
       with:
-        go-version-file: go.mod
-        check-latest: true
+        go-version: stable
     - name: Install Fyne build dependencies
       run: |
         sudo apt-get update

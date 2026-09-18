@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"image"
 	"image/color"
@@ -12,162 +13,53 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	fynetheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	fd "github.com/ushineko/fynedesygn"
+	"github.com/ushineko/fynedesygn/shell"
 	"github.com/ushineko/fynedesygn/table"
 	fdtheme "github.com/ushineko/fynedesygn/theme"
 	"github.com/ushineko/fynedesygn/widgets"
 )
 
-// section is one page of the gallery.
-type section struct {
-	title string
-	build func(*gallery) fyne.CanvasObject
-}
+// sections lists the pages in navigation order, with a fresh job demo. Titles
+// are readable before a Fyne app exists; icons are deferred by the shell.
+func sections() []shell.Section { return sectionsWith(newJobDemo()) }
 
-// sections lists the pages in nav order. It is a function so the titles can
-// be read before a Fyne app exists (for --help) without touching any theme
-// resource, which would log a warning about a missing app.
-func sections() []section {
-	return []section{
-		{"Appearance", buildAppearance},
-		{"Widgets", buildWidgets},
-		{"Table", buildTable},
-		{"Fonts", buildFonts},
+func sectionsWith(demo *jobDemo) []shell.Section {
+	return []shell.Section{
+		shell.AppearanceSection("2026-09-17 16:20:01 INFO  rendered 44 blocks in 3.1ms"),
+		shell.NewSection("Widgets", fynetheme.ListIcon, buildWidgets),
+		shell.NewSection("Table", fynetheme.StorageIcon, buildTable),
+		shell.NewSection("Fonts", fynetheme.DocumentIcon, buildFonts),
+		shell.NewSection("Shell", fynetheme.MediaPlayIcon, demo.build),
+		shell.AboutSection(shell.About{
+			Name:    "fynedesygn gallery",
+			Version: version,
+			Blurb: "The reference program for the fynedesygn design system: every component in every " +
+				"colour scheme, in one window, so a change is judged here before it is judged in a program.",
+			URL: "https://github.com/ushineko/fynedesygn",
+			Notes: []shell.Note{
+				{Title: "Appearance", Detail: "The standard picker every program gets from shell.AppearanceSection."},
+				{Title: "Widgets, Table, Fonts", Detail: "Each component drawn with its Go name as the caption."},
+				{Title: "Shell", Detail: "Perform, cancellation, banners and gating, driven by a fake job."},
+			},
+			Facts: []shell.Fact{
+				{Label: "Licence", Value: "MIT"},
+				{Label: "Fyne", Value: "v2.8.1"},
+				{Label: "Preferences", Value: "Fyne store for " + appID},
+			},
+		}),
 	}
-}
-
-// sectionNames are the titles, for flag help and the --section check.
-func sectionNames() []string {
-	all := sections()
-	names := make([]string, 0, len(all))
-	for _, s := range all {
-		names = append(names, s.title)
-	}
-	return names
-}
-
-// sectionIndex finds a section by title, case-insensitively; -1 when absent.
-func sectionIndex(name string) int {
-	for i, s := range sections() {
-		if strings.EqualFold(s.title, name) {
-			return i
-		}
-	}
-	return -1
-}
-
-// --- Appearance --------------------------------------------------------------
-
-func buildAppearance(g *gallery) fyne.CanvasObject {
-	a := &g.appearance
-
-	scheme := widget.NewSelect(fdtheme.SchemeNames(), func(name string) {
-		a.Scheme = name
-		g.applyAppearance()
-	})
-	scheme.SetSelected(a.Scheme)
-
-	font := widget.NewSelect(fdtheme.FontNames(), func(name string) {
-		a.Font = name
-		g.applyAppearance()
-	})
-	font.SetSelected(a.Font)
-
-	mono := widget.NewSelect(fdtheme.FontNames(), func(name string) {
-		a.Mono = name
-		g.applyAppearance()
-	})
-	mono.SetSelected(a.Mono)
-
-	sizes := make([]string, 0, len(fdtheme.TextSizes()))
-	for _, s := range fdtheme.TextSizes() {
-		sizes = append(sizes, fmt.Sprintf("%g", s))
-	}
-	size := widget.NewSelect(sizes, func(v string) {
-		for _, s := range fdtheme.TextSizes() {
-			if fmt.Sprintf("%g", s) == v {
-				a.TextSize = s
-				g.applyAppearance()
-				return
-			}
-		}
-	})
-	size.SetSelected(fmt.Sprintf("%g", a.TextSize))
-
-	scales := make([]string, 0, len(fdtheme.ScaleChoices()))
-	for _, s := range fdtheme.ScaleChoices() {
-		scales = append(scales, fdtheme.ScaleLabel(s))
-	}
-	scale := widget.NewSelect(scales, func(v string) {
-		a.Scale = fdtheme.ScaleValue(v)
-		g.applyAppearance()
-	})
-	scale.SetSelected(fdtheme.ScaleLabel(a.Scale))
-
-	reset := widget.NewButton("Reset to defaults", func() {
-		*a = fdtheme.DefaultAppearance()
-		scheme.SetSelected(a.Scheme)
-		font.SetSelected(a.Font)
-		mono.SetSelected(a.Mono)
-		size.SetSelected(fmt.Sprintf("%g", a.TextSize))
-		scale.SetSelected(fdtheme.ScaleLabel(a.Scale))
-		g.applyAppearance()
-	})
-
-	form := widget.NewForm(
-		widget.NewFormItem("Colour scheme", scheme),
-		widget.NewFormItem("Font", font),
-		widget.NewFormItem("Monospace font", mono),
-		widget.NewFormItem("Text size", size),
-		widget.NewFormItem("Interface scale", scale),
-	)
-
-	p := fdtheme.SchemeByName(a.Scheme)
-	swatches := container.NewGridWithColumns(6,
-		swatch("Window", p.WindowBG, p.WindowFG),
-		swatch("View", p.ViewBG, p.ViewFG),
-		swatch("Button", p.ButtonBG, p.ButtonFG),
-		swatch("Selection", p.SelectionBG, p.SelectionFG),
-		swatch("Header", p.ViewAltBG, p.ViewFG),
-		swatch("Tooltip", p.TooltipBG, p.WindowFG),
-	)
-
-	return container.NewVScroll(container.NewVBox(
-		widgets.Heading("Appearance",
-			"Every setting about how a window built on fynedesygn looks. Fyne draws its own widgets, "+
-				"so these choices are the whole of what makes it sit well next to the rest of the desktop."),
-		form,
-		container.NewHBox(reset),
-		widgets.Dim("The scheme, fonts, text size and scale are kept in Fyne's preference store under the "+
-			"appearance.* keys and nowhere else. The scale applies when the window next opens."),
-		widget.NewSeparator(),
-		fdtheme.Sample("2026-09-17 16:20:01 INFO  rendered 44 blocks in 3.1ms"),
-		widget.NewSeparator(),
-		widgets.Card("Scheme roles", swatches),
-		widgets.Dim(fmt.Sprintf("%s: dark=%v, corner radius %g, padding %g.", p.Name, p.Dark, p.Radius, p.Padding)),
-	))
-}
-
-// swatch draws one palette role as a filled square with its name on it in
-// the role's foreground colour, so a scheme can be read at a glance.
-func swatch(name string, bg, fg color.Color) fyne.CanvasObject {
-	rect := canvas.NewRectangle(bg)
-	rect.SetMinSize(fyne.NewSize(120, 48))
-	rect.CornerRadius = 4
-	text := canvas.NewText(name, fg)
-	text.Alignment = fyne.TextAlignCenter
-	return container.NewStack(rect, container.NewCenter(text))
 }
 
 // --- Widgets -----------------------------------------------------------------
 
-func buildWidgets(_ *gallery) fyne.CanvasObject {
-	actionRow, actionBtn := widgets.Action("Action", "A titled block with its consequences stated, and one button.", "Do it", false, func() {})
+func buildWidgets(_ *shell.Shell) fyne.CanvasObject {
+	actionRow, _ := widgets.Action("Action", "A titled block with its consequences stated, and one button.", "Do it", false, func() {})
 	dangerRow, _ := widgets.Action("Action, danger", "The same shape for something irreversible. The button is red; the dialog it opens says what is not touched.", "Remove...", true, func() {})
 	open := widget.NewButton("Open", func() {})
-	_ = actionBtn
 
 	demo := func(name string, o fyne.CanvasObject) fyne.CanvasObject {
 		return container.NewVBox(widgets.Dim("widgets."+name), o, widget.NewSeparator())
@@ -209,7 +101,7 @@ func buildWidgets(_ *gallery) fyne.CanvasObject {
 
 // --- Table -------------------------------------------------------------------
 
-func buildTable(_ *gallery) fyne.CanvasObject {
+func buildTable(_ *shell.Shell) fyne.CanvasObject {
 	plain := table.New()
 	plain.Header("Name", "Kind", "Size", "Verdict")
 	plain.Row(fd.StatusGood, "alpha.txt", "text", widgets.HumanSize(1200), "ok")
@@ -262,7 +154,7 @@ func squarePNG(c color.NRGBA) []byte {
 
 // --- Fonts -------------------------------------------------------------------
 
-func buildFonts(_ *gallery) fyne.CanvasObject {
+func buildFonts(_ *shell.Shell) fyne.CanvasObject {
 	names := fdtheme.FontNames()
 	t := table.New()
 	t.Header("Family", "Regular", "Bold", "Italic", "Bold italic")
@@ -294,4 +186,116 @@ func buildFonts(_ *gallery) fyne.CanvasObject {
 		nil, nil, nil,
 		t.Widget(),
 	)
+}
+
+// --- Shell -------------------------------------------------------------------
+
+// jobDemo is the fake job the Shell section runs: it drives Perform, the
+// cancellable form, the banners and the status bar, and shows what gating does
+// to buttons while it runs.
+type jobDemo struct {
+	runs      int
+	lastState string
+}
+
+func newJobDemo() *jobDemo { return &jobDemo{lastState: "idle"} }
+
+// statusBar is the segment the shell draws from every section.
+func (d *jobDemo) statusBar(_ *shell.Shell) []fyne.CanvasObject {
+	st := fd.StatusInfo
+	switch d.lastState {
+	case "finished":
+		st = fd.StatusGood
+	case "cancelled":
+		st = fd.StatusWarn
+	case "failed":
+		st = fd.StatusBad
+	}
+	return []fyne.CanvasObject{
+		widgets.Dim("job"), widgets.StatusText(d.lastState, st), widgets.Sep(),
+		widgets.Dim("runs"), widget.NewLabel(fmt.Sprintf("%d", d.runs)),
+	}
+}
+
+// swatch draws one palette role as a filled square with its name on it in
+// the role's foreground colour, so a scheme can be read at a glance.
+func swatch(name string, bg, fg color.Color) fyne.CanvasObject {
+	rect := canvas.NewRectangle(bg)
+	rect.SetMinSize(fyne.NewSize(120, 48))
+	rect.CornerRadius = 4
+	text := canvas.NewText(name, fg)
+	text.Alignment = fyne.TextAlignCenter
+	return container.NewStack(rect, container.NewCenter(text))
+}
+
+func (d *jobDemo) build(s *shell.Shell) fyne.CanvasObject {
+	job := func(ctx context.Context, seconds int, fail bool) error {
+		for i := 0; i < seconds*10; i++ {
+			select {
+			case <-ctx.Done():
+				fyne.Do(func() { d.lastState = "cancelled"; s.RedrawStatus() })
+				return ctx.Err()
+			case <-time.After(100 * time.Millisecond):
+			}
+		}
+		if fail {
+			fyne.Do(func() { d.lastState = "failed"; s.RedrawStatus() })
+			return fmt.Errorf("the job was asked to fail")
+		}
+		fyne.Do(func() {
+			d.runs++
+			d.lastState = "finished"
+			s.OK("The job finished.")
+		})
+		return nil
+	}
+	start := func(seconds int, cancellable, fail bool) func() {
+		return func() {
+			d.lastState = "running"
+			s.RedrawStatus()
+			fn := func(ctx context.Context) error { return job(ctx, seconds, fail) }
+			if cancellable {
+				s.PerformCancellable("Running the demo job...", fn)
+			} else {
+				s.Perform("Running the demo job...", fn)
+			}
+		}
+	}
+
+	quick := widget.NewButton("Run (3 s)", start(3, false, false))
+	long := widget.NewButton("Run cancellable (30 s)", start(30, true, false))
+	failing := widget.NewButton("Run and fail (2 s)", start(2, false, true))
+	failing.Importance = widget.DangerImportance
+	s.Gate(quick, long, failing)
+
+	banners := container.NewHBox(
+		widget.NewButton("Info", func() { s.Flash("An informational banner. It fades after six seconds.", fd.StatusInfo) }),
+		widget.NewButton("Good", func() { s.Flash("The operation succeeded.", fd.StatusGood) }),
+		widget.NewButton("Warn", func() { s.Flash("Something deserves attention. Warnings stay twelve seconds.", fd.StatusWarn) }),
+		widget.NewButton("Bad", func() { s.Flash("A failure. It stays until dismissed.", fd.StatusBad) }),
+	)
+
+	p := s.Appearance().Theme().Palette()
+	swatches := container.NewGridWithColumns(6,
+		swatch("Window", p.WindowBG, p.WindowFG),
+		swatch("View", p.ViewBG, p.ViewFG),
+		swatch("Button", p.ButtonBG, p.ButtonFG),
+		swatch("Selection", p.SelectionBG, p.SelectionFG),
+		swatch("Header", p.ViewAltBG, p.ViewFG),
+		swatch("Tooltip", p.TooltipBG, p.WindowFG),
+	)
+
+	return container.NewVScroll(container.NewVBox(
+		widgets.Heading("Shell", "The window skeleton and its runner. Every core call goes through Perform, which puts the busy popup up after 300 ms, refuses a second call, and reports failures as banners that stay."),
+		widgets.Card("shell.Perform / PerformCancellable",
+			widgets.Wrapped("The buttons below are gated: they disable while the job runs and come back when it stops, because the section is rebuilt from state at both transitions."),
+			container.NewHBox(quick, long, failing),
+			widgets.Dim(fmt.Sprintf("State: %s. Runs: %d. The status bar at the bottom shows the same from every section.", d.lastState, d.runs)),
+		),
+		widgets.Card("shell.Flash", widgets.Wrapped("One banner at a time, floated over the content, never inserted into it."), banners),
+		widgets.Card("Scheme roles",
+			swatches,
+			widgets.Dim(fmt.Sprintf("%s: dark=%v, corner radius %g, padding %g.", p.Name, p.Dark, p.Radius, p.Padding)),
+		),
+	))
 }

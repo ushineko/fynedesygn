@@ -269,3 +269,47 @@ func TestGateDisablesOnlyWhileWorking(t *testing.T) {
 	require.True(t, b.Disabled())
 	release()
 }
+
+func TestOnCreateRunsBeforeAnyBuilderAndThemeHookShapesTheTheme(t *testing.T) {
+	var got *Shell
+	order := []string{}
+	mono := &fdtheme.Font{}
+	o := testOptions(NewSection("A", nil, func(s *Shell) fyne.CanvasObject {
+		order = append(order, "build")
+		require.Same(t, got, s, "the builder sees the shell OnCreate stored")
+		return widget.NewLabel("a")
+	}))
+	o.OnCreate = func(s *Shell) { got = s; order = append(order, "create") }
+	o.Theme = func(a fdtheme.Appearance) fyne.Theme {
+		return fdtheme.New(fdtheme.SchemeByName(a.Scheme), fdtheme.Options{Mono: mono, TextSize: 17})
+	}
+	s := onScreen(t, o)
+	require.Same(t, got, s)
+	require.Equal(t, []string{"create", "build"}, order)
+	th, ok := s.App.Settings().Theme().(fdtheme.Theme)
+	require.True(t, ok)
+	require.InDelta(t, 17, th.TextSize(), 0.001, "the hook's theme is applied at start")
+
+	a := s.Appearance()
+	a.Scheme = "macOS Light"
+	s.SetAppearance(a)
+	th, _ = s.App.Settings().Theme().(fdtheme.Theme)
+	require.Equal(t, "macOS Light", th.Palette().Name)
+	require.InDelta(t, 17, th.TextSize(), 0.001, "and again on SetAppearance")
+}
+
+func TestTypedKeysNotTakenByTheShellReachTheProgram(t *testing.T) {
+	var keys []fyne.KeyName
+	invalidated := 0
+	o := testOptions(NewSection("A", nil, func(*Shell) fyne.CanvasObject { return widget.NewLabel("a") }))
+	o.OnTypedKey = func(e *fyne.KeyEvent) { keys = append(keys, e.Name) }
+	o.OnInvalidate = func(*Shell) { invalidated++ }
+	s := onScreen(t, o)
+	handler := s.Window.Canvas().OnTypedKey()
+	require.NotNil(t, handler)
+	handler(&fyne.KeyEvent{Name: fyne.KeyF5})
+	handler(&fyne.KeyEvent{Name: fyne.KeyRight})
+	handler(&fyne.KeyEvent{Name: fyne.KeySpace})
+	require.Equal(t, 1, invalidated, "F5 is the shell's")
+	require.Equal(t, []fyne.KeyName{fyne.KeyRight, fyne.KeySpace}, keys, "the rest are the program's")
+}

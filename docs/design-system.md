@@ -214,7 +214,11 @@ Border{
   not start a second fetch.
 - Program-wide state (a session, a service status) belongs to the shell's
   status bar (`Options.StatusBar`) and is loaded in `Options.OnStart` and
-  `OnInvalidate`, not by whichever section happens to be open.
+  `OnInvalidate`, not by whichever section happens to be open. A program
+  that keeps the shell in a field stores it in `Options.OnCreate`, which runs
+  before any builder; one whose theme depends on its own configuration (a
+  console font) supplies `Options.Theme`; keyboard navigation beyond the
+  shell's F5 goes through `Options.OnTypedKey`.
 - Appearance (scheme, font, text size, scale) persists through
   `fyne.Preferences` under `appearance.*` keys and nothing else does. Every
   setting a command-line front end can also see lives in the program's own

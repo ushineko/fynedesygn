@@ -1,6 +1,6 @@
 # fynedesygn
 
-**Version**: 0.1.0
+**Version**: 0.1.1
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -116,6 +116,11 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.1 (2026-09-18)
+
+Hooks the first adopter needed: `shell.Options.OnCreate`, `Theme` and
+`OnTypedKey` (spec 006). Additive.
 
 ### 0.1.0 (2026-09-18)
 

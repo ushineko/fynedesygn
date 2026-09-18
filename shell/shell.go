@@ -65,6 +65,19 @@ type Options struct {
 	// AlsoWorking reports program work that runs outside Perform (a job with
 	// its own step list). Working() includes it.
 	AlsoWorking func() bool
+	// OnCreate is called with the shell before anything else runs: before the
+	// first section is built, the status bar composed or OnStart called. A
+	// program that keeps the shell in a field stores it here, so its builders
+	// can rely on the field rather than on the argument each is handed.
+	OnCreate func(s *Shell)
+	// Theme, when set, builds the theme from the appearance wherever the shell
+	// would apply Appearance.Theme(): at start and in SetAppearance. A program
+	// that keeps a setting the theme needs outside the preference store (a
+	// console font in its own configuration file) supplies it here.
+	Theme func(a fdtheme.Appearance) fyne.Theme
+	// OnTypedKey receives every typed key the shell did not handle itself (it
+	// binds F5 to Invalidate). Sections with keyboard navigation use it.
+	OnTypedKey func(e *fyne.KeyEvent)
 }
 
 // Shell owns the window and everything transient in it.
@@ -108,7 +121,7 @@ func New(o Options) *Shell {
 	a := app.NewWithID(o.AppID)
 	s := newShell(a, o)
 	fdtheme.ApplyScale(s.appearance.Scale)
-	a.Settings().SetTheme(s.appearance.Theme())
+	a.Settings().SetTheme(s.theme())
 	if o.Icon != nil {
 		a.SetIcon(o.Icon)
 	}
@@ -138,7 +151,7 @@ func Run(o Options) {
 // OnStart is not called: a test decides what is loaded.
 func Headless(a fyne.App, o Options) *Shell {
 	s := newShell(a, o)
-	a.Settings().SetTheme(s.appearance.Theme())
+	a.Settings().SetTheme(s.theme())
 	return s
 }
 
@@ -151,7 +164,19 @@ func newShell(a fyne.App, o Options) *Shell {
 		s.oneRun = true
 	}
 	s.current = s.index(o.Section)
+	if o.OnCreate != nil {
+		o.OnCreate(s)
+	}
 	return s
+}
+
+// theme builds the theme for the current appearance, through the program's
+// Theme hook when it has one.
+func (s *Shell) theme() fyne.Theme {
+	if s.opts.Theme != nil {
+		return s.opts.Theme(s.appearance)
+	}
+	return s.appearance.Theme()
 }
 
 // buildWindow assembles the skeleton: header on top, status bar at the
@@ -199,6 +224,10 @@ func (s *Shell) buildWindow() {
 	s.Window.Canvas().SetOnTypedKey(func(e *fyne.KeyEvent) {
 		if e.Name == fyne.KeyF5 {
 			s.Invalidate()
+			return
+		}
+		if o.OnTypedKey != nil {
+			o.OnTypedKey(e)
 		}
 	})
 
@@ -281,12 +310,14 @@ func (s *Shell) OnScreen() bool { return s.content != nil }
 // Appearance is the current look-and-feel choices.
 func (s *Shell) Appearance() fdtheme.Appearance { return s.appearance }
 
-// SetAppearance applies choices to the running app and saves them, except the
-// scheme while a one-run override is in force: that run must not overwrite
-// what the user had chosen.
+// SetAppearance applies choices to the running app (through Options.Theme
+// when set) and saves them, except the scheme while a one-run override is in
+// force: that run must not overwrite what the user had chosen. A program whose
+// theme depends on something outside the appearance calls it again with the
+// same appearance when that something changes.
 func (s *Shell) SetAppearance(a fdtheme.Appearance) {
 	s.appearance = a
-	s.App.Settings().SetTheme(a.Theme())
+	s.App.Settings().SetTheme(s.theme())
 	saved := a
 	if s.oneRun {
 		saved.Scheme = fdtheme.LoadAppearance(s.App.Preferences()).Scheme

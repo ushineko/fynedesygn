@@ -84,7 +84,7 @@ func buildDialogs(s *shell.Shell) fyne.CanvasObject {
 		widgets.Card("dialogs.WithBrowse / OpenPath",
 			dialogs.WithBrowse(win, path, false),
 			container.NewHBox(open),
-			widgets.Dim("Browse opens the file chooser starting at the field's directory, its parent, or home."),
+			widgets.DimWrapped("Browse opens the file chooser starting at the field's directory, its parent, or home."),
 		),
 		widgets.Card("dialogs.Decide",
 			widgets.Wrapped("A yes-or-no question asked from a worker goroutine through fyne.Do and a channel. Never called on the UI thread."),
@@ -142,7 +142,7 @@ func (d *logDemo) build(s *shell.Shell) fyne.CanvasObject {
 			Flash:     s.Flash,
 			OnClear:   func() {},
 		}),
-		widgets.Dim("Copy puts the whole log on the clipboard with a line saying how many older rows were dropped; Clear empties it."),
+		widgets.DimWrapped("Copy puts the whole log on the clipboard with a line saying how many older rows were dropped; Clear empties it."),
 	)
 }
 

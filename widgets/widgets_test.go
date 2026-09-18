@@ -208,3 +208,12 @@ func TestStatusColorFollowsTheActiveTheme(t *testing.T) {
 	require.Equal(t, th.Color("error", v), StatusColor(fd.StatusBad))
 	require.Equal(t, th.Color("primary", v), StatusColor(fd.StatusInfo))
 }
+
+func TestDimWrappedFitsTheWidthItIsGiven(t *testing.T) {
+	test.NewTempApp(t)
+	long := "A long explanatory note that would otherwise set the minimum width of its section to the whole unwrapped line and make the shell scroll sideways."
+	o := DimWrapped(long)
+	o.Resize(fyne.NewSize(300, 200))
+	require.LessOrEqual(t, o.MinSize().Width, float32(300))
+	require.Greater(t, Dim(long).MinSize().Width, float32(300), "Dim is the unwrapped label")
+}

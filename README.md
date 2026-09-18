@@ -1,6 +1,6 @@
 # fynedesygn
 
-**Version**: 0.1.1
+**Version**: 0.1.2
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -116,6 +116,14 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.2 (2026-09-18)
+
+Fix: the Appearance section's notes were unwrapped labels, so the section's
+minimum width was the whole line and the window scrolled sideways (seen on
+Windows in clockwork-orange 4.1.0). New `widgets.DimWrapped` for secondary
+paragraphs; every long note uses it; a test holds the section to a 500 px
+viewport.
 
 ### 0.1.1 (2026-09-18)
 

@@ -145,6 +145,6 @@ func buildSettings(s *shell.Shell, d *document) fyne.CanvasObject {
 		widgets.Heading("Settings", "A form over a JSON file. Changes save themselves a second after you stop; Revert reads the file back into the fields."),
 		f.Widget(),
 		container.NewHBox(saveNow, revert),
-		widgets.Dim("The form's widgets are held apart from the section, so Revert can put values back at once instead of waiting for a rebuild."),
+		widgets.DimWrapped("The form's widgets are held apart from the section, so Revert can put values back at once instead of waiting for a rebuild."),
 	))
 }

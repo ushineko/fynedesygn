@@ -232,7 +232,7 @@ func buildFonts(_ *shell.Shell) fyne.CanvasObject {
 	return container.NewBorder(
 		container.NewVBox(
 			widgets.Heading("Fonts", "What the scanner found in this machine's font directories. Fyne does not consult fontconfig, so this is what is on disk, not what the desktop is configured to use."),
-			widgets.Dim(fmt.Sprintf("%d families offered. Variable fonts are skipped; families without a regular face are not offered.", len(names)-1)),
+			widgets.DimWrapped(fmt.Sprintf("%d families offered. Variable fonts are skipped; families without a regular face are not offered.", len(names)-1)),
 		),
 		nil, nil, nil,
 		t.Widget(),
@@ -341,12 +341,12 @@ func (d *jobDemo) build(s *shell.Shell) fyne.CanvasObject {
 		widgets.Card("shell.Perform / PerformCancellable",
 			widgets.Wrapped("The buttons below are gated: they disable while the job runs and come back when it stops, because the section is rebuilt from state at both transitions."),
 			container.NewHBox(quick, long, failing),
-			widgets.Dim(fmt.Sprintf("State: %s. Runs: %d. The status bar at the bottom shows the same from every section.", d.lastState, d.runs)),
+			widgets.DimWrapped(fmt.Sprintf("State: %s. Runs: %d. The status bar at the bottom shows the same from every section.", d.lastState, d.runs)),
 		),
 		widgets.Card("shell.Flash", widgets.Wrapped("One banner at a time, floated over the content, never inserted into it."), banners),
 		widgets.Card("Scheme roles",
 			swatches,
-			widgets.Dim(fmt.Sprintf("%s: dark=%v, corner radius %g, padding %g.", p.Name, p.Dark, p.Radius, p.Padding)),
+			widgets.DimWrapped(fmt.Sprintf("%s: dark=%v, corner radius %g, padding %g.", p.Name, p.Dark, p.Radius, p.Padding)),
 		),
 	))
 }

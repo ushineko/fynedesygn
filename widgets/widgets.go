@@ -48,6 +48,18 @@ func Dim(s string) fyne.CanvasObject {
 // Sep is the dot that separates the facts on a status line.
 func Sep() fyne.CanvasObject { return widget.NewLabel("·") }
 
+// DimWrapped is a secondary paragraph: Wrapped at low importance. Use it for
+// explanatory notes under a form or a control. Dim is for short labels only;
+// a long note in a Dim would set the section's minimum width to the unwrapped
+// line, and the shell's scroller would then scroll sideways instead of
+// wrapping.
+func DimWrapped(text string) fyne.CanvasObject {
+	l := widget.NewLabel(text)
+	l.Wrapping = fyne.TextWrapWord
+	l.Importance = widget.LowImportance
+	return l
+}
+
 // Wrapped is a paragraph that reflows rather than running off the edge. Used
 // for the sentences in dialogs, which are the ones that state consequences.
 func Wrapped(text string) fyne.CanvasObject {

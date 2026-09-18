@@ -313,3 +313,20 @@ func TestTypedKeysNotTakenByTheShellReachTheProgram(t *testing.T) {
 	require.Equal(t, 1, invalidated, "F5 is the shell's")
 	require.Equal(t, []fyne.KeyName{fyne.KeyRight, fyne.KeySpace}, keys, "the rest are the program's")
 }
+
+// The section must fit the width it is given. A long note in an unwrapped
+// label sets the section's minimum width to the whole line, and the shell's
+// two-axis scroller then scrolls sideways instead of wrapping: the Appearance
+// section shipped that way once and showed a horizontal scrollbar on Windows.
+func TestTheAppearanceSectionFitsANarrowViewportWithoutSidewaysScroll(t *testing.T) {
+	fdtheme.RescanFonts(t.TempDir())
+	t.Cleanup(func() { fdtheme.RescanFonts() })
+	s := headless(t, testOptions(AppearanceSection("$ make test")))
+	for _, width := range []float32{700, 500} {
+		o := s.Current().Build(s)
+		w := test.NewWindow(o)
+		w.Resize(fyne.NewSize(width, 900))
+		require.LessOrEqual(t, o.MinSize().Width, width, "at %g wide", width)
+		w.Close()
+	}
+}

@@ -159,6 +159,10 @@ Border{
 - Interface scale is a preference written into `FYNE_SCALE` after the app
   exists and before the window does; an explicit environment value wins.
   Changing it needs a restart of the window.
+- Prose longer than a short label wraps (`widgets.Wrapped`, `DimWrapped`,
+  `Note`). `Dim` is for short labels only: a long note in an unwrapped label
+  sets the section's minimum width to the whole line, and the shell's
+  two-axis scroller then scrolls sideways instead of wrapping.
 - No arrow glyphs or other symbols outside the bundled font's coverage in
   labels: they draw from a fallback face and the shaper marks the run boundary
   as a missing glyph. Use words or theme icons.

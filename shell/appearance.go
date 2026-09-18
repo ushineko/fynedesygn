@@ -91,18 +91,18 @@ func buildAppearance(s *Shell, monoSample string) fyne.CanvasObject {
 			"How this window looks. Fyne draws its own widgets, so this is what decides whether it sits well next to the rest of your desktop."),
 		form,
 		container.NewHBox(reset),
-		widgets.Dim("These settings are kept in Fyne's own preference store and apply to this program only. "+
+		widgets.DimWrapped("These settings are kept in Fyne's own preference store and apply to this program only. "+
 			"Every other setting lives in the program's configuration, where its command line can see it too."),
 		widget.NewSeparator(),
 		fdtheme.Sample(monoSample),
 		widget.NewSeparator(),
-		widgets.Dim("The KDE schemes are transcribed from the desktop's colour-scheme files, the Adwaita ones from "+
+		widgets.DimWrapped("The KDE schemes are transcribed from the desktop's colour-scheme files, the Adwaita ones from "+
 			"libadwaita's named colours, the Windows and macOS ones from their published design tokens. They are "+
 			"compiled in, so the window does not follow the desktop's current scheme and needs no desktop installed."),
-		widgets.Dim("Fonts are read from the system font directories. Fyne draws its own text and does not consult "+
+		widgets.DimWrapped("Fonts are read from the system font directories. Fyne draws its own text and does not consult "+
 			"fontconfig, so this list is what was found on disk rather than what the desktop is configured to use. "+
 			"A family with no bold or italic face is drawn in its regular face for those styles."),
-		widgets.Dim("Interface scale enlarges everything in the window, text included, on top of the desktop's own "+
+		widgets.DimWrapped("Interface scale enlarges everything in the window, text included, on top of the desktop's own "+
 			"scale. Fyne draws text without hinting, which on a fractionally scaled desktop reads soft at the "+
 			"default size; 1.2 is usually enough. It takes effect when the window is opened."),
 	))

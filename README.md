@@ -1,6 +1,6 @@
 # fynedesygn
 
-**Version**: 0.1.2
+**Version**: 0.1.3
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -116,6 +116,14 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.3 (2026-09-18)
+
+Second adopter feedback (spec 007): `steps.Advance` never reopens a finished
+step, `steps.NewSteps` with standing notes that `Reset` keeps,
+`logpane.Pane.SetFollowing`, `shell.Load`, `shell.About.URLText`. Behaviour
+change: `forms.SliderEntry` passes a typed value to `Commit` as typed (the
+controls still show it clamped) so a program can clamp and report itself.
 
 ### 0.1.2 (2026-09-18)
 

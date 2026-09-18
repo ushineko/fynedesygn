@@ -97,15 +97,29 @@ type row struct {
 // List holds the steps and, while a section shows it, their rows. All
 // methods are for the UI thread: a worker hops with fyne.Do first.
 type List struct {
-	steps []Step
-	rows  []row
+	steps   []Step
+	initial []Step // what Reset restores: the names and their standing notes
+	rows    []row
 }
 
-// New makes a list of pending steps.
+// New makes a list of pending steps with no notes.
 func New(names ...string) *List {
-	l := &List{steps: make([]Step, len(names))}
+	steps := make([]Step, len(names))
 	for i, n := range names {
-		l.steps[i] = Step{Name: n}
+		steps[i] = Step{Name: n}
+	}
+	return NewSteps(steps...)
+}
+
+// NewSteps makes a list from steps whose notes are standing notes: shown
+// before the run reaches them ("the game install and the mod library") and
+// restored by Reset. Their states start Pending whatever was passed.
+func NewSteps(steps ...Step) *List {
+	l := &List{steps: make([]Step, len(steps)), initial: make([]Step, len(steps))}
+	for i, st := range steps {
+		st.State = Pending
+		l.steps[i] = st
+		l.initial[i] = st
 	}
 	return l
 }
@@ -123,12 +137,18 @@ func (l *List) Set(i int, st State, note string) {
 }
 
 // Advance marks step i running and every earlier step that is not finished
-// done, for a job that reports where it is rather than what it finished.
+// done, for a job that reports where it is rather than what it finished. A
+// step that is already done, failed or cancelled is left alone: a late
+// message for a finished step (a slow filesystem reporting one more item
+// after the next phase began) must not walk the list backwards.
 func (l *List) Advance(i int, note string) {
 	for j := 0; j < i && j < len(l.steps); j++ {
 		if l.steps[j].State == Pending || l.steps[j].State == Running {
 			l.Set(j, Done, l.steps[j].Note)
 		}
+	}
+	if i >= 0 && i < len(l.steps) && l.steps[i].State != Pending && l.steps[i].State != Running {
+		return
 	}
 	l.Set(i, Running, note)
 }
@@ -146,10 +166,11 @@ func (l *List) Stop(st State, note string) {
 	}
 }
 
-// Reset puts every step back to pending with no note.
+// Reset puts every step back to pending with its standing note (the note it
+// was created with; none for New).
 func (l *List) Reset() {
 	for i := range l.steps {
-		l.Set(i, Pending, "")
+		l.Set(i, Pending, l.initial[i].Note)
 	}
 }
 

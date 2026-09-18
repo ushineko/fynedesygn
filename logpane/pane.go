@@ -77,6 +77,17 @@ func (p *Pane) Model() *Model { return p.log }
 // Following reports whether the pane is scrolling to the end.
 func (p *Pane) Following() bool { return p.follow }
 
+// SetFollowing turns following on or off and redraws, so a program can
+// re-arm the tail when a new job starts after the reader scrolled up during
+// the previous one. The Follow box shows the new state.
+func (p *Pane) SetFollowing(on bool) {
+	p.follow = on
+	if on {
+		p.wantOffset = 0
+	}
+	p.Draw()
+}
+
 // Detach forgets the live widgets. Called when the content pane is replaced.
 func (p *Pane) Detach() {
 	p.list, p.counter, p.followBox, p.stamp = nil, nil, nil, nil

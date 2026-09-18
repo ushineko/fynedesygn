@@ -17,6 +17,9 @@ type SliderOptions struct {
 	// Format renders a value for the entry; nil uses %g.
 	Format func(float64) string
 	// Commit receives the value once per gesture: slider release or Enter.
+	// A typed value is passed as typed, outside Min..Max included, so the
+	// program can clamp it itself and say so; the controls show the value
+	// clamped until the program calls Set with what it stored.
 	Commit func(float64)
 	// OnInvalid is told about text that is not a number; nil ignores it. The
 	// entry is restored to the current value either way.
@@ -77,10 +80,11 @@ func NewSliderEntry(o SliderOptions) *SliderEntry {
 	return s
 }
 
-// commit clamps, records and reports one value, and brings both controls to it.
+// commit shows the value clamped to the range and reports it as given, so
+// a program that clamps and reports ("only takes 1 to 10, so 10 was used")
+// still sees what was typed.
 func (s *SliderEntry) commit(v float64) {
-	v = min(max(v, s.opts.Min), s.opts.Max)
-	s.Set(v)
+	s.Set(min(max(v, s.opts.Min), s.opts.Max))
 	if s.opts.Commit != nil {
 		s.opts.Commit(v)
 	}

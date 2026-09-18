@@ -112,9 +112,12 @@ func TestSliderEntryCommitsOncePerGesture(t *testing.T) {
 	require.Equal(t, "80", s.Entry().Text)
 	require.Len(t, commits, 2)
 
-	// Out of range clamps; Set moves both without committing.
+	// Out of range: the controls show the clamped value, the program gets
+	// what was typed and decides what to store.
 	s.Entry().OnSubmitted("500")
-	require.InDelta(t, 100, commits[len(commits)-1], 0.001)
+	require.InDelta(t, 500, commits[len(commits)-1], 0.001)
+	require.InDelta(t, 100, s.Slider().Value, 0.001)
+	require.Equal(t, "100", s.Entry().Text)
 	s.Set(10)
 	require.Equal(t, "10", s.Entry().Text)
 	require.InDelta(t, 10, s.Slider().Value, 0.001)

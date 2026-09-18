@@ -330,3 +330,19 @@ func TestTheAppearanceSectionFitsANarrowViewportWithoutSidewaysScroll(t *testing
 		w.Close()
 	}
 }
+
+func TestLoadRunsInlineHeadlesslyAndDoesNotRefuseWhileWorking(t *testing.T) {
+	s := headless(t, testOptions(NewSection("A", nil, nil)))
+	release := s.Busy("Something else...")
+	ran := false
+	s.Load("Reading the listing...", func(context.Context) error { ran = true; return nil })
+	require.True(t, ran, "a load runs beside other work")
+	release()
+	s.Load("Reading...", func(context.Context) error { return errors.New("disk gone") })
+	require.Equal(t, "Reading... failed: disk gone", s.FlashText())
+}
+
+func TestAboutLinkCaptionIsTheURLUnlessGiven(t *testing.T) {
+	s := headless(t, testOptions(AboutSection(About{Name: "d", URL: "https://example.invalid/x", URLText: "Project documentation"})))
+	require.Contains(t, fynetest.Text(s.Current().Build(s)), "Project documentation")
+}

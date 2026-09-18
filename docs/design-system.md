@@ -185,8 +185,9 @@ Border{
 
 ## Progress and results
 
-- Every long call goes through `shell.Perform` (or a loader that calls
-  `shell.Busy`) and gets a busy indicator, not just the obviously slow ones. A
+- Every long call goes through `shell.Perform` (an operation, one at a time)
+  or `shell.Load` (a section's data load, allowed beside other work) and gets
+  a busy indicator, not just the obviously slow ones. A
   window that sits still with no explanation reads as frozen, and the button
   that looks like it did nothing is the button that gets clicked twice.
 - The busy indicator is a centred modal popup with an infinite progress bar,

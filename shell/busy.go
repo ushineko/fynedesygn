@@ -235,3 +235,28 @@ func (s *Shell) OK(msg string) {
 	s.Flash(msg, fd.StatusGood)
 	s.Invalidate()
 }
+
+/*
+Load runs a section's data load off the UI thread with the busy indicator
+up. Unlike Perform it does not refuse while something else is working: a
+section may start several loads, and a load may run beside an operation.
+With no window (a headless test) the function runs inline, for the same
+reason Perform does. The loader sets its loaded flag before calling Load so
+a rebuild mid-load does not start a second one, and hops back with fyne.Do
+to store the result and Refresh.
+*/
+func (s *Shell) Load(what string, fn func(ctx context.Context) error) {
+	if !s.OnScreen() {
+		if err := fn(context.Background()); err != nil {
+			s.Report(what, err)
+		}
+		return
+	}
+	go func() {
+		done := s.Busy(what)
+		defer done()
+		if err := fn(context.Background()); err != nil {
+			fyne.Do(func() { s.Report(what, err) })
+		}
+	}()
+}

@@ -130,3 +130,19 @@ func TestPumpDrawsOnATimerAndOnceMoreAfterStop(t *testing.T) {
 	require.False(t, p.updated.IsZero(), "the pump touched the stamp")
 	require.Contains(t, fynetest.Text(o), "2 line(s)", "the final draw after stop shows the late line")
 }
+
+func TestSetFollowingReArmsTheTailAndTheBoxSaysSo(t *testing.T) {
+	fynetest.App(t)
+	p := New(nil)
+	o := p.Widget(Options{Title: "Job"})
+	w := test.NewWindow(o)
+	defer w.Close()
+	w.Resize(fyne.NewSize(600, 300))
+	fynetest.FindCheck(o).SetChecked(false)
+	require.False(t, p.Following())
+	p.SetFollowing(true)
+	require.True(t, p.Following())
+	require.True(t, fynetest.FindCheck(o).Checked)
+	p.Detach()
+	require.NotPanics(t, func() { p.SetFollowing(false) })
+}

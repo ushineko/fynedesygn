@@ -21,8 +21,9 @@ type About struct {
 	Icon fyne.Resource
 	// Name and Version head the section; Blurb is one wrapped paragraph.
 	Name, Version, Blurb string
-	// URL, when set, is a hyperlink under the blurb.
-	URL string
+	// URL, when set, is a hyperlink under the blurb; URLText is its caption,
+	// the URL itself when empty.
+	URL, URLText string
 	// Notes are the "What it does" blocks: a bold title over a dim paragraph.
 	Notes []Note
 	// Facts are the "Facts" form: licence, configuration path, and the like.
@@ -64,7 +65,11 @@ func buildAbout(s *Shell, a About) fyne.CanvasObject {
 	items := []fyne.CanvasObject{top}
 	if a.URL != "" {
 		if u, err := url.Parse(a.URL); err == nil {
-			items = append(items, widget.NewHyperlink(a.URL, u))
+			text := a.URLText
+			if text == "" {
+				text = a.URL
+			}
+			items = append(items, widget.NewHyperlink(text, u))
 		}
 	}
 	if len(a.Notes) > 0 {

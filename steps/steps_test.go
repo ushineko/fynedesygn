@@ -52,3 +52,24 @@ func TestSetAfterDetachKeepsStateForTheNextWidget(t *testing.T) {
 	require.Equal(t, fd.StatusBad, l.Steps()[0].State.Status())
 	require.NotNil(t, Running.Icon())
 }
+
+func TestAdvanceNeverReopensAFinishedStepAndResetKeepsStandingNotes(t *testing.T) {
+	fynetest.App(t)
+	l := NewSteps(Step{Name: "Read", Note: "the game install and the mod library"}, Step{Name: "Merge"}, Step{Name: "Compile"})
+	require.Equal(t, "the game install and the mod library", l.Steps()[0].Note)
+	require.Equal(t, Pending, l.Steps()[0].State)
+	l.Advance(1, "merging")
+	require.Equal(t, Done, l.Steps()[0].State)
+	l.Advance(0, "one more file, late") // a stale message for a finished step
+	require.Equal(t, Done, l.Steps()[0].State, "never backwards")
+	require.Equal(t, Running, l.Steps()[1].State)
+	l.Stop(Failed, "boom")
+	l.Advance(1, "again")
+	require.Equal(t, Failed, l.Steps()[1].State, "a failed step stays failed")
+	l.Reset()
+	require.Equal(t, "the game install and the mod library", l.Steps()[0].Note, "standing notes survive Reset")
+	require.Empty(t, l.Steps()[1].Note)
+	for _, s := range l.Steps() {
+		require.Equal(t, Pending, s.State)
+	}
+}

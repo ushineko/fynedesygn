@@ -654,3 +654,31 @@ func TestARefusalSaysWhatIsRunningAndWhatToDo(t *testing.T) {
 	require.Contains(t, s.BusyReason(), "Something else is running",
 		"with nothing holding the indicator there is no name to give")
 }
+
+/*
+A refusal is explained only when the refusal needs explaining.
+
+The busy popup is modal: while it is up, a click cannot reach a control, so a
+second operation cannot be asked for by hand and there is nothing to tell
+anybody. Saying it anyway left a banner on screen for twelve seconds after the
+work it described had finished.
+*/
+func TestNothingIsSaidWhileTheModalPopupIsUp(t *testing.T) {
+	s := onScreen(t, testOptions(NewSection("A", nil, blank)))
+	release := s.Busy("Reading the game...")
+	t.Cleanup(release)
+
+	// Before the popup appears, a click does land, so a button that did nothing
+	// is all the user has to go on.
+	require.Nil(t, s.busyPopup())
+	s.Perform("Second...", func(context.Context) error { return nil })
+	require.Contains(t, s.FlashText(), "Reading the game is still running")
+	s.ClearFlash()
+
+	require.Eventually(t, func() bool { return s.busyPopup() != nil },
+		2*time.Second, 20*time.Millisecond, "the popup never appeared")
+
+	// With it up, the user can see what is happening, so nothing is said.
+	s.Perform("Third...", func(context.Context) error { return nil })
+	require.Empty(t, s.FlashText(), "the popup already says what is running")
+}

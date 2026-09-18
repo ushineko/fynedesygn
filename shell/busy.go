@@ -148,6 +148,29 @@ func (s *Shell) BusyWhat() string {
 }
 
 /*
+SayBusy explains a refusal, when the refusal needs explaining.
+
+The busy popup is modal: while it is up, a click cannot reach a control, so a
+second operation cannot be asked for by hand and there is nothing to explain.
+Saying it anyway left a banner sitting on screen for twelve seconds after the
+work it described had finished.
+
+It is still worth saying when there is no popup: in the 300 ms before one
+appears, a click does land, and work the program reports through
+Options.AlsoWorking shows no popup at all. Then a button that did nothing is all
+the user has to go on.
+
+An Info banner rather than a Warn one. Nothing is wrong and there is nothing to
+act on -- the answer is "not yet" -- and a warning stays twice as long.
+*/
+func (s *Shell) SayBusy() {
+	if s.busyPopup() != nil {
+		return
+	}
+	s.Flash(s.BusyReason(), fd.StatusInfo)
+}
+
+/*
 BusyReason is what to tell someone who asked for a second operation.
 
 It names what is already running, because "something is already running" is a
@@ -323,7 +346,7 @@ func (s *Shell) PerformCancellable(what string, fn func(ctx context.Context) err
 
 func (s *Shell) perform(what string, cancellable bool, fn func(ctx context.Context) error) {
 	if s.Working() {
-		s.Flash(s.BusyReason(), fd.StatusWarn)
+		s.SayBusy()
 		return
 	}
 	if !s.OnScreen() {

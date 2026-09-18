@@ -117,6 +117,14 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.21 (2026-09-18)
+
+A refused operation is explained only when the explanation is needed. The busy
+popup is modal, so while it is up a click cannot reach a control and there is
+nothing to say — the banner was sitting on screen for twelve seconds after the
+work it described had finished. `Shell.SayBusy` replaces the direct `Flash`, and
+says it as an Info rather than a Warn.
+
 ### 0.1.20 (2026-09-18)
 
 A refused operation says what is running. "Something is already running" told

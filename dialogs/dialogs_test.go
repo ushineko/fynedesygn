@@ -69,11 +69,14 @@ func TestPickerStartPrefersTheFieldThenItsParentThenHome(t *testing.T) {
 	file := filepath.Join(dir, "a.txt")
 	require.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
 
-	require.Equal(t, dir, PickerStart(dir).Path())
-	require.Equal(t, dir, PickerStart(file).Path(), "a file opens in its directory")
-	require.Equal(t, dir, PickerStart("~/work").Path(), "a tilde is the home directory")
-	require.Equal(t, home, PickerStart("/nonsense/that/does/not/exist").Path())
-	require.Equal(t, home, PickerStart("").Path())
+	// Fyne's URI paths use forward slashes on every platform; compare in
+	// that form so the test holds on Windows.
+	at := func(lu fyne.ListableURI) string { return filepath.ToSlash(lu.Path()) }
+	require.Equal(t, filepath.ToSlash(dir), at(PickerStart(dir)))
+	require.Equal(t, filepath.ToSlash(dir), at(PickerStart(file)), "a file opens in its directory")
+	require.Equal(t, filepath.ToSlash(dir), at(PickerStart("~/work")), "a tilde is the home directory")
+	require.Equal(t, filepath.ToSlash(home), at(PickerStart("/nonsense/that/does/not/exist")))
+	require.Equal(t, filepath.ToSlash(home), at(PickerStart("")))
 }
 
 // Canary #1 (docs/fyne-quirks.md): a file dialog resized before Show

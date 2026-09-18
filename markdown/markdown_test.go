@@ -107,7 +107,9 @@ func TestBlocksKeepFencedCodeWholeAndEveryLine(t *testing.T) {
 	require.Equal(t, []string{"intro", "```\nfirst\n\nsecond\n```", "after"},
 		Blocks("intro\n\n```\nfirst\n\nsecond\n```\n\nafter"))
 
-	src := readme(t)
+	// A Windows checkout may carry CRLF; Blocks normalises it, so the
+	// expectation must too.
+	src := strings.ReplaceAll(readme(t), "\r\n", "\n")
 	var got []string
 	for _, b := range Blocks(src) {
 		got = append(got, strings.Split(b, "\n")...)

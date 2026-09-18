@@ -1,0 +1,4 @@
+# Keep line endings LF everywhere: documents are embedded and hashed, and
+# the shell script must not gain CRs on a Windows checkout.
+* text=auto eol=lf
+*.png binary

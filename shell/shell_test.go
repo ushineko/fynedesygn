@@ -437,11 +437,19 @@ func TestArriveIsNavigationOnlyAndRebuildsDoNotCount(t *testing.T) {
 	s.Select("B")
 	require.Equal(t, []string{"detach A", "arrive B", "build B"}, log)
 
-	// AC4: away and back arrives again.
+	// AC4: away and back arrives again, once.
 	log = nil
 	s.Select("A")
 	require.Contains(t, log, "arrive A")
 	require.Equal(t, 1, countOf(log, "arrive A"))
+
+	// AC4, the other half: selecting the section already current does nothing
+	// at all -- Fyne's list does not re-fire OnSelected for the row that is
+	// already selected, so it neither arrives nor rebuilds, and a section is
+	// not redrawn out from under someone clicking the entry they are on.
+	log = nil
+	s.Select("A")
+	require.Empty(t, log, "reselecting the current section must not rebuild it")
 }
 
 // AC5: off screen nothing is built, so nothing arrives either. A headless test

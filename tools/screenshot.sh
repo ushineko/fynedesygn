@@ -98,28 +98,35 @@ trap cleanup EXIT
 capture() {
     local sect="$1" dest="$2"
 
-    # Wait for any previous instance to be gone before starting the next. Two
-    # windows of the same class at once means `search --class | head -1` can
-    # return the one that is on its way out.
-    local gone=0
-    while [ "$gone" -lt 40 ]; do
-        [ -z "$(timeout 10 kdotool search --class "$CLASS" 2>/dev/null || true)" ] && break
-        sleep 0.25
-        gone=$((gone + 1))
-    done
-
     HOME="$HOME_DIR" XDG_CONFIG_HOME="$HOME_DIR/.config" XDG_DATA_HOME="$HOME_DIR/.local/share" \
         "$BIN" --section "$sect" ${scheme:+--scheme "$scheme"} >/dev/null 2>&1 &
     local pid=$!
     # shellcheck disable=SC2064  # pid is captured deliberately, at trap-set time
     trap "kill $pid 2>/dev/null || true; wait $pid 2>/dev/null || true" RETURN
 
-    # Poll rather than sleeping a fixed time: a cold start after a rebuild is
-    # much slower than a warm one, and a fixed wait is either flaky or wasteful.
-    local wid="" waited=0
+    # Find the window by the process we started, not by class alone: the
+    # developer's own copy of the program may be running (hidden in a tray),
+    # and a class search returns it first, so every capture would be of that
+    # window. Poll rather than sleeping a fixed time: a cold start after a
+    # rebuild is much slower than a warm one. Some compositors cannot report
+    # a window's pid; after the pid search has had its chance, fall back to
+    # the class and say so.
+    local wid="" waited=0 w
     while [ "$waited" -lt 40 ]; do
-        wid=$(timeout 10 kdotool search --class "$CLASS" 2>/dev/null | head -1 || true)
+        for w in $(timeout 10 kdotool search --class "$CLASS" 2>/dev/null || true); do
+            if [ "$(timeout 10 kdotool getwindowpid "$w" 2>/dev/null || true)" = "$pid" ]; then
+                wid=$w
+                break
+            fi
+        done
         [ -n "$wid" ] && break
+        if [ "$waited" -ge 24 ]; then
+            wid=$(timeout 10 kdotool search --class "$CLASS" 2>/dev/null | head -1 || true)
+            if [ -n "$wid" ]; then
+                echo "  note: no window of class $CLASS reports pid $pid; using the first one" >&2
+                break
+            fi
+        fi
         sleep 0.25
         waited=$((waited + 1))
     done

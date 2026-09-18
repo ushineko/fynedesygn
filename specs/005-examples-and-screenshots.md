@@ -3,7 +3,7 @@
 > **Note**: This work has no associated issue tracker ticket. The repository
 > is a personal public project without an issue tracker.
 
-## Status: INCOMPLETE (AC9 waits for the CI run of this commit; everything else verified 2026-09-18)
+## Status: COMPLETE
 
 ## Executive Summary
 
@@ -120,9 +120,8 @@ runs on `shell.Run`, and has a headless test building every section.
   README shows six. macOS Dark and Windows Light were captured as well and
   checked by eye: rounder corners and system blue for one, flat 4 px
   controls and the Windows accent for the other._
-- [ ] AC9 `make test`, `make lint`, `go vet`, `make build-examples` clean;
-  CI green (R5). _Local gates clean; the CI run for this commit is the
-  remaining check._
+- [x] AC9 `make test`, `make lint`, `go vet`, `make build-examples` clean;
+  CI green (R5). _CI run for commit 57d2106: all four jobs green._
 
 ## Risks & Assumptions
 

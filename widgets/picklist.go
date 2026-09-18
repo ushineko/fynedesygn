@@ -33,8 +33,6 @@ Picks are row numbers as the list stands. A caller that changes the list calls
 ClearPicks, because row three of a shorter list is a different thing.
 */
 type PickList struct {
-	widget.BaseWidget
-
 	// OnPicked is called with how many rows are ticked, whenever that changes,
 	// so a button can say what it is about to do.
 	OnPicked func(count int)
@@ -61,9 +59,19 @@ func NewPickList(length func() int, create func() fyne.CanvasObject,
 	p.list = widget.NewList(length, p.blank, func(id widget.ListItemID, row fyne.CanvasObject) {
 		p.fill(id, row)
 	})
-	p.ExtendBaseWidget(p)
 	return p
 }
+
+/*
+Widget is the list, for putting in a layout.
+
+The list itself rather than a widget wrapping it. A wrapper has to pass on
+everything its container does -- size, refresh, layout -- and a list that is
+resized but never laid out builds no rows at all: it draws as an empty space
+that lays out correctly, which is a hard thing to see. logpane.Pane has the same
+shape for the same reason.
+*/
+func (p *PickList) Widget() fyne.CanvasObject { return p.list }
 
 // blank is one empty row: the caller's, with a tick in front of it.
 func (p *PickList) blank() fyne.CanvasObject {
@@ -108,25 +116,6 @@ func (p *PickList) dress(tick *widget.Check, id int) {
 	}
 }
 
-// CreateRenderer implements fyne.Widget.
-func (p *PickList) CreateRenderer() fyne.WidgetRenderer {
-	return widget.NewSimpleRenderer(p.list)
-}
-
-/*
-Resize passes the size to the list inside.
-
-A simple renderer lays its object out when it is refreshed, and a container that
-resizes this widget does not necessarily refresh it -- a dialog does not. The
-list then keeps whatever size it was made at, which is nothing, and a list with
-no size builds no rows: the widget draws as an empty space that lays out
-correctly.
-*/
-func (p *PickList) Resize(size fyne.Size) {
-	p.BaseWidget.Resize(size)
-	p.list.Resize(size)
-}
-
 // Picked is the ticked rows, lowest first, as row numbers of the list as it
 // stands.
 func (p *PickList) Picked() []int {
@@ -152,10 +141,7 @@ func (p *PickList) ClearPicks() {
 }
 
 // Refresh redraws the rows, for a list whose contents changed under it.
-func (p *PickList) Refresh() {
-	p.list.Refresh()
-	p.BaseWidget.Refresh()
-}
+func (p *PickList) Refresh() { p.list.Refresh() }
 
 // ScrollToTop puts the list back at its first row.
 func (p *PickList) ScrollToTop() { p.list.ScrollToTop() }

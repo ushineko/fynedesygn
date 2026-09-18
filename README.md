@@ -117,6 +117,13 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.23 (2026-09-18)
+
+`widgets.PickList` hands out the list itself (`Widget()`) rather than being a
+widget wrapping one. A wrapper has to pass on everything its container does, and
+a list that is resized but never laid out builds no rows: it draws as an empty
+space that lays out correctly.
+
 ### 0.1.22 (2026-09-18)
 
 `widgets.PickList`: a list whose rows can be ticked, for an action on several at

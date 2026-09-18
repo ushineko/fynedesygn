@@ -386,7 +386,10 @@ Border{
   says what it does by being there, and Fyne does not pass the modifier to a
   list's selection callback anyway. `OnPicked` reports the count so the action
   button can say what it is about to do, and picks are row numbers, so a caller
-  whose list has changed calls `ClearPicks`.
+  whose list has changed calls `ClearPicks`. It hands out the list through
+  `Widget()` rather than being a widget wrapping one, as `logpane.Pane` does and
+  for the same reason: a wrapper has to pass on everything its container does,
+  and a list that is resized but never laid out builds no rows at all.
 
 ## Forms
 

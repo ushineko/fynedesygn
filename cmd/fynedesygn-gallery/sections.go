@@ -278,7 +278,7 @@ func (d *jobDemo) pickCard() fyne.CanvasObject {
 		widgets.DimWrapped("Tick a few. The button says what it is about to do, which is "+
 			"the point of picking several: one decision, one action."),
 		act, nil, nil,
-		widgets.FixedHeight(picks, pickDemoHeight),
+		widgets.FixedHeight(picks.Widget(), pickDemoHeight),
 	)
 }
 

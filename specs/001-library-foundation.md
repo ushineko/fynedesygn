@@ -3,7 +3,7 @@
 > **Note**: This work has no associated issue tracker ticket. The repository
 > is a personal public project without an issue tracker.
 
-## Status: INCOMPLETE (AC2 waits for the first push; everything else verified 2026-09-17)
+## Status: COMPLETE
 
 ## Executive Summary
 
@@ -176,10 +176,11 @@ with spec 004, as do 2, 5, 7, 10, 11, 13 and 21 with specs 002 to 004.
 - [x] AC1 `go build ./...`, `make test`, `make lint` and `go vet ./...` pass
   on Linux with no display, with only `fyne.io/fyne/v2` and `testify` as direct
   dependencies (R1.1 to R1.3).
-- [ ] AC2 The CI workflow runs `make test` on Ubuntu, Windows and macOS and
+- [x] AC2 The CI workflow runs `make test` on Ubuntu, Windows and macOS and
   `make gallery` on Ubuntu, and is green on the first push (R1.4).
-  _Workflow written (`.github/workflows/build.yml`); verification waits for
-  the first push._
+  _First push: all three test jobs green; the scan job failed on the Go
+  1.26.0 standard library itself, fixed by scanning with the latest stable
+  Go. Second run (spec 002 commit) fully green._
 - [x] AC3 `theme.SchemeNames()` returns the nine names in the documented
   order, and `theme.SchemeByName("nonsense")` returns `DefaultScheme()`,
   which is Breeze Dark on Linux (R3.1).

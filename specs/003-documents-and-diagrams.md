@@ -3,7 +3,7 @@
 > **Note**: This work has no associated issue tracker ticket. The repository
 > is a personal public project without an issue tracker.
 
-## Status: INCOMPLETE (AC12 waits for the CI run of this commit; everything else verified 2026-09-18)
+## Status: COMPLETE
 
 ## Executive Summary
 
@@ -149,9 +149,8 @@ a block is a single image (`![alt](path)`), which is how READMEs use them.
 - [x] AC11 The gallery's Documents and About sections render headlessly;
   `fynetest.Text` of Documents contains a heading from `docs/markdown.md`
   (R5).
-- [ ] AC12 `make test`, `make lint`, `go vet` clean; CI green including the
-  new check step (R4.2). _Local gates clean; the CI run for this commit is
-  the remaining check._
+- [x] AC12 `make test`, `make lint`, `go vet` clean; CI green including the
+  new check step (R4.2). _CI run for commit 1377636: all four jobs green._
 
 ## Risks & Assumptions
 

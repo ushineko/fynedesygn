@@ -32,12 +32,17 @@ func sections() []shell.Section { return sectionsWith(newJobDemo()) }
 
 func sectionsWith(demo *jobDemo) []shell.Section {
 	readme := &aboutDoc{}
+	logs := newLogDemo()
+	form := newFormDemo()
 	return []shell.Section{
 		shell.AppearanceSection("2026-09-17 16:20:01 INFO  rendered 44 blocks in 3.1ms"),
 		shell.NewSection("Widgets", fynetheme.ListIcon, buildWidgets),
 		shell.NewSection("Table", fynetheme.StorageIcon, buildTable),
 		shell.NewSection("Fonts", fynetheme.DocumentIcon, buildFonts),
 		shell.NewSection("Shell", fynetheme.MediaPlayIcon, demo.build),
+		shell.NewSection("Dialogs", fynetheme.QuestionIcon, buildDialogs),
+		shell.NewSection("Log", fynetheme.ListIcon, logs.build).OnDetach(logs.detach),
+		shell.NewSection("Forms", fynetheme.SettingsIcon, form.build),
 		markdown.Section("Documents", fynetheme.DocumentCreateIcon, mustDoc("markdown.md"), docOptions(), func(*shell.Shell) fyne.CanvasObject {
 			return widgets.Heading("Documents",
 				"markdown.Pane showing docs/markdown.md from the embedded docs package: per-block rendering near "+

@@ -249,18 +249,18 @@ Border{
 
 ## Forms
 
-- A form model holds its widgets apart from the section so the
-  document-to-widget round trip is testable headlessly and so Revert can
+- A form model (`forms.Form`) holds its widgets apart from the section so
+  the document-to-widget round trip is testable headlessly and so Revert can
   revert: rebuilding instead would leave typed values on screen until the
   reload landed.
-- A `setting` re-entry guard wraps programmatic writes, because
+- A `setting` re-entry guard wraps programmatic writes (`Form.Set`), because
   `Check.SetChecked` and friends fire change handlers. A section build must
   never schedule a save.
 - Writes are coalesced: every change lands in the document and schedules one
   save a second after the last change. The first window-size reading is a
   baseline so start-up never announces "Saved".
-- A slider and its entry stay in step but only one commits: the slider on
-  `OnChangeEnded`, the entry on `OnSubmitted`. A settings file written per
+- A slider and its entry (`forms.SliderEntry`) stay in step but only one
+  commits: the slider on `OnChangeEnded`, the entry on `OnSubmitted`. A settings file written per
   pixel is a settings file written four hundred times to move one number.
   Update the card in place so focus and scroll survive.
 - Numeric entries validate a range and sit in a `FixedWidth` of 120.
@@ -268,13 +268,14 @@ Border{
 
 ## Dialogs
 
-- A destructive confirmation names the action on a danger button, keeps
-  Cancel as the safe default, and its detail says what is *not* touched as
-  well as what is. Not saying so is how a confirmation dialog becomes the
+- A destructive confirmation (`dialogs.ConfirmDestructive`) names the action
+  on a danger button, keeps Cancel as the safe default, and its detail says
+  what is *not* touched as well as what is. Not saying so is how a confirmation dialog becomes the
   thing people click through without reading. The canonical shape is three
   parts: where the result goes, what happens to what is there, what is left
   alone.
-- File and folder choosers are 760 x 520 and are resized *after* `Show`.
+- File and folder choosers (`dialogs.ChooseFile`, `ChooseFolder`,
+  `WithBrowse`) are 760 x 520 and are resized *after* `Show`.
   Before `Show` the dialog has no window, and `Resize` asks it for its minimum
   size, which in Fyne 2.8.1 dereferences that nil window and takes the process
   with it. A regression test taps every chooser button.
@@ -282,9 +283,10 @@ Border{
   parent, then home.
 - Fyne 2.8.1 has no multi-select chooser; an "Add..." button reopens a
   single-file chooser.
-- Blocking questions from a worker goroutine hop to the UI thread with
-  `fyne.Do`, put a dialog up, and wait on a channel; a `sent` guard makes
-  every close path answer exactly once. Focus the entry after showing.
+- Blocking questions from a worker goroutine (`dialogs.Decide`) hop to the
+  UI thread with `fyne.Do`, put a dialog up, and wait on a channel; a `sent`
+  guard makes every close path answer exactly once. Focus the entry after
+  showing.
 - Buttons that open a dialog end in an ellipsis.
 - A validation failure inside an editor dialog is shown in the dialog, not as
   a banner behind it: the refusal names the line, and the editor is where to
@@ -316,8 +318,8 @@ is worse than none.
 - Every core call runs on a goroutine and every callback hops back to the UI
   thread with `fyne.Do`. Never `fyne.DoAndWait`. `ui` fields are written only
   on the UI thread.
-- Streams (logs) are written from workers behind a mutex and drawn on a
-  100 ms timer, never per line: a hundred `fyne.Do` calls a second would make
+- Streams (`logpane.Model` and `Pane`) are written from workers behind a
+  mutex and drawn on a 100 ms timer, never per line: a hundred `fyne.Do` calls a second would make
   the window slower than the job. A dirty flag makes a quiet job cost one
   comparison per tick. Stopping a ticker does not close its channel; the pump
   has its own quit channel and draws once more after stopping.

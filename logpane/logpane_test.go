@@ -237,3 +237,57 @@ func TestTheColumnCountIsConservative(t *testing.T) {
 	require.Equal(t, 98, columnsFor(800, 8))
 	require.Equal(t, 0, columnsFor(800, 0), "and an unmeasurable font does not either")
 }
+
+/*
+The pane wraps without anything driving it.
+
+This is the regression 0.1.16 shipped. The wrapping hung off Draw, which runs on
+the pump's tick -- and most panes are never pumped: a section that rebuilds on
+its own redraws the log with it, so nothing ever calls Draw and nothing ever
+wrapped. The test that passed called Draw itself, which is a path the caller
+does not take, so it reported a fix that did nothing.
+
+The wrapping is in the list's length function now, which is reached however the
+pane is driven.
+*/
+func TestThePaneWrapsWithoutDrawOrPump(t *testing.T) {
+	fynetest.Sandbox(t)
+	app := test.NewApp()
+	t.Cleanup(app.Quit)
+
+	m := NewModel(50)
+	p := New(m)
+	w := p.Widget(Options{Title: "Output", Height: 200})
+	win := test.NewWindow(w)
+	t.Cleanup(win.Close)
+	win.Resize(fyne.NewSize(900, 260))
+
+	m.Append(Info, "[auto-restore] cheats=[reach mining fast_place max_minions pickup "+
+		"spawn_rate loot teleport vanity_accs inventory_accs smart_cursor pylons tool_reach "+
+		"ore_extract] items=[2, 1, 0, 19, 39, 7, 9] pending=[] skipped=[]")
+	m.Append(Info, "[auto-restore] 15 cheats applied")
+
+	// No Draw, no Pump. Only a refresh, which is what a rebuilt section does.
+	w.Refresh()
+
+	require.Equal(t, 2, m.Len(), "two lines were logged")
+	require.Greater(t, len(p.rows), 2, "and they are drawn as more rows than that")
+	require.NotPanics(t, func() { _ = win.Canvas().Capture() })
+
+	for _, row := range p.rows {
+		require.LessOrEqualf(t, len(row.Text), p.wrapCols,
+			"%q is wider than the pane", row.Text)
+	}
+}
+
+// A pane nobody has laid out yet does not wrap, and does not lose anything by
+// it: the rows are the lines until there is a width to wrap to.
+func TestAPaneWithNoWidthYetKeepsItsLines(t *testing.T) {
+	m := NewModel(10)
+	m.Append(Info, "a line far longer than any pane that has not been laid out")
+	p := New(m)
+	p.Widget(Options{Title: "Output"})
+
+	p.rewrap() // no list size yet
+	require.Len(t, p.rows, 1)
+}

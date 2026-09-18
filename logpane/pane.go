@@ -161,9 +161,14 @@ func (p *Pane) Widget(o Options) fyne.CanvasObject {
 		size = fynetheme.TextSize()
 	}
 	p.textSize = size
-	p.rows = wrapRows(log, 0) // one row per line until the pane has a width
+	// Nothing is wrapped yet: the pane has no width until it is laid out, and
+	// the first thing the list does is ask how many rows there are.
+	p.rows, p.wrapCols, p.wrapLen, p.wrapDropped = nil, -1, -1, -1
 	list := widget.NewList(
-		func() int { return len(p.rows) },
+		func() int {
+			p.rewrap()
+			return len(p.rows)
+		},
 		func() fyne.CanvasObject {
 			t := canvas.NewText("", fynetheme.Color(fynetheme.ColorNameForeground))
 			t.TextStyle = fyne.TextStyle{Monospace: true}
@@ -254,7 +259,6 @@ func (p *Pane) Draw() {
 	if p.stamp != nil && !p.updated.IsZero() {
 		p.stamp.SetText(fmt.Sprintf("Last updated %s", p.updated.Format("15:04:05")))
 	}
-	p.rewrap()
 	p.follow = FollowTail(p.follow, p.list.GetScrollOffset(), p.wantOffset)
 	// The box is the state, so it has to say what the state is.
 	if p.followBox != nil && p.followBox.Checked != p.follow {
@@ -271,11 +275,16 @@ func (p *Pane) Draw() {
 /*
 rewrap rebuilds the visual rows when the pane's width or its content changed.
 
-On the pump's tick rather than on a resize, because Fyne has no resize callback
-(docs/fyne-quirks.md, 14) -- and the width is read from the list itself, which
-is the object the rows are drawn in. Rebuilt only when something moved: a log
-that is not changing, in a window that is not being resized, costs one
-comparison per tick.
+Called from the list's own length function, which is the one place reached
+however the pane is driven. It cannot hang off the pump: a pane that is only
+written to and never pumped -- which is most of them, because a section that
+rebuilds on its own redraws the log with it -- would never wrap at all. That is
+exactly what shipped in 0.1.16 and did nothing.
+
+The width comes from the list, which is the object the rows are drawn in, and it
+is read here rather than on a resize because Fyne has no resize callback
+(docs/fyne-quirks.md, 14). Rebuilt only when something moved, so a log that is
+not changing costs three comparisons per refresh.
 */
 func (p *Pane) rewrap() {
 	if p.list == nil {

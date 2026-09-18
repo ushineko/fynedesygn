@@ -117,6 +117,15 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.17 (2026-09-18)
+
+Fix: the wrapping added in 0.1.16 never ran. It hung off `Draw`, which runs on
+the pump's tick, and most panes are never pumped — a section that rebuilds on
+its own redraws the log with it. The test that passed called `Draw` itself,
+which is a path the caller does not take. The wrapping is in the list's length
+function now, which is reached however the pane is driven, and the test builds
+the widget and refreshes it the way a section does.
+
 ### 0.1.16 (2026-09-18)
 
 `logpane` wraps. A line longer than the pane was drawn past the right edge and

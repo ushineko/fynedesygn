@@ -15,9 +15,15 @@ import (
 	fdtheme "github.com/ushineko/fynedesygn/theme"
 )
 
-// TipDelay is how long the pointer rests on a control before its tip appears.
-// Long enough that moving across a form does not flash a tip per control.
-const TipDelay = 500 * time.Millisecond
+/*
+TipDelay is how long the pointer rests on a control before its tip appears.
+
+A second, not half of one. Half a second is about how long it takes to move the
+pointer onto a button and press it, so a tip arrived at the moment of the click
+on controls nobody was asking about -- and the note that was meant to explain a
+control was instead something to look past on the way to using it.
+*/
+const TipDelay = time.Second
 
 // tipMaxWidth is how wide a tip is allowed to get before it wraps. A tip is a
 // sentence or two; a wider one reads as a paragraph pinned to the pointer.
@@ -201,8 +207,8 @@ where it was, because the pointer never left the control and nothing said it
 had. Whatever opens something calls this first.
 
 It is not the same as the pointer leaving: a waiting tip is cancelled too, so
-one that was half a second from appearing does not arrive on top of the menu
-that was just opened.
+one that was a moment from appearing does not arrive on top of the menu that
+was just opened.
 
 Every tip rather than one window's, because a pointer rests on one control at a
 time: whatever is showing is the tip for the control that was just used.

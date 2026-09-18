@@ -12,7 +12,7 @@ type tipper interface{ Tip() string }
 /*
 Tips is every hover note in a tree, in the order they are found.
 
-A tip is a popup raised half a second after the pointer stops, so its text is
+A tip is raised a second after the pointer stops, so its text is
 nowhere in the widget tree until somebody hovers. That leaves a headless test no
 way to check the one place tips are not decoration: a control drawn as an icon
 alone, where the tip is the only thing that says what it is.

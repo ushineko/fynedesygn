@@ -117,6 +117,12 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.14 (2026-09-18)
+
+`widgets.TipDelay` is a second, up from half of one. Half a second is about how
+long it takes to move the pointer onto a button and press it, so a tip arrived
+at the moment of the click on controls nobody was asking about.
+
 ### 0.1.13 (2026-09-18)
 
 Fix: a result banner took every click in the window while it was up. Same cause

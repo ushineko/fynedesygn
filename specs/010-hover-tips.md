@@ -61,7 +61,9 @@ object unchanged, so a caller may annotate conditionally without a branch.
   system's standing rule that nothing transient may reflow the interface. Drawn
   in the window's tip layer rather than in an overlay, for the reason below.
 - **It waits.** `TipDelay` before it appears, so moving the pointer across a
-  form does not flash a tip per control.
+  form does not flash a tip per control. Raised from half a second to a second
+  after the first live sessions: half a second is about how long it takes to
+  move onto a button and press it, so tips arrived at the moment of the click.
 - **It stays inside the window.** Positioned at the pointer, then clamped so a
   tip near the right or bottom edge is not drawn off the canvas.
 - **It is not a dialog.** No buttons, no focus, dismissed by leaving.

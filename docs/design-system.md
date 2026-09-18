@@ -203,8 +203,9 @@ Border{
 - A control says what it is in its label. What it *does*, what it depends on and
   why a value matters go in a hover tip: `widgets.WithTip(control, text)`.
 - **Tips are not a place to put a paragraph.** A sentence or two. They wrap at
-  420 and appear after 500 ms, so crossing a form does not flash one per
-  control.
+  420 and appear after a second, which is longer than it takes to move onto a
+  control and click it -- so a tip does not arrive at the moment of a click on a
+  control nobody was asking about.
 - Printing the same text under every control is the alternative and it is worse:
   it triples the height of a form and competes with the controls for attention.
   A note that is always visible should be a `DimWrapped` under a card, once, not

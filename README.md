@@ -117,7 +117,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### 0.1.23 (2026-09-18)
+### 0.1.24 (2026-09-18)
 
 `widgets.PickList` hands out the list itself (`Widget()`) rather than being a
 widget wrapping one. A wrapper has to pass on everything its container does, and

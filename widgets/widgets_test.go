@@ -6,6 +6,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 	"github.com/stretchr/testify/require"
@@ -216,4 +217,29 @@ func TestDimWrappedFitsTheWidthItIsGiven(t *testing.T) {
 	o.Resize(fyne.NewSize(300, 200))
 	require.LessOrEqual(t, o.MinSize().Width, float32(300))
 	require.Greater(t, Dim(long).MinSize().Width, float32(300), "Dim is the unwrapped label")
+}
+
+/*
+Every wrapper in this package must survive being rendered to an image.
+
+FixedWidth and FixedHeight pad with a rectangle that draws nothing, and both
+used a nil colour for it. Nil is invisible under the GL painter and a nil
+dereference under the software one, so every window built with these worked
+and could not be photographed -- which is why no consumer has an image test.
+A section rendered headlessly is the cheapest way to check a layout, and this
+is what was stopping it.
+*/
+func TestTheSpacersRenderToAnImage(t *testing.T) {
+	test.NewApp()
+	content := container.NewVBox(
+		FixedHeight(widget.NewLabel("a fixed-height block"), 40),
+		FixedWidth(widget.NewLabel("a fixed-width block"), 120),
+		Card("A card", Dim("with a dim line")),
+	)
+	win := test.NewWindow(content)
+	defer win.Close()
+	win.Resize(fyne.NewSize(400, 240))
+
+	require.NotPanics(t, func() { _ = win.Canvas().Capture() },
+		"the software painter must be able to draw every wrapper here")
 }

@@ -35,6 +35,7 @@ the target names for the implementation specs; a row without a test yet says
 | 22 | `widget.NewRichTextFromMarkdown` renders a pipe table as a `TableSegment` inside a scroller, which takes the wheel like a code block does. | `markdown.Pane` draws pipe tables as a grid of inline-rendered cells. | `markdown.TestFyneStillDrawsMarkdownTablesInsideAScroll` |
 | 23 | No tooltip. `desktop.Hoverable` exists and nothing is built on it, so guidance a control cannot fit in its label has nowhere to go but under it, which turns a row into a paragraph. | `widgets.WithTip` stacks a transparent hover catcher over the control. | `widgets.TestATipWaitsAndThenAppears` |
 | 24 | A pointer event goes to the **last** match in the visible-tree walk, not the first: `FindObjectAtPositionMatching` assigns on every match and does not stop. So an object stacked over another takes its hover, and a widget merely wrapping a control never sees one. | `widgets.WithTip` relies on it deliberately: the catcher is stacked over, so it wins the hover, and is not `Tappable`, so taps walk past it to the control. | `widgets.TestFyneStillGivesAPointerEventToTheLastMatch` |
+| 25 | A `canvas.Rectangle` with a nil fill colour is invisible under the GL painter and a nil dereference under the software one, so a window built with one works and cannot be rendered to an image. | Spacers and hover catchers fill with `color.Transparent`. | `widgets.TestTheSpacersRenderToAnImage`, `widgets.TestATipRendersToAnImage` |
 
 ## Adding an entry
 

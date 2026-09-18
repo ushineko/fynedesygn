@@ -117,6 +117,23 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.9 (2026-09-18)
+
+Fix: `widgets.FixedWidth` and `FixedHeight` padded with a nil-coloured
+rectangle, which is invisible under the GL painter and a nil dereference under
+the software one. Every window built with them worked and could not be rendered
+to an image, which is what a headless layout check needs. Quirk 25.
+
+### 0.1.8 (2026-09-18)
+
+Fix: the hover tip's catcher had the same nil fill, with the same effect.
+
+### 0.1.7 (2026-09-18)
+
+Fix: a long hover tip was drawn one line tall with its text outside the box. A
+wrapping label reports a minimum width of about one character and does not know
+its height until it has a width, so a tip is measured after being resized.
+
 ### 0.1.6 (2026-09-18)
 
 `widgets.WithTip` (spec 010): a hover note for the guidance a control cannot

@@ -200,7 +200,11 @@ func AboutNote(title, detail string) fyne.CanvasObject {
 // being looked at, which is what stops a growing log from stretching the
 // window a line at a time.
 func FixedHeight(o fyne.CanvasObject, h float32) fyne.CanvasObject {
-	pad := canvas.NewRectangle(nil)
+	// Transparent, not nil. A nil fill is invisible under the GL painter and a
+	// nil dereference under the software one, so a nil spacer makes every
+	// window that uses these impossible to render to an image -- a screenshot,
+	// or a test that renders a section.
+	pad := canvas.NewRectangle(color.Transparent)
 	pad.SetMinSize(fyne.NewSize(0, h))
 	return container.New(layout.NewStackLayout(), pad, o)
 }
@@ -209,7 +213,11 @@ func FixedHeight(o fyne.CanvasObject, h float32) fyne.CanvasObject {
 // its minimum size, which for a truncating label is nothing; this gives the
 // label a width to truncate within.
 func FixedWidth(o fyne.CanvasObject, w float32) fyne.CanvasObject {
-	pad := canvas.NewRectangle(nil)
+	// Transparent, not nil. A nil fill is invisible under the GL painter and a
+	// nil dereference under the software one, so a nil spacer makes every
+	// window that uses these impossible to render to an image -- a screenshot,
+	// or a test that renders a section.
+	pad := canvas.NewRectangle(color.Transparent)
 	pad.SetMinSize(fyne.NewSize(w, 0))
 	return container.New(layout.NewStackLayout(), pad, o)
 }

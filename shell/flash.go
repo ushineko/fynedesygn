@@ -238,11 +238,16 @@ func (s *Shell) flashEdge() color.NRGBA {
 }
 
 // opaque is c at full alpha, because a backing that is not opaque is not a
-// backing.
+// backing. RGBA reports each channel in the top half of a uint16, so the high
+// byte is the 8-bit value and the shift cannot overflow.
 func opaque(c color.Color) color.NRGBA {
 	r, g, b, _ := c.RGBA()
-	return color.NRGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: 0xff}
+	return color.NRGBA{R: byteOf(r), G: byteOf(g), B: byteOf(b), A: 0xff}
 }
+
+// byteOf narrows one of RGBA's 16-bit channels to the 8 bits a colour is
+// written in.
+func byteOf(v uint32) uint8 { return uint8(v >> 8) } //nolint:gosec // 16-bit channel, high byte
 
 // faded is c at a fraction of its own alpha, for the animation that takes every
 // layer of the banner down together.

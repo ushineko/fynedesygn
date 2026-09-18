@@ -1,6 +1,6 @@
 # fynedesygn
 
-**Version**: 0.0.0 (not yet released)
+**Version**: 0.1.0
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -117,4 +117,10 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-Nothing released yet.
+### 0.1.0 (2026-09-18)
+
+First tagged release, for the first adopter (clockwork-orange). Packages
+`theme` (nine schemes), `shell`, `widgets`, `table`, `steps`, `markdown`,
+`mermaid`, `docs`, `dialogs`, `logpane`, `forms`, `fynetest`; the gallery,
+the mermaid command, four examples and the screenshot harness. The API is
+`v0` and changes as the three programs adopt it.

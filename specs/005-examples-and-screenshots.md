@@ -3,7 +3,7 @@
 > **Note**: This work has no associated issue tracker ticket. The repository
 > is a personal public project without an issue tracker.
 
-## Status: INCOMPLETE (AC9: Windows CI failure under investigation)
+## Status: COMPLETE
 
 ## Executive Summary
 
@@ -120,9 +120,11 @@ runs on `shell.Run`, and has a headless test building every section.
   README shows six. macOS Dark and Windows Light were captured as well and
   checked by eye: rounder corners and system blue for one, flat 4 px
   controls and the Windows accent for the other._
-- [ ] AC9 `make test`, `make lint`, `go vet`, `make build-examples` clean;
-  CI green (R5). _CI run for commit 57d2106: Linux, macOS and the scan job
-  green; the Windows test job failed. Being fixed._
+- [x] AC9 `make test`, `make lint`, `go vet`, `make build-examples` clean;
+  CI green (R5). _Commit 57d2106 failed on Windows (two test assumptions:
+  forward-slash URI paths, CRLF checkout) and its fix e637f8f failed on
+  Ubuntu (a flaky select in the job-runner test). Commit a7673fa: all four
+  jobs green._
 
 ## Risks & Assumptions
 

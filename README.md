@@ -117,6 +117,16 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.12 (2026-09-18)
+
+Fix: a hover tip took every click in the window while it was showing. A tip was
+a popup, a popup is an overlay, and Fyne routes pointer events to the top
+overlay instead of to the content — so a control whose own tip was up needed two
+clicks, and the first only took the tip down. Tips are now drawn in a layer at
+the top of the window's content (`widgets.NewTipLayer`, which the shell provides
+for every window it builds), where the walk that finds what was clicked skips
+them. Quirk 26.
+
 ### 0.1.11 (2026-09-18)
 
 Fix: the navigation's shape menu opened in the corner of the window rather than

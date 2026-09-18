@@ -30,15 +30,11 @@ func TestATipWaitsAndThenAppears(t *testing.T) {
 	defer win.Close()
 
 	area.MouseIn(&desktop.MouseEvent{})
-	require.Nil(t, area.pop, "not yet: the pointer has only just arrived")
+	require.Nil(t, area.tip(), "not yet: the pointer has only just arrived")
 
-	require.Eventually(t, func() bool {
-		area.mu.Lock()
-		defer area.mu.Unlock()
-		return area.pop != nil
-	}, 2*time.Second, 20*time.Millisecond, "the tip never appeared")
+	require.Eventually(t, func() bool { return area.tip() != nil }, 2*time.Second, 20*time.Millisecond, "the tip never appeared")
 
-	require.Contains(t, fynetest.Texts(area.pop.Content),
+	require.Contains(t, fynetest.Texts(area.tip()),
 		"Water under 300 tiles cuts fishing power.")
 }
 
@@ -52,9 +48,7 @@ func TestLeavingBeforeTheDelayShowsNothing(t *testing.T) {
 	area.MouseOut()
 
 	time.Sleep(TipDelay + 200*time.Millisecond)
-	area.mu.Lock()
-	defer area.mu.Unlock()
-	require.Nil(t, area.pop, "the pointer left before the tip was due")
+	require.Nil(t, area.tip(), "the pointer left before the tip was due")
 }
 
 // Leaving after it is up takes it down.
@@ -64,16 +58,10 @@ func TestLeavingTakesTheTipDown(t *testing.T) {
 	defer win.Close()
 
 	area.MouseIn(&desktop.MouseEvent{})
-	require.Eventually(t, func() bool {
-		area.mu.Lock()
-		defer area.mu.Unlock()
-		return area.pop != nil
-	}, 2*time.Second, 20*time.Millisecond)
+	require.Eventually(t, func() bool { return area.tip() != nil }, 2*time.Second, 20*time.Millisecond)
 
 	area.MouseOut()
-	area.mu.Lock()
-	defer area.mu.Unlock()
-	require.Nil(t, area.pop)
+	require.Nil(t, area.tip())
 }
 
 /*
@@ -164,7 +152,10 @@ func tipOnScreen(t *testing.T, text string) (*tipArea, fyne.Window) {
 	btn := widget.NewButton("Go", func() {})
 	area := &tipArea{text: text, under: btn}
 	area.ExtendBaseWidget(area)
-	win := test.NewWindow(container.NewStack(btn, area))
+	// A tip layer over the content, which is what a window on the shell has and
+	// what keeps a tip out of an overlay. tipWithoutALayer covers the other
+	// path deliberately.
+	win := test.NewWindow(container.NewStack(container.NewStack(btn, area), NewTipLayer()))
 	win.Resize(fyne.NewSize(400, 200))
 	return area, win
 }
@@ -200,15 +191,9 @@ func TestALongTipWrapsRatherThanRunningOffTheWindow(t *testing.T) {
 	defer win.Close()
 
 	area.MouseIn(&desktop.MouseEvent{})
-	require.Eventually(t, func() bool {
-		area.mu.Lock()
-		defer area.mu.Unlock()
-		return area.pop != nil
-	}, 2*time.Second, 20*time.Millisecond)
+	require.Eventually(t, func() bool { return area.tip() != nil }, 2*time.Second, 20*time.Millisecond)
 
-	area.mu.Lock()
-	defer area.mu.Unlock()
-	size := area.pop.Size()
+	size := area.tip().Size()
 	require.LessOrEqual(t, size.Width, tipMaxWidth, "a tip is never wider than its limit")
 
 	oneLine := widget.NewLabel("x").MinSize().Height
@@ -251,11 +236,7 @@ func TestATipRendersToAnImage(t *testing.T) {
 	defer win.Close()
 
 	area.MouseIn(&desktop.MouseEvent{})
-	require.Eventually(t, func() bool {
-		area.mu.Lock()
-		defer area.mu.Unlock()
-		return area.pop != nil
-	}, 2*time.Second, 20*time.Millisecond)
+	require.Eventually(t, func() bool { return area.tip() != nil }, 2*time.Second, 20*time.Millisecond)
 
 	require.NotPanics(t, func() { _ = softwareRender(win.Canvas()) },
 		"the software painter must be able to draw every part of a tip")
@@ -263,3 +244,107 @@ func TestATipRendersToAnImage(t *testing.T) {
 
 // softwareRender draws a canvas the way a screenshot or an image test would.
 func softwareRender(c fyne.Canvas) image.Image { return c.Capture() }
+
+/*
+A control still takes its click while its own tip is showing.
+
+This is the bug the tip layer exists for. The tip used to be a popup, and a
+popup is an overlay: Fyne routes pointer events to the top overlay only, so
+while one was up the walk that finds what was clicked never reached the window's
+content. A non-modal popup's overlay is itself tappable and dismisses on a tap,
+so the first click on a button took the tip down and went nowhere, and the
+second one pressed the button. Resting the pointer on a button for half a second
+and then clicking it is the ordinary way to use a button, so this happened
+constantly.
+*/
+func TestAControlStillTakesItsClickWhileItsTipIsShowing(t *testing.T) {
+	test.NewApp()
+	taps := 0
+	btn := widget.NewButton("Go", func() { taps++ })
+	area := &tipArea{text: "what Go does", under: btn}
+	area.ExtendBaseWidget(area)
+	win := test.NewWindow(container.NewStack(container.NewStack(btn, area), NewTipLayer()))
+	defer win.Close()
+	win.Resize(fyne.NewSize(400, 200))
+
+	area.MouseIn(&desktop.MouseEvent{})
+	require.Eventually(t, func() bool { return area.tip() != nil }, 2*time.Second, 20*time.Millisecond)
+
+	require.Nil(t, win.Canvas().Overlays().Top(), "a tip is not an overlay")
+
+	test.Tap(btn)
+	require.Equal(t, 1, taps, "one click, one press")
+}
+
+// The tip is drawn in the layer, over the content, and taken out of it again.
+func TestTheTipIsDrawnInTheLayerAndRemovedFromIt(t *testing.T) {
+	test.NewApp()
+	area, win := tipOnScreen(t, "in the layer")
+	defer win.Close()
+
+	layer := tipLayerIn(win.Canvas())
+	require.NotNil(t, layer, "the window has one")
+	require.Empty(t, layer.Objects)
+
+	area.MouseIn(&desktop.MouseEvent{})
+	require.Eventually(t, func() bool { return area.tip() != nil }, 2*time.Second, 20*time.Millisecond)
+	require.Len(t, layer.Objects, 1)
+	require.Contains(t, fynetest.Texts(layer), "in the layer")
+
+	area.MouseOut()
+	require.Empty(t, layer.Objects, "and it does not accumulate")
+}
+
+/*
+A window with no tip layer still gets its tips, through the popup.
+
+A program that builds its own window rather than using the shell has nowhere to
+draw one, and guidance that eats the next click is still better than no guidance.
+The shell provides a layer for exactly this reason.
+*/
+func TestAWindowWithoutALayerFallsBackToAPopup(t *testing.T) {
+	test.NewApp()
+	btn := widget.NewButton("Go", func() {})
+	area := &tipArea{text: "no layer here", under: btn}
+	area.ExtendBaseWidget(area)
+	win := test.NewWindow(container.NewStack(btn, area))
+	defer win.Close()
+	win.Resize(fyne.NewSize(400, 200))
+
+	require.Nil(t, tipLayerIn(win.Canvas()))
+	area.MouseIn(&desktop.MouseEvent{})
+	require.Eventually(t, func() bool { return area.tip() != nil }, 2*time.Second, 20*time.Millisecond)
+	require.Contains(t, fynetest.Texts(area.tip()), "no layer here")
+
+	area.MouseOut()
+	require.Nil(t, area.tip())
+}
+
+/*
+Canary for quirk 26: an overlay takes every pointer event in the window.
+
+FindObjectAtPositionMatching walks the top overlay *instead of* the content when
+there is one, so nothing below an overlay can be clicked -- and a non-modal
+popup's overlay is tappable and dismisses itself, so it consumes that click
+rather than ignoring it. If Fyne ever changes this, the tip could go back to
+being a popup and this test is where that shows up.
+*/
+func TestFyneStillSendsEveryClickToTheTopOverlay(t *testing.T) {
+	test.NewApp()
+	taps := 0
+	btn := widget.NewButton("Go", func() { taps++ })
+	win := test.NewWindow(container.NewPadded(btn))
+	defer win.Close()
+	win.Resize(fyne.NewSize(400, 200))
+
+	pop := widget.NewPopUp(widget.NewLabel("over everything"), win.Canvas())
+	pop.ShowAtPosition(fyne.NewPos(300, 150))
+	require.NotNil(t, win.Canvas().Overlays().Top())
+
+	// A click where the button is, with the popup up somewhere else entirely.
+	at := fyne.CurrentApp().Driver().AbsolutePositionForObject(btn).
+		Add(fyne.NewPos(btn.Size().Width/2, btn.Size().Height/2))
+	test.TapCanvas(win.Canvas(), at)
+	require.Zero(t, taps, "the overlay took it, not the button under the pointer")
+	require.Nil(t, win.Canvas().Overlays().Top(), "and it dismissed itself with it")
+}

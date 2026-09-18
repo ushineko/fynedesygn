@@ -18,6 +18,7 @@ import (
 	fd "github.com/ushineko/fynedesygn"
 	"github.com/ushineko/fynedesygn/fynetest"
 	fdtheme "github.com/ushineko/fynedesygn/theme"
+	"github.com/ushineko/fynedesygn/widgets"
 )
 
 // logSection records the order the shell calls it in.
@@ -583,4 +584,37 @@ func TestStopRunsOnceAndWritesWhatIsWaiting(t *testing.T) {
 	require.Equal(t, 1, stopped)
 	require.False(t, s.Settings().Pending())
 	require.FileExists(t, o.SettingsPath)
+}
+
+/*
+Every window the shell builds has a tip layer over its content.
+
+A tip drawn as a popup is an overlay, and Fyne sends every pointer event to the
+top overlay: while one was up, a click anywhere in the window went to the
+overlay rather than to what was under the pointer. The layer is what lets a tip
+float over the content without taking the content's input (quirk 26).
+*/
+func TestTheShellGivesEveryWindowATipLayer(t *testing.T) {
+	o := testOptions(NewSection("A", nil, func(*Shell) fyne.CanvasObject {
+		return widgets.WithTip(widget.NewButton("Go", func() {}), "what Go does")
+	}))
+	o.SettingsPath = filepath.Join(t.TempDir(), "settings.json")
+	s := onScreen(t, o)
+
+	layer := widgets.TipLayerIn(s.Window.Canvas())
+	require.NotNil(t, layer, "the window has one")
+	require.Same(t, s.tips, layer)
+
+	// It survives a reshape, so a tip does not stop working when the
+	// navigation moves.
+	s2 := onScreen(t, everyNavShape(o))
+	s2.SetNavShape(NavIcons, NavTop)
+	require.NotNil(t, widgets.TipLayerIn(s2.Window.Canvas()))
+}
+
+// everyNavShape is the options with all the shapes allowed.
+func everyNavShape(o Options) Options {
+	o.NavModes = []NavMode{NavLabels, NavIcons, NavHidden}
+	o.NavPlacements = []NavPlacement{NavLeft, NavTop}
+	return o
 }

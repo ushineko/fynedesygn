@@ -9,7 +9,10 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
+	fynetheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+
+	fdtheme "github.com/ushineko/fynedesygn/theme"
 )
 
 // TipDelay is how long the pointer rests on a control before its tip appears.
@@ -23,6 +26,14 @@ const tipMaxWidth float32 = 420
 // tipOffset is how far below and right of the pointer the tip sits, so it does
 // not appear under the cursor itself.
 var tipOffset = fyne.NewPos(12, 20)
+
+// The tip's box, drawn here rather than by a popup: a hairline border so the
+// tip reads as a separate thing over whatever it covers, and the same corner as
+// the rest of the scheme.
+const (
+	tipStroke float32 = 1
+	tipRadius float32 = 4
+)
 
 /*
 WithTip returns o with a note that appears while the pointer rests on it.
@@ -92,6 +103,10 @@ type tipArea struct {
 
 	mu    sync.Mutex
 	timer *time.Timer
+	// shown is the tip in the window's tip layer, and layer the layer it is
+	// in. pop is the fallback for a window that has no layer.
+	shown *fyne.Container
+	layer *fyne.Container
 	pop   *widget.PopUp
 	at    fyne.Position
 }
@@ -143,6 +158,73 @@ func (t *tipArea) MouseOut() {
 	}
 }
 
+/*
+NewTipLayer returns the container a window's tips are drawn in.
+
+A window that wants tips puts one over its content, last, so it is drawn on top:
+
+	container.NewStack(everythingElse, widgets.NewTipLayer())
+
+The shell does this for every program it builds, so a program on the shell needs
+nothing. A program that assembles its own window does it itself.
+
+**Why a layer rather than a popup.** A popup is an overlay, and Fyne routes
+pointer events to the top overlay *only*: while one is up, the walk that finds
+what was clicked never reaches the window's content, so every click goes to the
+overlay -- a non-modal one dismisses itself and swallows the click, which is a
+button that needs two clicks whenever its own tip is showing. A tip drawn into
+the content instead is found by the same walk, and skipped by it, because the
+things it is made of are not tappable. See quirk 26.
+*/
+func NewTipLayer() *fyne.Container { return container.New(tipLayout{}) }
+
+/*
+tipLayout is what marks a container as a tip layer, and what keeps it out of the
+way.
+
+It lays nothing out: a tip is placed at an absolute position in canvas
+coordinates, and the layer exists only to hold it above everything else. Its
+minimum is zero so that being in a Stack costs the window nothing.
+*/
+type tipLayout struct{}
+
+func (tipLayout) Layout([]fyne.CanvasObject, fyne.Size) {}
+func (tipLayout) MinSize([]fyne.CanvasObject) fyne.Size { return fyne.Size{} }
+
+// TipLayerIn is a canvas's tip layer, or nil when its window has none. For a
+// window that assembles itself and wants to check it did.
+func TipLayerIn(c fyne.Canvas) *fyne.Container { return tipLayerIn(c) }
+
+// tipLayerIn is the tip layer of a canvas, or nil when the window has none.
+func tipLayerIn(c fyne.Canvas) *fyne.Container {
+	if c == nil {
+		return nil
+	}
+	return findTipLayer(c.Content())
+}
+
+// findTipLayer walks a tree for the marked container.
+func findTipLayer(o fyne.CanvasObject) *fyne.Container {
+	switch w := o.(type) {
+	case *fyne.Container:
+		if _, ok := w.Layout.(tipLayout); ok {
+			return w
+		}
+		for _, child := range w.Objects {
+			if got := findTipLayer(child); got != nil {
+				return got
+			}
+		}
+	case fyne.Widget:
+		for _, child := range w.CreateRenderer().Objects() {
+			if got := findTipLayer(child); got != nil {
+				return got
+			}
+		}
+	}
+	return nil
+}
+
 // show puts the tip up at the pointer, clamped to the canvas. On the UI thread.
 func (t *tipArea) show() {
 	d := fyne.CurrentApp().Driver()
@@ -152,19 +234,72 @@ func (t *tipArea) show() {
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if t.timer == nil || t.pop != nil {
+	if t.timer == nil || t.shown != nil {
 		return // the pointer left, or a tip is already up
 	}
 
 	label := widget.NewLabel(t.text)
 	label.Wrapping = fyne.TextWrapWord
 	body := container.NewPadded(label)
-	pop := widget.NewPopUp(body, c)
+	size := tipSize(t.text, label, body, c.Size())
 
-	pop.Resize(tipSize(t.text, label, body, c.Size()))
-	pop.ShowAtPosition(clampToCanvas(
-		d.AbsolutePositionForObject(t).Add(t.at).Add(tipOffset), pop.Size(), c.Size()))
-	t.pop = pop
+	back := canvas.NewRectangle(tipBackground())
+	back.StrokeColor = tipBorder()
+	back.StrokeWidth = tipStroke
+	back.CornerRadius = tipRadius
+	tip := container.NewStack(back, body)
+	tip.Resize(size)
+
+	at := clampToCanvas(d.AbsolutePositionForObject(t).Add(t.at).Add(tipOffset), size, c.Size())
+
+	layer := tipLayerIn(c)
+	if layer == nil {
+		// No layer in this window: fall back to a popup, which is a tip that
+		// eats the next click. Better than no guidance at all, and the reason
+		// the shell always provides one.
+		pop := widget.NewPopUp(body, c)
+		pop.Resize(size)
+		pop.ShowAtPosition(at)
+		t.pop = pop
+		return
+	}
+
+	// The layer is inside the content, which the window pads, so the tip is
+	// placed relative to the layer rather than to the canvas.
+	tip.Move(at.Subtract(d.AbsolutePositionForObject(layer)))
+	layer.Add(tip)
+	layer.Refresh()
+	t.shown, t.layer = tip, layer
+}
+
+// tipBackground and tipBorder are the tooltip's own colours from the active
+// scheme, which is what the Tooltip role in the palette is for. A theme that is
+// not this library's falls back to Fyne's overlay colours.
+func tipBackground() color.Color {
+	if p, ok := palette(); ok {
+		return p.TooltipBG
+	}
+	return fynetheme.Color(fynetheme.ColorNameOverlayBackground)
+}
+
+func tipBorder() color.Color {
+	if p, ok := palette(); ok {
+		return p.Separator
+	}
+	return fynetheme.Color(fynetheme.ColorNameSeparator)
+}
+
+// palette is the active scheme when the app is themed by this library.
+func palette() (fdtheme.Palette, bool) {
+	app := fyne.CurrentApp()
+	if app == nil {
+		return fdtheme.Palette{}, false
+	}
+	th, ok := app.Settings().Theme().(fdtheme.Theme)
+	if !ok {
+		return fdtheme.Palette{}, false
+	}
+	return th.Palette(), true
 }
 
 /*
@@ -201,14 +336,36 @@ func tipSize(text string, label, body fyne.CanvasObject, canvasSize fyne.Size) f
 	return fyne.NewSize(width, body.MinSize().Height)
 }
 
+/*
+tip is what is on screen, whichever way it is drawn, or nil.
+
+Both paths draw the same box; only where it is parented differs, so a test that
+wants to read a tip or measure it should not have to know which one is in use.
+*/
+func (t *tipArea) tip() fyne.CanvasObject {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.shown != nil {
+		return t.shown
+	}
+	if t.pop != nil {
+		return t.pop
+	}
+	return nil
+}
+
 // hide takes the tip down and cancels a pending one.
 func (t *tipArea) hide() {
 	t.mu.Lock()
-	timer, pop := t.timer, t.pop
-	t.timer, t.pop = nil, nil
+	timer, shown, layer, pop := t.timer, t.shown, t.layer, t.pop
+	t.timer, t.shown, t.layer, t.pop = nil, nil, nil, nil
 	t.mu.Unlock()
 	if timer != nil {
 		timer.Stop()
+	}
+	if shown != nil && layer != nil {
+		layer.Remove(shown)
+		layer.Refresh()
 	}
 	if pop != nil {
 		pop.Hide()

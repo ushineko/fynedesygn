@@ -57,8 +57,9 @@ object unchanged, so a caller may annotate conditionally without a branch.
 
 ### Rules it follows
 
-- **It floats.** A popup over the content, never inserted into it: the design
-  system's standing rule that nothing transient may reflow the interface.
+- **It floats.** Over the content, never inserted into the layout: the design
+  system's standing rule that nothing transient may reflow the interface. Drawn
+  in the window's tip layer rather than in an overlay, for the reason below.
 - **It waits.** `TipDelay` before it appears, so moving the pointer across a
   form does not flash a tip per control.
 - **It stays inside the window.** Positioned at the pointer, then clamped so a
@@ -73,7 +74,9 @@ object unchanged, so a caller may annotate conditionally without a branch.
 - R3 A wrapped control that is `Hoverable` still receives `MouseIn`/`MouseOut`.
 - R4 The tip appears after `TipDelay`, and not at all if the pointer leaves
   first.
-- R5 The tip is a popup over the content and never changes the layout.
+- R5 The tip floats over the content and never changes the layout. (First met
+  with a popup, which took every click in the window; see "What the first live
+  run found".)
 - R6 The tip is clamped to the canvas.
 - R7 The gallery shows it, `docs/design-system.md` records it, and the changelog
   names it.
@@ -100,6 +103,32 @@ Verified in `widgets/tip_test.go`: `TestWithTipAnnotatesAndEmptyTextDoesNothing`
 rule the design rests on. AC7: the "widgets.WithTip" card in the gallery's
 Shell section, "Guidance" in `docs/design-system.md`, quirks 23 and 24 in
 `docs/fyne-quirks.md`, 0.1.6 in the README changelog.
+
+## What the first live run found
+
+A tip drawn as a `widget.PopUp` is an overlay, and Fyne routes pointer events to
+the top overlay *instead of* the content: while a tip was up, no click anywhere
+in the window could reach what was under the pointer. A non-modal popup's
+`OverlayContainer` is itself `Tappable` and dismisses on a tap, so the click was
+consumed rather than ignored.
+
+The effect on a window full of annotated controls: resting the pointer on a
+button for half a second and then clicking it — which is how a button is
+ordinarily used — took the tip down and did nothing, and the second click
+pressed the button. Reported as clicks being swallowed, tips appearing instead
+of the thing being clicked, and buttons needing two clicks inconsistently; the
+inconsistency was whether the 500 ms delay had elapsed.
+
+R5 said the tip is "a popup over the content", which was the wrong shape for the
+requirement behind it. The requirement stands — nothing transient may reflow the
+interface — and it is met by drawing the tip into a layer at the top of the
+window's content instead. `widgets.NewTipLayer` is that layer and the shell puts
+one over every window; the objects a tip is made of are not tappable, so the
+same tree walk that finds the tip skips it and finds the control underneath.
+
+Recorded as quirk 26, with `TestFyneStillSendsEveryClickToTheTopOverlay` as the
+canary: if Fyne ever routes past an overlay that does not want the event, the
+tip could go back to being a popup and that test is where it would show up.
 
 ## Risks & Assumptions
 

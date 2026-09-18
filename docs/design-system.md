@@ -209,6 +209,13 @@ Border{
   it triples the height of a form and competes with the controls for attention.
   A note that is always visible should be a `DimWrapped` under a card, once, not
   under each row.
+- **A tip is drawn in the window's tip layer, never in an overlay.** Fyne routes
+  pointer events to the top overlay only, so a tip in one takes every click in
+  the window — a control whose own tip was showing needed two clicks, and the
+  first only took the tip down (quirk 26). The shell puts a
+  `widgets.NewTipLayer` over every window it builds; a program that assembles
+  its own window puts one last in its content, and gets a popup that eats the
+  next click if it does not.
 
 ## Progress and results
 

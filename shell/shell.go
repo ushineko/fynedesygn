@@ -14,6 +14,7 @@ import (
 
 	"github.com/ushineko/fynedesygn/settings"
 	fdtheme "github.com/ushineko/fynedesygn/theme"
+	"github.com/ushineko/fynedesygn/widgets"
 )
 
 // Default window geometry: wide enough for a table with five columns beside
@@ -131,6 +132,9 @@ type Shell struct {
 	navShown  NavMode
 	navHolder *fyne.Container
 	navBtn    *widget.Button // the shape control, kept so a test can tap it
+
+	// tips is the layer hover notes are drawn in, over everything else.
+	tips *fyne.Container
 
 	nav     *widget.List
 	content *container.Scroll
@@ -370,7 +374,17 @@ func (s *Shell) layout() {
 	if s.Window == nil {
 		return
 	}
-	s.Window.SetContent(container.NewBorder(s.header(), s.frame, nil, nil, s.body()))
+	// The tip layer goes over everything and is drawn last, so a hover note
+	// floats above whatever it covers. It is part of the content rather than an
+	// overlay on purpose: Fyne routes pointer events to the top overlay only,
+	// so a tip in one would take every click in the window (quirk 26).
+	if s.tips == nil {
+		s.tips = widgets.NewTipLayer()
+	}
+	s.Window.SetContent(container.NewStack(
+		container.NewBorder(s.header(), s.frame, nil, nil, s.body()),
+		s.tips,
+	))
 }
 
 // header is the window's title strip: the program name, then Refresh and the

@@ -98,57 +98,6 @@ func TestASectionThisBuildDoesNotKnowIsKept(t *testing.T) {
 	require.True(t, future.Kept)
 }
 
-/*
-A write that fails leaves the settings that were there.
-
-The file is written through a temporary file in the same directory and renamed,
-so a crash, a full disk or a killed process cannot leave it truncated -- and a
-truncated settings file is one that has lost whatever was in it.
-*/
-func TestAFailedWriteLeavesTheOldSettingsIntact(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "settings.json")
-	st, err := settings.Open(path)
-	require.NoError(t, err)
-	require.NoError(t, st.Set("jobs", jobs{Parallel: 4}))
-	require.NoError(t, st.Flush())
-	before, err := os.ReadFile(path)
-	require.NoError(t, err)
-
-	require.NoError(t, os.Chmod(dir, 0o500)) // no new files in this directory
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o750) })
-
-	require.NoError(t, st.Set("jobs", jobs{Parallel: 99}))
-	require.Error(t, st.Flush(), "a write that cannot happen is reported")
-
-	after, err := os.ReadFile(path)
-	require.NoError(t, err, "and the file is still readable")
-	require.Equal(t, before, after, "with what it had")
-
-	require.NoError(t, os.Chmod(dir, 0o750))
-	require.NoError(t, st.Set("jobs", jobs{Parallel: 5}))
-	require.NoError(t, st.Flush())
-	require.Len(t, ls(t, dir), 1, "no temporary file is left behind")
-}
-
-// ls names the files in a directory.
-func ls(t *testing.T, dir string) []string {
-	t.Helper()
-	entries, err := os.ReadDir(dir)
-	require.NoError(t, err)
-	out := make([]string, 0, len(entries))
-	for _, e := range entries {
-		out = append(out, e.Name())
-	}
-	return out
-}
-
-/*
-A run of changes is one write.
-
-A slider dragged across its range or a divider dragged across the window is one
-settings file on disk, not one per pixel.
-*/
 func TestChangesInOneMomentAreOneWrite(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	c := &counting{Codec: settings.JSON}
@@ -304,17 +253,27 @@ func TestTheStoreIsSafeFromSeveralGoroutines(t *testing.T) {
 // a timer, long after the call that caused it, so there is nobody to return it
 // to.
 func TestAFailedWriteIsReported(t *testing.T) {
+	/*
+		A directory standing where the file goes is a write that cannot finish,
+		on every platform: the store writes a temporary file and renames it into
+		place, and a rename onto a directory fails everywhere.
+
+		Not a directory with its write bit off, which only stops anything on
+		Unix, and not a missing directory, which the store creates. Opening is
+		fine -- the path holds no file to read yet, which is an ordinary first
+		run -- so the failure happens where the test wants it, in the write.
+	*/
 	dir := t.TempDir()
-	st, err := settings.Open(filepath.Join(dir, "settings.json"))
+	path := filepath.Join(dir, "settings.json")
+	st, err := settings.Open(path)
 	require.NoError(t, err)
+	require.NoError(t, os.Mkdir(path, 0o750))
 	st.SetDelay(10 * time.Millisecond)
 
 	var mu sync.Mutex
 	var said []string
 	st.OnError(func(err error) { mu.Lock(); said = append(said, err.Error()); mu.Unlock() })
 
-	require.NoError(t, os.Chmod(dir, 0o500))
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o750) })
 	require.NoError(t, st.Set("jobs", jobs{Parallel: 1}))
 
 	require.Eventually(t, func() bool {

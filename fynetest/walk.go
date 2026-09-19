@@ -4,12 +4,14 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
 )
 
 // Walk visits o and everything under it depth first: *fyne.Container
-// children, *container.Scroll content, and the content of every
-// *container.AppTabs and *container.DocTabs item, selected or not. visit
-// returns true to stop. Walk returns whether it stopped.
+// children, *container.Scroll content, both halves of a *container.Split, and
+// the content of every *container.AppTabs and *container.DocTabs item,
+// selected or not. visit returns true to stop. Walk returns whether it
+// stopped.
 //
 // A scrolled section is a widget, not a container, so its content would
 // otherwise be invisible to every test that walks a whole section; the same
@@ -54,6 +56,13 @@ func children(o fyne.CanvasObject, rendered bool) []fyne.CanvasObject {
 		out = append(out, c.Objects...)
 	case *container.Scroll:
 		out = append(out, c.Content)
+	case *container.Split:
+		// A Split is a widget with two exported halves, so a structural walk
+		// would otherwise stop at it -- and since Shell.VSplit every section
+		// with a pane under a divider is one. Found in clockwork-orange, where
+		// a section became a split and every test looking for a button in it
+		// started finding nil.
+		out = append(out, c.Leading, c.Trailing)
 	case *container.AppTabs:
 		out = append(out, tabContents(c.Items)...)
 	case *container.DocTabs:
@@ -123,4 +132,57 @@ func First[T fyne.CanvasObject](o fyne.CanvasObject) (T, bool) {
 		return none, false
 	}
 	return all[0], true
+}
+
+/*
+Scrolled is every object of type T under o that a scroller encloses.
+
+For the rule that a control which starts work is affixed: it occupies the same
+place in its section however much of the section is scrolled, and what scrolls
+is the material it acts on. A control inside the scroller moves with that
+material, and in a section that also holds a log or a table it can be worse
+than moved -- Fyne hands a wheel event to the innermost scrollable under the
+pointer and does not pass it on, so the control may not be reachable at all.
+
+Structural rather than rendered: this asks where an object sits in the tree the
+program built, which is a property of the layout and not of what was drawn.
+*/
+func Scrolled[T fyne.CanvasObject](o fyne.CanvasObject) []T {
+	var out []T
+	var visit func(o fyne.CanvasObject, inside bool)
+	visit = func(o fyne.CanvasObject, inside bool) {
+		if o == nil {
+			return
+		}
+		if got, ok := o.(T); ok && inside {
+			out = append(out, got)
+		}
+		if _, isScroll := o.(*container.Scroll); isScroll {
+			inside = true
+		}
+		for _, child := range children(o, false) {
+			visit(child, inside)
+		}
+	}
+	visit(o, false)
+	return out
+}
+
+/*
+ScrolledButtons is the labels of every button a scroller encloses, which is the
+form the check usually takes:
+
+	require.NotContains(t, fynetest.ScrolledButtons(section), "Download now")
+
+A program with more than a couple of these keeps the list of what must stay
+affixed beside its sections and walks it, the way it keeps the list of what
+must stay reachable.
+*/
+func ScrolledButtons(o fyne.CanvasObject) []string {
+	buttons := Scrolled[*widget.Button](o)
+	out := make([]string, 0, len(buttons))
+	for _, b := range buttons {
+		out = append(out, b.Text)
+	}
+	return out
 }

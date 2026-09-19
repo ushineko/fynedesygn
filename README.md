@@ -117,6 +117,30 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.26 (2026-09-19)
+
+A control that starts, cancels or commits work is affixed: it keeps its place
+however much of its section is scrolled, and what scrolls is the material it
+acts on. The design system held both halves of this and never joined them -- the
+cause under "One scroll per section" (the wheel goes to the innermost
+scrollable under the pointer, so a control you must scroll to may be
+unreachable, not merely hidden), the shape under "Sections". Stated as a shape
+it only reached an author who had already decided they needed it, and three
+sections broke it afterwards: two in clockwork-orange, one of which shipped
+with no visible way to stop the service it reported as running, and the Log
+section of this module's own gallery.
+
+`fynetest.Scrolled[T]` and `ScrolledButtons` are the check -- a named control
+must not appear in them. The library ships the primitive and not the policy,
+because only the program knows which of its buttons is a section's action and
+which belongs to a row.
+
+Behaviour change: `fynetest.Walk`, and so `All` and `First`, now descend
+`container.Split`. A split is a widget with two exported halves, so a
+structural walk stopped at it, and since `Shell.VSplit` every section with a
+pane under a divider is one. A test that asserted an exact count of objects
+under a split will see more of them.
+
 ### 0.1.25 (2026-09-18)
 
 `fynetest.All` and `First`: find the widgets a list or a dialog actually drew,

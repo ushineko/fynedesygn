@@ -103,3 +103,32 @@ func TestTheAboutSectionShowsTheReadme(t *testing.T) {
 	require.Contains(t, text, "README")
 	require.Contains(t, text, "design system and wrapper library")
 }
+
+/*
+The gallery follows its own affixing rule (spec 014).
+
+The Log section broke it: Start and Stop sat in the scrolling half of a split
+whose other half is a log pane, which is the shape the rule is written against
+-- below the fold at an ordinary window height, and unreachable rather than
+merely hidden, because the wheel goes to whichever scrollable is under the
+pointer.
+
+The other sections are exempt on purpose and the exemption is the interesting
+part: a gallery card's buttons are the exhibit the card's prose describes, so
+they are the material and travel with it. The rule is about controls that act
+on a section, not about a demonstration of a control.
+*/
+func TestTheLogSectionsControlsAreAffixed(t *testing.T) {
+	s := testShell(t)
+	for _, sec := range s.Sections() {
+		if sec.Title() != "Log" {
+			continue
+		}
+		scrolled := fynetest.ScrolledButtons(sec.Build(s))
+		require.NotContains(t, scrolled, "Start a noisy job",
+			"a control that starts work must not scroll away from the section it acts on")
+		require.NotContains(t, scrolled, "Stop")
+		return
+	}
+	t.Fatal("no Log section")
+}

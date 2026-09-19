@@ -4,6 +4,8 @@ import (
 	"image/color"
 	"io/fs"
 	"path"
+	"sync"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -41,6 +43,24 @@ type Options struct {
 	// Diagrams are the pre-rendered mermaid images; nil means mermaid fences
 	// show their source.
 	Diagrams *mermaid.Set
+	/*
+		SettleResize coalesces the re-measure that a width change forces, and
+		zero -- the default -- measures on every change as this pane always has.
+
+		Fyne hands a widget a Resize for every step of a drag, from inside the
+		event poll, and measuring this document means rendering every block to
+		ask its height. In clockwork-orange's About section that was 32% of all
+		CPU during a drag, and the event queue cannot drain while it runs, so
+		the window moved in bursts.
+
+		Set it to something like 120ms in a program with a real window. It is
+		opt-in because it needs a driver to hop back to -- the work runs on a
+		timer and returns to the UI thread with fyne.Do, which is a real thread
+		hop in a real program and an inline call under the test driver. A
+		headless caller leaves it at zero and keeps today's behaviour, the way
+		logpane's redraw timer is started by the program rather than by itself.
+	*/
+	SettleResize time.Duration
 }
 
 // Pane is a Markdown document rendered per block, only near the viewport.
@@ -68,7 +88,23 @@ type Pane struct {
 	view *container.Scroll
 	// width is the width the blocks were last measured at.
 	width float32
+	// pending is the width a settled resize will measure at, and settle is the
+	// timer that will do it. Guarded by mu, which is held only around these
+	// two: everything else here is the UI thread's.
+	mu      sync.Mutex
+	pending float32
+	settle  *time.Timer
 }
+
+/*
+DragFraction is how much the width may change and still be treated as a drag.
+
+Below it the change is waited out; at or above it the document is measured at
+once. A quarter is comfortably more than a drag's step and comfortably less
+than the jump from one section's width to another's. Only consulted when
+Options.SettleResize is set.
+*/
+var DragFraction float32 = 0.25
 
 /*
 New renders src, which is Markdown.
@@ -122,6 +158,21 @@ func (p *Pane) Detach() {
 		p.view.OnScrolled = nil
 		p.view = nil
 	}
+	// A pending measure would otherwise fire into a pane the section has
+	// already replaced, and hop to the UI thread to do it.
+	p.cancelPending()
+}
+
+// cancelPending drops a scheduled measure, whether because it has been
+// answered or because there is no longer a pane to answer for.
+func (p *Pane) cancelPending() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.settle != nil {
+		p.settle.Stop()
+		p.settle = nil
+	}
+	p.pending = 0
 }
 
 // Blocks is how many blocks the document split into.
@@ -155,12 +206,94 @@ func (p *Pane) CreateRenderer() fyne.WidgetRenderer {
 	return widget.NewSimpleRenderer(p.body)
 }
 
-// Resize measures the blocks again when the width changes (a narrower window
-// wraps the same paragraph into more lines) and then renders what is in view.
+/*
+Resize measures the blocks again when the width changes (a narrower window
+wraps the same paragraph into more lines) and then renders what is in view.
+
+With Options.SettleResize set, a drag is waited out rather than measured at
+every step; a jump is always measured at once. See Options.SettleResize.
+*/
 func (p *Pane) Resize(s fyne.Size) {
 	p.BaseWidget.Resize(s)
-	p.measure(s.Width)
+	if p.opts.SettleResize > 0 && p.isDrag(s.Width) {
+		p.remeasureWhenSettled(s.Width)
+	} else {
+		// Measuring now answers whatever was waiting, so nothing should fire
+		// afterwards and re-measure at a width that has been overtaken.
+		p.cancelPending()
+		p.measure(s.Width)
+	}
 	p.sync()
+}
+
+/*
+isDrag distinguishes a width worth waiting on from one worth measuring now.
+
+A drag moves the edge a few pixels at a time, hundreds of times. A section
+being shown, a window being maximised or a pane being laid out for the first
+time arrives as one large jump, and delaying that would show the document with
+the wrong heights for as long as it took to settle -- visible, for no gain,
+because it happens once.
+*/
+func (p *Pane) isDrag(w float32) bool {
+	if p.width <= 0 {
+		return false // never measured: there is nothing to show yet
+	}
+	d := w - p.width
+	if d < 0 {
+		d = -d
+	}
+	return d < p.width*DragFraction
+}
+
+/*
+remeasureWhenSettled arranges for a measure once w has stopped changing.
+
+The timer is restarted on every call, so a drag schedules the work repeatedly
+and performs it once. The callback hops to the UI thread: it runs on the
+timer's goroutine, and everything it touches belongs to the interface.
+*/
+func (p *Pane) remeasureWhenSettled(w float32) {
+	if w <= 0 || w == p.width {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.pending = w
+	if p.settle != nil {
+		p.settle.Stop()
+	}
+	p.settle = time.AfterFunc(p.opts.SettleResize, func() {
+		p.mu.Lock()
+		w := p.pending
+		p.mu.Unlock()
+		fyne.Do(func() {
+			p.measure(w)
+			p.sync()
+		})
+	})
+}
+
+/*
+Settle measures now rather than waiting, and reports whether there was
+anything to measure.
+
+For a test, and for a caller that knows the resizing has stopped.
+*/
+func (p *Pane) Settle() bool {
+	p.mu.Lock()
+	w := p.pending
+	if p.settle != nil {
+		p.settle.Stop()
+		p.settle = nil
+	}
+	p.mu.Unlock()
+	if w <= 0 || w == p.width {
+		return false
+	}
+	p.measure(w)
+	p.sync()
+	return true
 }
 
 /*
@@ -179,8 +312,12 @@ func (p *Pane) measure(w float32) {
 	p.width = w
 	for i := range p.blocks {
 		o := p.Visual(i)
-		o.Resize(fyne.NewSize(w, o.MinSize().Height))
-		p.spacers[i].SetMinSize(fyne.NewSize(0, o.MinSize().Height))
+		// One MinSize per block, not two. It is the expensive call here --
+		// it shapes the block's text -- and the second was asking the same
+		// question again after a Resize that cannot change the answer.
+		h := o.MinSize().Height
+		o.Resize(fyne.NewSize(w, h))
+		p.spacers[i].SetMinSize(fyne.NewSize(0, h))
 	}
 	p.body.Refresh()
 }
@@ -315,3 +452,7 @@ func activeDark() bool {
 	}
 	return a.Settings().ThemeVariant() == fynetheme.VariantDark
 }
+
+// MeasuredWidth is the width the blocks' heights were last measured at, which
+// is not always the width the pane has: see SettleDelay.
+func (p *Pane) MeasuredWidth() float32 { return p.width }

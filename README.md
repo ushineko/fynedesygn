@@ -153,6 +153,11 @@ make coverage
 make vuln      # govulncheck, before every tagged release
 ```
 
+Releasing: date the changelog's `Unreleased` heading, set the **Version** line
+to match, run `make vuln`, land that commit on `main`, then push the tag and
+publish a GitHub Release whose notes are that changelog entry. The steps are in
+`.claude/CLAUDE.md`.
+
 Work is specified in `specs/` and follows the conventions in
 `.claude/CLAUDE.md`.
 

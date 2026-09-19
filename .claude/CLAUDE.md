@@ -172,6 +172,19 @@ And when tagging:
 - The **Version** line at the top of the README is set to that same version.
 - `govulncheck ./...` passes (`make vuln`).
 - The tag is pushed only after the README commit is on `main`.
+- **Every tag gets a GitHub Release**, titled `vX.Y.Z`, whose notes are that
+  version's changelog entry verbatim. A bare tag is invisible: it does not
+  appear in the repository's Releases feed, nobody can watch it, and a consumer
+  deciding whether to bump has to read a diff. The changelog entry is already
+  written by the time the tag exists, so the Release costs one command:
+
+  ```
+  gh release create vX.Y.Z --title vX.Y.Z --notes-file <the entry>
+  ```
+
+  The other ushineko projects (nmsbonker, clockwork-orange, terrariabonker) all
+  publish Releases; this one did not until v0.1.28, and v0.1.0 through v0.1.27
+  are bare tags.
 
 A PR that changes a package, an example, a document, a make target or a gallery
 section and does not touch the README is incomplete, and saying so in review is

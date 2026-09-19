@@ -6,6 +6,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -124,4 +125,72 @@ func drawnLines(t *testing.T, s *glance.Sparkline, size fyne.Size) []*canvas.Lin
 	t.Helper()
 	s.Resize(size)
 	return fynetest.All[*canvas.Line](s)
+}
+
+// Add refreshes on every sample, and a plot of two traces over sixty samples
+// is 118 segments. Allocating them per refresh made the cost of drawing a plot
+// proportional to how often it was fed; the segments are pooled instead.
+//
+// Steady state means the plot is full, which is what a glance window's plot is
+// for all but its first minute.
+func TestRefreshingAPlotAllocatesNothing(t *testing.T) {
+	_ = fynetest.App(t)
+
+	s := glance.NewSparkline(60)
+	s.AddSeries("coolant", green, 5)
+	s.AddSeries("cpu", steel, 5)
+	s.Resize(fyne.NewSize(300, 26))
+	for i := range 60 {
+		s.Add("coolant", 46+float64(i%5)*0.2)
+		s.Add("cpu", 62+float64(i%11))
+	}
+
+	got := testing.AllocsPerRun(200, func() {
+		s.Add("coolant", 46.4)
+		s.Add("cpu", 70)
+	})
+
+	assert.Zero(t, got, "a refresh on a full plot allocated %v times", got)
+}
+
+// The pool is reused, not merely cleared: a plot that shrank must not draw the
+// segments of the longer one it used to be.
+func TestAShrunkPlotDoesNotDrawItsOldSegments(t *testing.T) {
+	_ = fynetest.App(t)
+
+	s := glance.NewSparkline(60)
+	s.AddSeries("coolant", green, 5)
+	s.Resize(fyne.NewSize(300, 26))
+	for i := range 40 {
+		s.Add("coolant", 46+float64(i%3))
+	}
+	require.Len(t, fynetest.All[*canvas.Line](s), 39, "39 segments for 40 samples")
+
+	s.Clear()
+	for i := range 5 {
+		s.Add("coolant", 46+float64(i))
+	}
+
+	assert.Len(t, fynetest.All[*canvas.Line](s), 4,
+		"the plot drew segments left over from when it was longer")
+}
+
+func BenchmarkSparklineRefresh(b *testing.B) {
+	test.NewApp()
+	b.Cleanup(func() { test.NewApp() })
+
+	s := glance.NewSparkline(60)
+	s.AddSeries("coolant", green, 5)
+	s.AddSeries("cpu", steel, 5)
+	s.Resize(fyne.NewSize(300, 26))
+	for i := range 60 {
+		s.Add("coolant", 46+float64(i%5)*0.2)
+		s.Add("cpu", 62+float64(i%11))
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		s.Add("coolant", 46.4)
+	}
 }

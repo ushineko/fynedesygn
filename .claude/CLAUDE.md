@@ -138,6 +138,38 @@ straight to `main` when that is the right call. It is habit, not a gate.
   (`feat(theme): add Windows font directories`).
 - Tags `vX.Y.Z` are the version of record (Go module semantics). Ask before
   tagging.
+
+### The README is not optional (mandatory)
+
+`README.md` is the module's front page and the only description most readers
+will get. It goes stale silently, because nothing builds it and no test reads
+it. It drifted twenty-four releases once: the **Version** line said 0.1.3 while
+the latest tag was v0.1.27, the `settings` packages had never been added to the
+package table, four gallery screenshots existed that nothing displayed, and two
+specs' worth of work had no changelog entry at all.
+
+So, in the **same commit** as the change, never as a follow-up:
+
+- **A new package or command gets a row** in the "What is in it" table.
+- **A new example gets a row** in the Examples table, and an existing one whose
+  shape changed has its row corrected.
+- **A new document in `docs/` gets a link** in the Documentation list.
+- **A new `make` target gets a line** in the Development block.
+- **A new gallery section gets its screenshot and its alt text.** An image in
+  `docs/img/` that the README does not display is an image nobody checks.
+- **Every change worth a spec gets a changelog entry**, under `### Unreleased`
+  until it is tagged.
+
+And when tagging:
+
+- The `### Unreleased` heading becomes `### X.Y.Z (YYYY-MM-DD)`.
+- The **Version** line at the top of the README is set to that same version.
+- `govulncheck ./...` passes (`make vuln`).
+- The tag is pushed only after the README commit is on `main`.
+
+A PR that changes a package, an example, a document, a make target or a gallery
+section and does not touch the README is incomplete, and saying so in review is
+the point of writing this down.
 - Connectivity check before push/pull (`git/standard.md`).
 
 ---

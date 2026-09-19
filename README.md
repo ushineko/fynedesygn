@@ -1,6 +1,6 @@
 # fynedesygn
 
-**Version**: 0.1.3
+**Version**: 0.1.27 (unreleased work since: see [Changelog](#changelog))
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -34,8 +34,10 @@ hand-synced copies.
 | `markdown` | A Markdown document pane that renders per block near the viewport, draws code blocks and pipe tables itself, resolves images from an `fs.FS`, and shows pre-rendered mermaid diagrams; `Section` for a document page. |
 | `mermaid` | Hash-keyed lookup of pre-rendered diagram PNGs (light and dark), the widget that draws them, and the `mmdc` renderer and checker behind `go generate`. |
 | `dialogs` | Destructive confirmation, prompt and detail dialogs, file and folder choosers that do not crash, the desktop opener, and a yes-or-no question a worker goroutine can ask. |
+| `settings` | A program's settings in one file the user can read: one section per top-level key, each decoded into the caller's own type, written a second after the last change. The file extension chooses the format. |
+| `settings/yamlcodec` | YAML for `.yaml` and `.yml`, imported for its effect so a program that writes JSON carries no YAML parser. |
 | `shell` | The window skeleton: header, section nav, content pane, status bar, busy indicator, banners, `Perform`, section lifecycle, plus the standard Appearance and About sections. |
-| `glance` | The other window archetype: a frameless, always-on-top status panel sized to its content, with cards that hide when their source is silent, fixed-width value formatting and a sparkline. |
+| `glance` | The other window archetype: a frameless, always-on-top status panel sized to its content, with cards that hide when their source is silent, fixed-width value formatting, a sparkline and a quota meter. |
 | `glance/kwin` | The KDE Plasma window rule a glance window needs — above, no border, and the opacity Fyne cannot draw itself. |
 | `steps` | The step list a job shows beside its log, updated in place. |
 | `fynetest` | Headless test helpers: tree walking, finders, text extraction, scrollable detection. |
@@ -66,6 +68,14 @@ with the same command and check the alt text still matches.
 
 ![The Appearance section: pickers for the colour scheme, fonts, text size and interface scale over a live sample of regular, bold, monospace and status-coloured text.](docs/img/gallery-appearance.png)
 
+![The Dialogs section: buttons that open a destructive confirmation, a prompt and a detail dialog, each captioned with the call that raises it.](docs/img/gallery-dialogs.png)
+
+![The Log section: a monospace log pane under a divider, with Start, Stop, Copy and Clear affixed above it so they keep their place however far the log is scrolled.](docs/img/gallery-log.png)
+
+![The Fonts section: the system font families the scanner found, each drawn in its own face, with the separate monospace picker beside them.](docs/img/gallery-fonts.png)
+
+![The About section: the program's name and version over a column of notes and a table of facts, the standard shape every program gets from shell.AboutSection.](docs/img/gallery-about.png)
+
 ![The Glance section: the always-on-top panel vocabulary drawn at the width a real glance window uses, each piece captioned with its Go name — a live card, a card whose source has gone with its header marked "(unavailable)" and its values dimmed, a card with a two-trace sparkline under its rows, a card of four quota meters whose bars run green, green, amber and red as they approach their limits, a column of rows in four states, and each value formatter shown at three magnitudes in a monospace column.](docs/img/gallery-glance.png)
 
 ## Examples
@@ -79,7 +89,7 @@ Each example is a complete program with a headless test, in `examples/`, on
 | `settings` | A `forms.Form` over a JSON file, saved a second after the last change through `forms.Saver`, with Revert and the standard Appearance section. |
 | `job-runner` | A `steps.List` beside a `logpane.Pane`, a job run through `PerformCancellable` that advances steps and logs, and one banner for the result. |
 | `document-viewer` | `markdown.Section` over an embedded guide with a mermaid diagram rendered by `go generate`. |
-| `glance-monitor` | Not a shell program: a `glance` panel of three cards with a two-trace sparkline, a context menu as its only interface, and the KDE window rule offered behind `-kwin`. |
+| `glance-monitor` | Not a shell program: a `glance` panel of four cards — peripherals, bandwidth, a two-trace sparkline over thermals, and two quota meters — with a context menu as its only interface and the KDE window rule offered behind `-kwin`. |
 
 ## Status
 
@@ -98,7 +108,10 @@ module's tests does not: they use the Fyne test driver.
 
 ## Documentation
 
-- [Design system](docs/design-system.md): the layout rules and policies.
+- [Design system](docs/design-system.md): the layout rules and policies for
+  application windows.
+- [Glance windows](docs/glance.md): the rules for frameless, always-on-top
+  status panels, and the desktop integration they need.
 - [Rendering Markdown](docs/markdown.md).
 - [Mermaid diagrams](docs/mermaid.md).
 - [Fyne quirks](docs/fyne-quirks.md): what the module works around and the
@@ -113,6 +126,10 @@ make lint
 make gallery   # build the reference program for this machine
 make generate  # render missing mermaid diagrams (needs mmdc)
 make check-diagrams
+make build-examples
+make screenshots  # refresh docs/img from the gallery (KDE/Wayland)
+make coverage
+make vuln      # govulncheck, before every tagged release
 ```
 
 Work is specified in `specs/` and follows the conventions in
@@ -123,6 +140,45 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+Every release has an entry, and the **Version** line at the top of this file
+names the latest tag. Both are updated in the same commit as the change they
+describe -- see `.claude/CLAUDE.md`.
+
+### Unreleased
+
+A second window archetype: **glance windows**, small frameless always-on-top
+panels sized to their content and read without being interacted with. Where
+`shell` builds a window someone works in -- header, navigation, content
+scroller, status bar -- a glance window has none of that: the window is the
+content, a stack of cards each of which is either worth a glance or not drawn
+at all. Transcribed from `ag-scripts/peripheral-battery-monitor`, which has
+carried the shape through its 1.x series. Specs 016 and 017.
+
+`glance` holds the window, the card stack, the rows, the fixed-width value
+formatting, a sparkline and a quota meter. Values go through `Rate`, `Size`,
+`Percent`, `Quantity` and `Count` rather than `fmt`, because a window sized to
+its content is a window a number can resize by crossing a magnitude; each has a
+matching blank of the same width for a reading that has not arrived.
+`glance/kwin` writes the KDE Plasma window rule for the three things the
+compositor grants and Fyne cannot ask for: staying above, losing the titlebar,
+and opacity.
+
+Quirks 32, 33 and 34: no translucent window on the desktop backend, no way to
+read a window's own position back, and a fixed-size window that grows to its
+content and never shrinks without being told. The first two have no workaround
+in the process and shape the design rather than being worked around; the third
+is why `Panel.Resize` exists.
+
+`glance.Sparkline` reuses its line segments instead of rebuilding them. A plot
+of two traces over sixty samples is 118 segments and `Add` refreshes on every
+sample, so the cost of drawing a plot was proportional to how often it was fed.
+2397 ns and 118 allocations per refresh before, 357 ns and none after, pinned by
+`BenchmarkSparklineRefresh` and `TestRefreshingAPlotAllocatesNothing`.
+
+Additive. Nothing outside `glance` changed behaviour; `docs/design-system.md`,
+this README and the root `doc.go` gained cross-references, and the gallery
+gained a Glance section.
 
 ### 0.1.27 (2026-09-19)
 

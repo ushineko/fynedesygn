@@ -98,8 +98,11 @@ trap cleanup EXIT
 capture() {
     local sect="$1" dest="$2"
 
+    # --section is passed only when there is one. Programs built on the shell
+    # all take it; a glance window has no sections, and the flag package in a
+    # program that does not declare it exits rather than ignoring it.
     HOME="$HOME_DIR" XDG_CONFIG_HOME="$HOME_DIR/.config" XDG_DATA_HOME="$HOME_DIR/.local/share" \
-        "$BIN" --section "$sect" ${scheme:+--scheme "$scheme"} >/dev/null 2>&1 &
+        "$BIN" ${sect:+--section "$sect"} ${scheme:+--scheme "$scheme"} >/dev/null 2>&1 &
     local pid=$!
     # shellcheck disable=SC2064  # pid is captured deliberately, at trap-set time
     trap "kill $pid 2>/dev/null || true; wait $pid 2>/dev/null || true" RETURN
@@ -143,7 +146,8 @@ capture() {
         tries=$((tries + 1))
     done
     [ "$active" = "$wid" ] || { echo "could not focus the window (active=$active want=$wid)" >&2; return 1; }
-    sleep 1.0                   # let it repaint after the raise
+    sleep "${SETTLE:-1.0}"      # let it repaint after the raise; $SETTLE for a
+                                # window whose content arrives over a few polls
 
     rm -f "$dest"
     if [ "$with_dialog" -eq 0 ]; then
@@ -198,5 +202,12 @@ if [ "$all" -eq 1 ]; then
 fi
 
 [ -n "$out" ] || { usage >&2; exit 2; }
-[ -n "$section" ] || { echo "--section is required (or use --all)" >&2; exit 2; }
+# A program with sections must say which one; one without sections (a glance
+# window) is captured as it starts.
+if [ -n "$section" ] || [ "$BIN" != "$REPO_DIR/fynedesygn-gallery" ]; then
+    :
+else
+    echo "--section is required for the gallery (or use --all)" >&2
+    exit 2
+fi
 capture "$section" "$out"

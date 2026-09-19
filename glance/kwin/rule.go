@@ -28,8 +28,11 @@ type Rule struct {
 	// window manager is allowed to decline.
 	AlwaysOnTop bool
 
-	// NoBorder removes the titlebar, forced. It duplicates what a splash
-	// window already is, for the same reason.
+	// NoBorder removes the titlebar, forced.
+	//
+	// This is not a duplicate of what a splash window already is. Fyne asks
+	// GLFW for an undecorated window and KWin decorates it anyway, so without
+	// this rule a glance window on Plasma has a titlebar and window buttons.
 	NoBorder bool
 
 	// Opacity is the window's opacity as a percentage, 1..100. Zero leaves

@@ -8,6 +8,20 @@ import (
 	"fyne.io/fyne/v2/theme"
 )
 
+// CardRadius is the corner radius of a card, in pixels.
+//
+// Deliberately not the scheme's own radius token. That token is a *control*
+// radius — an entry, a button — and the schemes set it to 2 (Breeze, Oxygen,
+// Adwaita), 4 (Fluent) or 8 (macOS). At 2 px a card the size of a glance
+// window's reads as a square, which is not what any of those desktops draws
+// for a floating panel: the monitor this archetype comes from uses 8 for a
+// section and 12 for the window around them.
+//
+// A card is a surface, not a control, so it takes a surface's radius. It is
+// one number rather than a per-scheme token because the schemes do not
+// disagree about panels the way they disagree about buttons.
+const CardRadius float32 = 8
+
 // GoneMarker is what a card's header says when its source was answering and
 // has stopped. It is short because it shares the header with the title, and it
 // is a state rather than a mechanism: the reason belongs in the log.
@@ -30,6 +44,7 @@ type Card struct {
 	mark  *canvas.Text
 	rows  []*Row
 	body  *fyne.Container
+	face  *canvas.Rectangle
 	frame *fyne.Container
 
 	allowed   bool
@@ -58,7 +73,19 @@ func NewCard(title string) *Card {
 
 	header := container.NewHBox(c.title, layout.NewSpacer(), c.mark)
 	c.body = container.NewVBox()
-	c.frame = container.NewVBox(header, c.body)
+
+	// A card is a surface of its own, not a run of rows. Fyne cannot draw a
+	// translucent window (quirk 32), so the separation a glance window gets
+	// from alpha in a toolkit that has it has to come from contrast here: a
+	// fill one step from the window's own, and a hairline border one step
+	// again. Both are palette tokens, so a card stays a card in every scheme
+	// rather than being a grey that happens to work in one.
+	c.face = canvas.NewRectangle(theme.Color(theme.ColorNameButton))
+	c.face.StrokeColor = theme.Color(theme.ColorNameSeparator)
+	c.face.StrokeWidth = 1
+	c.face.CornerRadius = CardRadius
+
+	c.frame = container.NewStack(c.face, container.NewPadded(container.NewVBox(header, c.body)))
 	c.frame.Hide()
 	return c
 }
@@ -152,6 +179,10 @@ func (c *Card) Restyle() {
 	c.title.Color = theme.Color(theme.ColorNameForeground)
 	c.mark.TextSize = theme.TextSize()
 	c.mark.Color = theme.Color(theme.ColorNameDisabled)
+	c.face.FillColor = theme.Color(theme.ColorNameButton)
+	c.face.StrokeColor = theme.Color(theme.ColorNameSeparator)
+	c.face.CornerRadius = CardRadius
+	c.face.Refresh()
 	c.title.Refresh()
 	c.mark.Refresh()
 	for _, r := range c.rows {

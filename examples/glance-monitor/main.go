@@ -149,6 +149,12 @@ type monitor struct {
 	battery *glance.Card
 	mouse   *glance.Row
 
+	// Usage: two quotas drawn as meters, the one shape in the vocabulary that
+	// is a proportion rather than a reading.
+	usage   *glance.Card
+	session *glance.Meter
+	spend   *glance.Meter
+
 	ticks int
 }
 
@@ -190,9 +196,23 @@ func (m *monitor) build(a fyne.App) *glance.Window {
 	m.mouse = glance.NewRow("G502 X PLUS", glance.NoPercent())
 	m.battery.AddRow(m.mouse)
 
-	m.win.Panel().Add(m.battery, m.bandwidth, m.thermal)
+	// A quota has a limit, so it is a meter: a label, a caption carrying the
+	// detail, and a bar graded by how close to the limit it is. A temperature
+	// has no limit and is a row, because drawing it as a bar would invent a
+	// maximum.
+	m.usage = glance.NewCard("Usage")
+	m.session = glance.NewMeter("5h", meterLabel)
+	m.spend = glance.NewMeter("month", meterLabel)
+	m.usage.AddObject(m.session.Object())
+	m.usage.AddObject(m.spend.Object())
+
+	m.win.Panel().Add(m.battery, m.bandwidth, m.thermal, m.usage)
 	return m.win
 }
+
+// meterLabel pins the label column so the two meters' captions start in the
+// same place.
+const meterLabel float32 = 52
 
 // menu is the whole interface. It is rebuilt on every secondary tap so it can
 // tick the current value of what it shows.
@@ -204,6 +224,7 @@ func (m *monitor) menu() *fyne.Menu {
 		{"Peripherals", m.battery},
 		{"Bandwidth", m.bandwidth},
 		{"AIO", m.thermal},
+		{"Usage", m.usage},
 	}
 
 	var items []*fyne.MenuItem
@@ -242,6 +263,8 @@ type sample struct {
 	coolant    float64
 	fans       int64
 	mouse      float64
+	sessionPct float64
+	spendUSD   float64
 	aioPresent bool
 	aioStale   bool
 	batteryYet bool
@@ -263,6 +286,11 @@ func (m *monitor) sample() sample {
 		fans:    1200 + int64(200*math.Sin(t/30)),
 		mouse:   87,
 
+		// A quota climbing through its bands, so the meter is seen green,
+		// amber and red rather than only in one state.
+		sessionPct: 100 * math.Abs(math.Sin(t/60)),
+		spendUSD:   823.52,
+
 		// The AIO source appears after a moment and drops out for a stretch,
 		// so the example shows a card arriving and a card going stale.
 		aioPresent: m.ticks > 4,
@@ -283,6 +311,22 @@ func (m *monitor) render(s sample) {
 	m.battery.SetAvailable(s.batteryYet)
 	if s.batteryYet {
 		m.mouse.Set(glance.Known(glance.Percent(s.mouse), batteryStatus(s.mouse)))
+	}
+
+	m.usage.SetAvailable(s.batteryYet)
+	if s.batteryYet {
+		// The caption is a changing value like any other, so it is formatted
+		// to a fixed width. Written with %.0f%% it goes from "5%" to "100%"
+		// and takes the card's minimum width with it, which resizes the
+		// window — the exact reflow this package exists to prevent, and a
+		// test catches it.
+		m.session.Set(s.sessionPct/100,
+			glance.Percent(s.sessionPct)+" · resets in 4h 32m",
+			quotaStatus(s.sessionPct))
+		const budget = 1000.0
+		m.spend.Set(s.spendUSD/budget,
+			fmt.Sprintf("$%7.2f / $%.0f · 1 Oct", s.spendUSD, budget),
+			quotaStatus(100*s.spendUSD/budget))
 	}
 
 	m.thermal.SetAvailable(s.aioPresent)
@@ -347,6 +391,20 @@ func batteryStatus(pct float64) fd.Status {
 	case pct <= 10:
 		return fd.StatusBad
 	case pct <= 25:
+		return fd.StatusWarn
+	default:
+		return fd.StatusGood
+	}
+}
+
+// quotaStatus grades a percentage of a quota. A quota is one of the things
+// that genuinely has a threshold: the closer to the limit, the more it matters,
+// and the bands say so rather than decorating the bar.
+func quotaStatus(pct float64) fd.Status {
+	switch {
+	case pct >= 90:
+		return fd.StatusBad
+	case pct >= 75:
 		return fd.StatusWarn
 	default:
 		return fd.StatusGood

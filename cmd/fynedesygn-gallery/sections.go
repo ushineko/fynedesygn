@@ -43,6 +43,7 @@ func sectionsWith(demo *jobDemo) []shell.Section {
 		shell.NewSection("Dialogs", fynetheme.QuestionIcon, buildDialogs),
 		shell.NewSection("Log", fynetheme.ListIcon, logs.build).OnDetach(logs.detach),
 		shell.NewSection("Forms", fynetheme.SettingsIcon, form.build),
+		shell.NewSection("Glance", fynetheme.VisibilityIcon, buildGlance),
 		markdown.Section("Documents", fynetheme.DocumentCreateIcon, mustDoc("markdown.md"), docOptions(), func(*shell.Shell) fyne.CanvasObject {
 			return widgets.Heading("Documents",
 				"markdown.Pane showing docs/markdown.md from the embedded docs package: per-block rendering near "+

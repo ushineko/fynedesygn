@@ -1,7 +1,10 @@
 package glance
 
 import (
+	"image/color"
+
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
 
@@ -89,7 +92,10 @@ func NewWindow(a fyne.App, o Options) *Window {
 	w.panel.Attach(w.win)
 
 	if o.Menu != nil {
-		w.panel.stack.Add(newMenuCatcher(w))
+		// Over the whole panel, not beside the cards. A catcher in the card
+		// stack would take up a card's worth of height and would only see
+		// taps inside its own strip; stacked over, it sees the window.
+		w.panel.Overlay(newMenuCatcher(w))
 	}
 	return w
 }
@@ -122,11 +128,19 @@ func (w *Window) ShowMenu(pos fyne.Position) {
 	widget.ShowPopUpMenuAtPosition(w.menu(), w.win.Canvas(), pos)
 }
 
-// menuCatcher is a zero-height object covering the panel that turns a
+// menuCatcher is a transparent object stacked over the panel that turns a
 // secondary tap anywhere in the window into the context menu.
 //
 // It is a widget rather than a handler on the panel because Fyne routes
-// pointer events to objects, and there is no window-level tap callback.
+// pointer events to objects and there is no window-level tap callback, and it
+// is stacked over the content rather than placed beside it because a pointer
+// event goes to the last match in the tree walk (quirk 24). It is not
+// Tappable, so an ordinary click walks past it to whatever is underneath.
+//
+// Its rectangle is filled with color.Transparent rather than left nil: a nil
+// fill is invisible under the GL painter and a nil dereference under the
+// software one, which would make the window impossible to render to an image
+// (quirk 25).
 type menuCatcher struct {
 	widget.BaseWidget
 	owner *Window
@@ -145,7 +159,11 @@ func (c *menuCatcher) TappedSecondary(e *fyne.PointEvent) {
 }
 
 func (c *menuCatcher) CreateRenderer() fyne.WidgetRenderer {
-	return widget.NewSimpleRenderer(widgets.FixedHeight(widgets.Dim(""), 0))
+	return widget.NewSimpleRenderer(canvas.NewRectangle(color.Transparent))
 }
+
+// MinSize is zero: the catcher is stacked over the panel and must never be the
+// reason the window is a pixel bigger than its cards.
+func (c *menuCatcher) MinSize() fyne.Size { return fyne.Size{} }
 
 var _ fyne.SecondaryTappable = (*menuCatcher)(nil)

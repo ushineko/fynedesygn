@@ -1,6 +1,6 @@
 # fynedesygn
 
-**Version**: 0.1.28
+**Version**: 0.1.29
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -170,6 +170,31 @@ MIT. See [LICENSE](LICENSE).
 Every release has an entry, and the **Version** line at the top of this file
 names the latest tag. Both are updated in the same commit as the change they
 describe -- see `.claude/CLAUDE.md`.
+
+### 0.1.29 (2026-09-19)
+
+`markdown.Options.SettleResize` coalesces the re-measure a width change forces.
+Zero, the default, measures on every change as before.
+
+Fyne hands a widget a Resize for every step of a drag, from inside the event
+poll, and measuring a document means rendering every block to ask its height.
+A profile of clockwork-orange's About section under a drag put 32% of all CPU
+in `markdown.(*Pane).measure`, arriving through `glfwPollEvents ->
+processResized`: Fyne relays out synchronously inside the event poll, so the
+queue cannot drain while it runs and the window moves in bursts. With a settle
+set, a drag is waited out and measured once. A change of a quarter or more is a
+jump rather than a drag -- a section shown, a window maximised, a first layout
+-- and is measured at once, because delaying that would show the document at
+the wrong heights for no gain.
+
+Opt-in like `logpane.Pump`, because the work runs on a timer and returns to the
+UI thread with `fyne.Do`: a real hop in a real program, an inline call under
+the test driver. A pane that scheduled timers by itself ran text shaping on a
+timer goroutine in every headless test that resized a window, which the race
+detector caught in this module's own gallery.
+
+`measure` also asks each block its `MinSize` once rather than twice; it is the
+call that shapes the block's text.
 
 ### 0.1.28 (2026-09-19)
 

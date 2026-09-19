@@ -3,6 +3,7 @@ package kwin_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -258,4 +259,76 @@ func TestAValueWithALineBreakIsRefused(t *testing.T) {
 
 	_, err := os.Stat(path)
 	assert.True(t, os.IsNotExist(err), "a refused rule must not have written the file")
+}
+
+// realWorld is shaped like an actual kwinrulesrc: sections out of numeric
+// order, a gap where a rule was removed, and [General] wherever KDE left it.
+const realWorld = `[1]
+Description=Mouse battery always on top
+above=true
+aboverule=2
+wmclass=logitech-mouse-battery
+wmclassmatch=1
+
+[21]
+Description=Terminal maximised
+maximizehoriz=true
+maximizehorizrule=4
+wmclass=alacritty-monitor-0
+wmclassmatch=1
+
+[3]
+Description=Volume OSD
+noborder=true
+noborderrule=2
+title=volume-osd
+titlematch=1
+
+[General]
+count=3
+rules=1,3,21
+`
+
+// A file this package did not come to change must come back exactly as it
+// went in. kwinrulesrc holds every window rule the user has.
+func TestRewritingAFileWithoutChangingItIsByteIdentical(t *testing.T) {
+	path := sandbox(t)
+	require.NoError(t, os.WriteFile(path, []byte(realWorld), 0o600))
+
+	// Installing and removing the same rule is the round trip.
+	require.NoError(t, kwin.Install(kwin.Rule{AppID: "io.ushineko.sensors", AlwaysOnTop: true}))
+	removed, err := kwin.Remove("io.ushineko.sensors")
+	require.NoError(t, err)
+	require.True(t, removed)
+
+	assert.Equal(t, realWorld, read(t, path),
+		"install followed by remove did not restore the file")
+}
+
+// Every install used to add one blank line per section, so a file of thirteen
+// rules grew thirteen lines a run.
+func TestInstallingRepeatedlyDoesNotGrowTheFile(t *testing.T) {
+	path := sandbox(t)
+	require.NoError(t, os.WriteFile(path, []byte(realWorld), 0o600))
+
+	require.NoError(t, kwin.Install(kwin.Rule{AppID: "io.ushineko.sensors", AlwaysOnTop: true}))
+	once := read(t, path)
+	for range 5 {
+		require.NoError(t, kwin.Install(kwin.Rule{AppID: "io.ushineko.sensors", AlwaysOnTop: true}))
+	}
+
+	assert.Equal(t, once, read(t, path), "repeated installs changed the file")
+	assert.Equal(t, strings.Count(realWorld, "\n\n"), strings.Count(once, "\n\n")-1,
+		"a blank line was added to a section this install did not touch")
+}
+
+// The file ends with exactly one newline, the way KDE's writer leaves it.
+func TestTheFileEndsWithExactlyOneNewline(t *testing.T) {
+	path := sandbox(t)
+	require.NoError(t, os.WriteFile(path, []byte(realWorld), 0o600))
+	require.NoError(t, kwin.Install(kwin.Rule{AppID: "io.ushineko.sensors", AlwaysOnTop: true}))
+
+	got := read(t, path)
+	assert.True(t, strings.HasSuffix(got, "\n"))
+	assert.False(t, strings.HasSuffix(got, "\n\n"))
 }

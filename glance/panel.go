@@ -129,5 +129,11 @@ func (p *Panel) Restyle() {
 	p.Resize()
 }
 
+// Overlay stacks an object over the whole panel, for something that has to
+// see the panel's full area rather than sit in the card stack: the context
+// menu's tap catcher is the one case. It is drawn last, which is what makes
+// it win the pointer (quirk 24).
+func (p *Panel) Overlay(o fyne.CanvasObject) { p.root.Add(o) }
+
 // Content is the panel's root object, for a caller building its own window.
 func (p *Panel) Content() fyne.CanvasObject { return p.root }

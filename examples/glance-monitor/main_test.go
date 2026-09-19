@@ -50,7 +50,8 @@ func TestEachCardArrivesWhenItsSourceAnswers(t *testing.T) {
 
 	m.renderTicks(10)
 	assert.True(t, m.battery.Drawn())
-	assert.Equal(t, 3, m.win.Panel().Drawn())
+	assert.True(t, m.usage.Drawn(), "the usage card arrives with the battery card")
+	assert.Equal(t, 4, m.win.Panel().Drawn())
 }
 
 // The window grows as cards arrive and shrinks when one is hidden. Shrinking
@@ -195,7 +196,7 @@ func TestTheMenuTicksTheCardsThatAreAllowed(t *testing.T) {
 
 	show := m.menu().Items[0]
 	require.Equal(t, "Show", show.Label)
-	require.Len(t, show.ChildMenu.Items, 3)
+	require.Len(t, show.ChildMenu.Items, 4)
 	for _, item := range show.ChildMenu.Items {
 		assert.True(t, item.Checked, "%s should start ticked", item.Label)
 	}
@@ -255,4 +256,38 @@ func TestTheAppIDIsUsableAsADesktopFileBasename(t *testing.T) {
 	assert.NotContains(t, appID, " ")
 	assert.NotContains(t, appID, "/")
 	assert.True(t, strings.HasPrefix(appID, "io.ushineko."))
+}
+
+// A quota has a limit, so it is drawn as a meter rather than a row. The bands
+// are a real threshold: the closer to the limit, the more it matters.
+func TestTheQuotaMetersAreGradedByHowCloseToTheLimitTheyAre(t *testing.T) {
+	assert.Equal(t, fd.StatusGood, quotaStatus(10))
+	assert.Equal(t, fd.StatusWarn, quotaStatus(75))
+	assert.Equal(t, fd.StatusBad, quotaStatus(90))
+}
+
+func TestTheUsageMetersCarryACaptionAndAFractionInRange(t *testing.T) {
+	m := build(t)
+	m.renderTicks(20)
+
+	for _, meter := range []*glance.Meter{m.session, m.spend} {
+		assert.NotEmpty(t, meter.Caption(), "a bar without a caption says only 'most of it'")
+		assert.GreaterOrEqual(t, meter.Fraction(), 0.0)
+		assert.LessOrEqual(t, meter.Fraction(), 1.0)
+	}
+	assert.Contains(t, m.spend.Caption(), "823.52")
+}
+
+// The meters are in a card, so their arrival and departure resize the window
+// the same way any other card's does, and neither changes size as it fills.
+func TestFillingAMeterDoesNotResizeTheWindow(t *testing.T) {
+	m := build(t)
+	m.renderTicks(20)
+	settled := m.win.Panel().Size()
+
+	for range 200 {
+		m.render(m.sample())
+		require.Equal(t, settled, m.win.Panel().Size(),
+			"the panel resized while a meter filled; at tick %d", m.ticks)
+	}
 }

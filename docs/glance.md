@@ -26,6 +26,13 @@ are pinned.
 The package is deliberately smaller than the archetype. What is written down
 here and not built is named as such at the point it comes up.
 
+![A small frameless panel on a desktop, four cards stacked, each a rounded surface a step lighter than the panel behind it. "Peripherals" shows a mouse at 87% in green. "Bandwidth" shows two interface rows with rates right-aligned in a monospace column. "AIO" shows CPU 74.5 °C in blue, Coolant 50.1 °C in amber and Fans 1368 rpm, over a sparkline whose two traces are drawn in the colours of the rows they came from. "Usage" shows two meters, each a label, a monospace caption and a bar: a green one at 48% of a five-hour window, an amber one at 82% of a monthly budget. No titlebar, no buttons, no scrollbar.](img/glance-monitor.png)
+
+`examples/glance-monitor`, with the KDE window rule installed. Without the rule
+KWin draws a titlebar on it, which is what `glance/kwin` exists to remove: a
+splash window asks GLFW not to be decorated and the compositor decorates it
+anyway.
+
 ## Contents
 
 - [What inverts](#what-inverts)
@@ -36,6 +43,7 @@ here and not built is named as such at the point it comes up.
 - [The card stack](#the-card-stack)
 - [Sizing](#sizing)
 - [Numbers that do not jitter](#numbers-that-do-not-jitter)
+- [Meters](#meters)
 - [Colour is the legend](#colour-is-the-legend)
 - [Trend plots](#trend-plots)
 - [The context menu is the whole interface](#the-context-menu-is-the-whole-interface)
@@ -151,10 +159,13 @@ one — never rewriting the file, which holds every other rule the user has.
 is applied initially rather than forced so the user can still override it from
 the window menu.
 
-`above` and `noborder` duplicate what `RequestAlwaysOnTop` and the splash
-window already do, and are worth setting anyway: the rule survives a
-compositor restart, and `RequestAlwaysOnTop`'s own doc warns the window manager
-may decide other windows stay above it.
+**`noborder` is required, not belt-and-braces.** A splash window sets GLFW's
+`Decorated` hint to false and KWin draws a titlebar on it regardless; the
+screenshot at the top of this document needed the rule installed to be
+frameless at all. `above` is closer to a duplicate of `RequestAlwaysOnTop` and
+is still worth setting: the rule survives a compositor restart, and
+`RequestAlwaysOnTop`'s own doc warns the window manager may decide other
+windows stay above it.
 
 **Position is deliberately not a rule.** KWin's `position` rule selects a
 screen and snaps to its origin on Wayland; it does not honour intra-screen
@@ -221,9 +232,21 @@ Which yields the binding rule:
 
 - **Separation comes from contrast, not from alpha.** The monitor's cards are
   `rgba(43,43,43,α)` on the desktop with a `rgba(255,255,255,20)` hairline.
-  Opaque, that is a card one step lighter than the window behind it and a
-  border one step lighter again — the palette already carries all three
-  (`WindowBG`, `ViewAltBG`, `Separator`).
+  Opaque, that is a card surface one step from the window's own with a hairline
+  border, which the palette already carries: the window is `WindowBG`, the card
+  is `ButtonBG` and the border is `Separator`, reached through Fyne's
+  `Background`, `Button` and `Separator` roles. `ButtonBG` rather than
+  `ViewAltBG`, which is the alternating-row token and sits *darker* than the
+  window in the dark schemes — a card drawn in it disappears into the panel.
+  `Card` draws this.
+- **A card takes a surface radius, not the scheme's control radius.** The
+  palette's radius token is for entries and buttons and is 2 in the Breeze,
+  Oxygen and Adwaita schemes; a card drawn with it reads as a square, which is
+  not what any of those desktops draws for a floating panel. `glance.CardRadius`
+  is 8, between the monitor's 8 for a section and 12 for the window around them.
+- **The panel behind the cards is square.** Rounding it would round the window,
+  and the window cannot be translucent (quirk 32), so its corners would be cut
+  out of an opaque rectangle rather than showing the desktop.
 - **No rule may depend on seeing through the window.** Nothing is positioned,
   sized or coloured on the assumption that the wallpaper is legible behind it.
   A glance window at 100 % opacity is the design; anything less is the user's
@@ -312,6 +335,38 @@ that has not arrived.
 - Labels are left, values are right, and the gap between them is where the
   width goes. See also design-system.md, "An `HBox` hands a truncating label
   its minimum size" (quirk 17): pin the width.
+
+## Meters
+
+A **meter** is the one shape here that is a bar: a proportion of something with
+a limit. A quota used, a budget spent, a window of time elapsed. `glance.Meter`
+draws a short label, a caption carrying the detail, and a bar graded by how
+close to the limit it is.
+
+- **A reading with no limit is a row, not a meter.** A temperature, a rate and
+  a fan speed have nothing to fill up, and drawing one as a bar invents a
+  maximum. This is also why the design system's busy indicator is indeterminate
+  (design-system.md, Progress and results): a bar that filled steadily would be
+  inventing a number. A quota's number is real, which is what earns it a bar.
+- **A quota is one of the things that genuinely has a threshold**, so grading
+  it is a signal rather than decoration — unlike a CPU temperature, which is
+  high in normal use (see [Colour is the legend](#colour-is-the-legend)).
+- **The caption is not decoration.** A bar says "most of it". The caption says
+  which window, how much of it, and when it resets, and that is what someone
+  glancing at the panel wants. A meter without one is a bar nobody can act on.
+- **The caption is a changing value and obeys the width rule.** It sets the
+  meter's minimum width, so a caption built with `fmt.Sprintf("%.0f%%", pct)`
+  grows from "5%" to "100%" and takes the window's width with it. Format it
+  through `Percent`, `Quantity` or `Pad`.
+- **Padding alone is not enough: the caption is drawn in the monospace face.**
+  A space is narrower than a digit in a proportional face, so a value padded to
+  a fixed character count still changes width. This one cost a test failure
+  after the padding was already right.
+- The bar reserves height and no width, so a meter never decides how wide the
+  window is — **but the caption does.** It is the longest thing in the card, so
+  it is what the panel is sized to. Keep it to the shape the monitor uses,
+  `4 % · resets in 4h 32m`, not a sentence: a caption that explains itself in
+  prose makes every other card in the window wider to match.
 
 ## Colour is the legend
 
@@ -473,6 +528,7 @@ the theme's text size rather than copied (design-system.md, Numbers).
 | Value / label / status text size | 22 / 11 / 10, times the scale |
 | Icon | 24, scaled, floor 14 |
 | Sparkline samples / cadence / span | 60 / 5 s / 5 minutes |
+| Meter bar height / radius | 8 / 4 |
 | Sparkline height | 26 |
 | Sparkline minimum span per trace | 5 units |
 | Trend smoothing | 60 s trailing mean |

@@ -7,6 +7,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/theme"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -192,4 +193,78 @@ func TestTheCardsRenderToAnImage(t *testing.T) {
 		test.NewWindow(w.Panel().Content()).Resize(fyne.NewSize(300, 200))
 		_ = test.Canvas().Capture()
 	})
+}
+
+// The catcher that turns a secondary tap into the context menu is stacked over
+// the panel, not placed beside the cards. Beside them it took a card's worth of
+// height — a visible empty band at the top of the window — and saw taps only
+// inside its own strip.
+func TestTheMenuCatcherAddsNoHeightToTheWindow(t *testing.T) {
+	build := func(menu func() *fyne.Menu) fyne.Size {
+		w := newTestWindow(t, glance.Options{Title: "Sensors", Menu: menu})
+		c := glance.NewCard("AIO")
+		c.AddRow(glance.NewRow("Coolant", glance.NoQuantity("°C", 2)))
+		w.Panel().Add(c)
+		c.SetAvailable(true)
+		return w.Panel().Size()
+	}
+
+	without := build(nil)
+	with := build(func() *fyne.Menu { return fyne.NewMenu("") })
+
+	assert.Equal(t, without, with, "the context menu catcher changed the window's size")
+}
+
+// The menu is rebuilt on every tap so it can tick the current value of what it
+// shows, rather than being built once and going stale.
+func TestTheMenuIsBuiltFreshEveryTimeItIsOpened(t *testing.T) {
+	built := 0
+	w := newTestWindow(t, glance.Options{Title: "Sensors", Menu: func() *fyne.Menu {
+		built++
+		return fyne.NewMenu("", fyne.NewMenuItem("Quit", func() {}))
+	}})
+	c := glance.NewCard("AIO")
+	c.AddRow(glance.NewRow("Coolant", glance.NoQuantity("°C", 2)))
+	w.Panel().Add(c)
+	c.SetAvailable(true)
+	w.Window().Resize(fyne.NewSize(320, 200))
+
+	w.ShowMenu(fyne.NewPos(10, 10))
+	w.ShowMenu(fyne.NewPos(10, 10))
+
+	assert.Equal(t, 2, built)
+}
+
+// A window with no menu opens nothing rather than panicking on a nil builder.
+func TestAWindowWithNoMenuOpensNothing(t *testing.T) {
+	w := newTestWindow(t, glance.Options{Title: "Sensors"})
+
+	assert.NotPanics(t, func() { w.ShowMenu(fyne.NewPos(10, 10)) })
+}
+
+// A card is a surface of its own, not a run of rows. Fyne cannot draw a
+// translucent window (quirk 32), so the separation an alpha-capable toolkit
+// would get from opacity has to come from contrast: a fill a step from the
+// window's own and a hairline border. Without it three cards read as one
+// column.
+func TestACardDrawsItsOwnSurface(t *testing.T) {
+	a := fynetest.App(t)
+	c := glance.NewCard("AIO")
+	c.AddRow(glance.NewRow("Coolant", glance.NoQuantity("°C", 2)))
+	c.SetAvailable(true)
+
+	faces := fynetest.All[*canvas.Rectangle](c.Object())
+	require.NotEmpty(t, faces, "the card drew no surface at all")
+	face := faces[0]
+
+	assert.Equal(t, a.Settings().Theme().Color(theme.ColorNameButton, theme.VariantDark), face.FillColor,
+		"the fill should be a palette token, not a literal grey")
+	assert.NotNil(t, face.StrokeColor, "a card has a hairline border")
+	assert.Positive(t, face.StrokeWidth)
+
+	// A control radius is 2 in the Breeze, Oxygen and Adwaita schemes, which
+	// reads as a square at card size. A card takes a surface radius.
+	assert.Equal(t, glance.CardRadius, face.CornerRadius)
+	assert.Greater(t, face.CornerRadius, a.Settings().Theme().Size(theme.SizeNameInputRadius),
+		"a card should be rounder than an entry box")
 }

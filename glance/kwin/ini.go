@@ -151,6 +151,13 @@ func parseINI(r io.Reader) (*iniFile, error) {
 
 // render writes the file back. No space around the delimiter, which is how
 // KDE writes it.
+//
+// A section is separated from the one above by exactly one blank line, and the
+// blank line a file already had counts. KDE's own writer ends each section with
+// one, and the parser keeps it as a raw line inside that section; emitting a
+// separator regardless would add a second, and every install would add one
+// more. Read against a real kwinrulesrc of thirteen rules, that was thirteen
+// new blank lines per run.
 func (f *iniFile) render() string {
 	var b strings.Builder
 	writeLines := func(lines []iniLine) {
@@ -166,9 +173,13 @@ func (f *iniFile) render() string {
 		}
 	}
 
+	// endsBlank reports whether what has been written already finishes with an
+	// empty line, so the separator is not doubled.
+	endsBlank := func() bool { return strings.HasSuffix(b.String(), "\n\n") }
+
 	writeLines(f.preamble)
 	for i, s := range f.sections {
-		if i > 0 || len(f.preamble) > 0 {
+		if (i > 0 || len(f.preamble) > 0) && !endsBlank() {
 			b.WriteString("\n")
 		}
 		b.WriteString("[")
@@ -176,5 +187,11 @@ func (f *iniFile) render() string {
 		b.WriteString("]\n")
 		writeLines(s.lines)
 	}
-	return b.String()
+
+	// Exactly one newline at the end, which is what KDE's own writer leaves.
+	// Without this, installing a rule and removing it again does not restore
+	// the file: the separator written before the appended section is re-read
+	// as a trailing blank line of the section above it, and survives the
+	// removal.
+	return strings.TrimRight(b.String(), "\n") + "\n"
 }

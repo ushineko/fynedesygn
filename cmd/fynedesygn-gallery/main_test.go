@@ -22,7 +22,7 @@ func testShell(t *testing.T) *shell.Shell {
 func TestSectionNamesNeedNoApp(t *testing.T) {
 	// Canary #8 (docs/fyne-quirks.md): the names are read before any Fyne app
 	// exists, as --help and --version do.
-	require.Equal(t, []string{"Appearance", "Widgets", "Table", "Fonts", "Shell", "Dialogs", "Log", "Forms", "Documents", "About"}, shell.Names(sections()))
+	require.Equal(t, []string{"Appearance", "Widgets", "Table", "Fonts", "Shell", "Dialogs", "Log", "Forms", "Glance", "Documents", "About"}, shell.Names(sections()))
 	require.True(t, known(shell.Names(sections()), "table"))
 	require.False(t, known(shell.Names(sections()), "nope"))
 }

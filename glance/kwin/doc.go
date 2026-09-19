@@ -6,7 +6,8 @@ and the pinned Fyne reaches only two of them:
 
   - staying above other windows — desktop.Window.RequestAlwaysOnTop, which the
     window manager may decline;
-  - losing its titlebar — a splash window, which is undecorated;
+  - losing its titlebar — a splash window asks GLFW not to be decorated, and
+    KWin decorates it regardless, so on Plasma this rule is what removes it;
   - being translucent — nothing at all. The GLFW backend never requests a
     transparent framebuffer, so no code in the process can draw through the
     window (quirk 32).

@@ -34,6 +34,19 @@ import (
 // ThumbCellSize is the edge, in pixels, of a thumbnail cell.
 const ThumbCellSize float32 = 64
 
+/*
+The metric a column's width and a cell's own truncation share: text is assumed
+perRune wide per rune, plus cellPadding for the cell's own inset.
+
+Approximate on purpose. Fyne cannot measure text without shaping it, and a table
+that shaped every cell on every layout is what made a window drag stall.
+*/
+const (
+	perRune     float32 = 7.0
+	cellPadding float32 = 24.0
+	ellipsis            = "…"
+)
+
 // Detail is a listing of string rows, one Status per row, that renders as a
 // widget.Table. Build it with Header and Row, then call Widget.
 type Detail struct {
@@ -109,10 +122,8 @@ func (t *Detail) thumb(row int) fyne.Resource {
 // ellipsis covers the cases where it is short.
 func (t *Detail) Measure(col int) float32 {
 	const (
-		perRune = 7.0
-		padding = 24.0
-		minW    = 70.0
-		maxW    = 460.0
+		minW = 70.0
+		maxW = 460.0
 	)
 	widest := 0
 	if col >= 0 && col < len(t.head) {
@@ -125,7 +136,7 @@ func (t *Detail) Measure(col int) float32 {
 			}
 		}
 	}
-	w := float32(widest)*perRune + padding
+	w := float32(widest)*perRune + cellPadding
 	return min(max(w, minW), maxW)
 }
 
@@ -158,11 +169,35 @@ func (t *Detail) HeaderText(col int) string {
 // and from Measure otherwise.
 func (t *Detail) Widget() *widget.Table {
 	cols := len(t.head)
+	// Measured once here rather than per cell: the cells need them to cut their
+	// own text, and Measure walks every row.
+	colWidths := make([]float32, cols)
+	for i := range cols {
+		if i < len(t.widths) {
+			colWidths[i] = t.widths[i]
+			continue
+		}
+		colWidths[i] = t.Measure(i)
+	}
+
 	table := widget.NewTable(
 		func() (int, int) { return len(t.rows), cols },
 		func() fyne.CanvasObject {
 			l := widget.NewLabel("")
-			l.Truncation = fyne.TextTruncateEllipsis
+			/*
+				Wrapping and truncation both off is the one path in Fyne's rich
+				text that returns without measuring anything (lineBounds, the
+				first branch). Everything else shapes the cell's text through
+				harfbuzz -- and Fyne resizes every visible cell on every layout,
+				so during a window drag that is the whole table, every frame:
+				profiled at 42% of the process's CPU, with the GC taking another
+				36% clearing up after it.
+
+				The ellipsis is still wanted, so fit() does the cut here against
+				the same rune metric the column widths come from.
+			*/
+			l.Wrapping = fyne.TextWrapOff
+			l.Truncation = fyne.TextTruncateOff
 			if !t.hasThumbs() {
 				return l
 			}
@@ -186,6 +221,24 @@ func (t *Detail) Widget() *widget.Table {
 				l.Show()
 			}
 			text, imp := t.Cell(id.Row, id.Col)
+			text = fit(text, colWidths[id.Col])
+			/*
+				Nothing to do when the cell already says this.
+
+				Fyne calls UpdateCell for every visible cell on every layout,
+				and Label.SetText refreshes unconditionally -- which re-shapes
+				the text through harfbuzz. During a window drag that is every
+				cell on screen, every frame, for text that has not changed:
+				profiled on a seven-column table it was 35% of the process's
+				CPU in updateRowBounds, and another 41% in the GC clearing up
+				after it. Dragging the window stalled for seconds.
+
+				A recycled cell that scrolls onto a different row does change,
+				and still refreshes.
+			*/
+			if l.Text == text && l.Importance == imp {
+				return
+			}
 			// Importance before SetText: SetText is what refreshes the label,
 			// and the refresh is where importance becomes a colour. The other
 			// way round, a scrolled table paints each recycled cell in the
@@ -204,7 +257,11 @@ func (t *Detail) Widget() *widget.Table {
 	table.CreateHeader = func() fyne.CanvasObject {
 		l := widget.NewLabel("")
 		l.TextStyle = fyne.TextStyle{Bold: true}
-		l.Truncation = fyne.TextTruncateEllipsis
+		// The header is refreshed with the body on every layout, so it takes
+		// the same no-measure path and cuts its own text. See the cell
+		// template above.
+		l.Wrapping = fyne.TextWrapOff
+		l.Truncation = fyne.TextTruncateOff
 		return l
 	}
 	table.UpdateHeader = func(id widget.TableCellID, o fyne.CanvasObject) {
@@ -212,16 +269,45 @@ func (t *Detail) Widget() *widget.Table {
 		// Row headers are off in these tables, but UpdateHeader is still called
 		// with Col == -1 for the corner cell. HeaderText guards it rather than
 		// indexing the header slice with a negative number.
-		l.SetText(t.HeaderText(id.Col))
+		title := t.HeaderText(id.Col)
+		if id.Col >= 0 && id.Col < len(colWidths) {
+			title = fit(title, colWidths[id.Col])
+		}
+		if l.Text == title {
+			return
+		}
+		l.SetText(title)
 	}
 	for i := range cols {
-		if i < len(t.widths) {
-			table.SetColumnWidth(i, t.widths[i])
-			continue
-		}
-		table.SetColumnWidth(i, t.Measure(i))
+		table.SetColumnWidth(i, colWidths[i])
 	}
 	return table
+}
+
+/*
+fit cuts text to what a column of this width can show, with an ellipsis.
+
+The same approximation as Measure -- a rune is perRune wide -- because the
+alternative is measuring the text, which is the cost this exists to avoid. A
+proportional font makes the cut a rune early or late on occasion; the ellipsis
+is there either way, so nobody reads a word that was silently halved.
+*/
+func fit(text string, width float32) string {
+	if width <= 0 || text == "" {
+		return text
+	}
+	room := int((width - cellPadding) / perRune)
+	if room < 1 {
+		room = 1
+	}
+	if utf8.RuneCountInString(text) <= room {
+		return text
+	}
+	runes := []rune(text)
+	if room == 1 {
+		return ellipsis
+	}
+	return string(runes[:room-1]) + ellipsis
 }
 
 // cellParts splits a template cell into its label and, when the table has a

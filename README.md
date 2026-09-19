@@ -35,6 +35,8 @@ hand-synced copies.
 | `mermaid` | Hash-keyed lookup of pre-rendered diagram PNGs (light and dark), the widget that draws them, and the `mmdc` renderer and checker behind `go generate`. |
 | `dialogs` | Destructive confirmation, prompt and detail dialogs, file and folder choosers that do not crash, the desktop opener, and a yes-or-no question a worker goroutine can ask. |
 | `shell` | The window skeleton: header, section nav, content pane, status bar, busy indicator, banners, `Perform`, section lifecycle, plus the standard Appearance and About sections. |
+| `glance` | The other window archetype: a frameless, always-on-top status panel sized to its content, with cards that hide when their source is silent, fixed-width value formatting and a sparkline. |
+| `glance/kwin` | The KDE Plasma window rule a glance window needs — above, no border, and the opacity Fyne cannot draw itself. |
 | `steps` | The step list a job shows beside its log, updated in place. |
 | `fynetest` | Headless test helpers: tree walking, finders, text extraction, scrollable detection. |
 | `cmd/fynedesygn-gallery` | The reference program. Every component in every scheme, with `--section` and `--scheme` for screenshots. |
@@ -43,7 +45,9 @@ hand-synced copies.
 | `examples/` | Small programs, one per UI pattern; see [Examples](#examples). |
 | `tools/` | The screenshot harness for KDE/Wayland. |
 
-The rules the components follow are in [docs/design-system.md](docs/design-system.md).
+The rules the components follow are in
+[docs/design-system.md](docs/design-system.md) for application windows and
+[docs/glance.md](docs/glance.md) for glance windows.
 
 ## Screenshots
 
@@ -64,8 +68,8 @@ with the same command and check the alt text still matches.
 
 ## Examples
 
-Each example is a complete program on `shell.Run`, with a headless test, in
-`examples/`. Build them all with `make build-examples`.
+Each example is a complete program with a headless test, in `examples/`, on
+`shell.Run` unless noted. Build them all with `make build-examples`.
 
 | Example | Pattern |
 |---|---|
@@ -73,6 +77,7 @@ Each example is a complete program on `shell.Run`, with a headless test, in
 | `settings` | A `forms.Form` over a JSON file, saved a second after the last change through `forms.Saver`, with Revert and the standard Appearance section. |
 | `job-runner` | A `steps.List` beside a `logpane.Pane`, a job run through `PerformCancellable` that advances steps and logs, and one banner for the result. |
 | `document-viewer` | `markdown.Section` over an embedded guide with a mermaid diagram rendered by `go generate`. |
+| `glance-monitor` | Not a shell program: a `glance` panel of three cards with a two-trace sparkline, a context menu as its only interface, and the KDE window rule offered behind `-kwin`. |
 
 ## Status
 

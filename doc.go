@@ -5,10 +5,13 @@ user interfaces with Fyne (fyne.io/fyne/v2).
 The root package holds only the vocabulary every subpackage shares. The
 components live in subpackages: theme (colour schemes, fonts, appearance
 preferences), widgets (the small shared primitives), table, logpane, markdown,
-mermaid, dialogs, shell (the window skeleton and section lifecycle) and
-fynetest (headless test helpers).
+mermaid, dialogs, shell (the window skeleton and section lifecycle), glance
+(always-on-top status panels) and fynetest (headless test helpers).
 
-The rules the components follow are written down in docs/design-system.md.
+There are two window archetypes and two rulebooks. shell builds a window
+someone works in, and its rules are in docs/design-system.md. glance builds a
+small frameless panel read without being interacted with, and its rules are in
+docs/glance.md.
 */
 package fynedesygn
 

@@ -15,6 +15,7 @@ why in a comment at the point of departure.
 - [Vocabulary](#vocabulary)
 - [The two binding rules](#the-two-binding-rules)
 - [Window skeleton](#window-skeleton)
+- [Glance windows](glance.md) (separate document)
 - [Sections](#sections)
 - [Colour, type and spacing](#colour-type-and-spacing)
 - [Fonts](#fonts)
@@ -89,6 +90,10 @@ Border{
 - Window geometry persistence is the program's business (Fyne has no resize
   callback; clockwork-orange polls the size every 500 ms and saves it through
   a coalesced writer).
+
+- This skeleton is the application window. A small always-on-top panel read
+  without being interacted with — no header, no nav, no scroller — is a
+  different archetype with its own rulebook: [glance.md](glance.md).
 
 ## Sections
 

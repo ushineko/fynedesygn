@@ -117,6 +117,33 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### 0.1.27 (2026-09-19)
+
+A table no longer re-shapes its text every time it is resized. Fyne resizes
+every visible cell on each layout, and a `widget.Label` with wrapping or
+truncation on re-shapes its text through harfbuzz when it is resized -- for text
+that has not changed, only a width that has. Dragging a window that showed a
+table stalled for seconds: profiled on a consumer's 7-column catalog, 42% of the
+process's CPU was in `RichText.updateRowBounds` and another 36% in the GC behind
+it.
+
+Cells and headers now take the one path in Fyne that returns without measuring
+-- wrapping and truncation both off -- and the table cuts its own ellipsis with
+the rune metric its column widths have always used. A 300-row table resizes in
+27 microseconds where it took 738, pinned by `table.BenchmarkResize`.
+
+Not a breaking change, and no API moved. The visible difference is that a
+truncated cell may now cut a character earlier or later than Fyne would have:
+the cut is by rune count rather than by measurement, which is the same
+approximation that has sized the columns since `Measure` was written.
+
+Quirks 30 and 31 in `docs/fyne-quirks.md`: the re-shaping above, and a second
+one a consumer must act on itself -- Fyne asks which goroutine it is on by
+taking a stack traceback, on every canvas refresh, unless the app builds with
+`-tags migrated_fynedo`. That was 52% of a consumer's CPU during a drag. Every
+program on this library already hops to the UI thread with `fyne.Do`, which is
+what the tag asserts, so they should all carry it.
+
 ### 0.1.26 (2026-09-19)
 
 A control that starts, cancels or commits work is affixed: it keeps its place

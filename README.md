@@ -1,6 +1,6 @@
 # fynedesygn
 
-**Version**: 0.1.27 (unreleased work since: see [Changelog](#changelog))
+**Version**: 0.1.28
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -153,6 +153,11 @@ make coverage
 make vuln      # govulncheck, before every tagged release
 ```
 
+Releasing: date the changelog's `Unreleased` heading, set the **Version** line
+to match, run `make vuln`, land that commit on `main`, then push the tag and
+publish a GitHub Release whose notes are that changelog entry. The steps are in
+`.claude/CLAUDE.md`.
+
 Work is specified in `specs/` and follows the conventions in
 `.claude/CLAUDE.md`.
 
@@ -166,7 +171,7 @@ Every release has an entry, and the **Version** line at the top of this file
 names the latest tag. Both are updated in the same commit as the change they
 describe -- see `.claude/CLAUDE.md`.
 
-### Unreleased
+### 0.1.28 (2026-09-19)
 
 A second window archetype: **glance windows**, small frameless always-on-top
 panels sized to their content and read without being interacted with. Where
@@ -196,6 +201,24 @@ of two traces over sixty samples is 118 segments and `Add` refreshes on every
 sample, so the cost of drawing a plot was proportional to how often it was fed.
 2397 ns and 118 allocations per refresh before, 357 ns and none after, pinned by
 `BenchmarkSparklineRefresh` and `TestRefreshingAPlotAllocatesNothing`.
+
+This README had drifted twenty-four releases: the **Version** line said 0.1.3
+against a latest tag of v0.1.27, the `settings` packages had never reached the
+package table though they have shipped since 0.1.10, four gallery screenshots
+were displayed nowhere so their alt text had never been checked, and two specs'
+worth of work had no entry here at all. Nothing builds this file and nothing
+read it, so it drifted until a reader found it.
+
+`readme_test.go` holds seven canaries for that now -- a package missing from
+the table, a document not linked, a screenshot shown nowhere, a `make` target
+undocumented, a Version line behind the changelog, a changelog whose shape has
+changed, a section missing from Contents. Each was checked by breaking the
+thing it guards, and one was blind on the first attempt. The rule they enforce
+is in `.claude/CLAUDE.md`. Spec 018.
+
+A "Used by" section names the four programs built on this library, one of
+which the project's own record had lost: terrariabonker has been on it since
+before v0.1.27 and appeared only in changelog entries.
 
 Additive. Nothing outside `glance` changed behaviour; `docs/design-system.md`,
 this README and the root `doc.go` gained cross-references, and the gallery

@@ -110,10 +110,35 @@ Border{
   (both); `Invalidate` (the program's `OnInvalidate` hook drops loaded data
   and reloads, then `Rebuild`). Navigation starts at the top;
   a rebuild in place keeps the offset.
-- Sections whose bottom action strip must stay visible use
-  `Border(nil, actions, nil, nil, VScroll(body))`. Sections built around one
-  big table or log use `Border(top, bottom, nil, nil, FixedHeight(table, N))`
-  and no scroller of their own.
+- **A control that starts work is affixed.** Every control that starts, cancels
+  or commits work occupies the same place in its section however much of the
+  section is scrolled. What scrolls is the material the control acts on -- the
+  form, the table, the statistics, the prose -- never the control itself. So a
+  section holding one is `Border(nil, actions, nil, nil, VScroll(body))`, with
+  the controls in a fixed edge and a scroller in the centre, and not a column
+  that happens to fit the window it was built on. Sections built around one big
+  table or log use `Border(top, bottom, nil, nil, FixedHeight(table, N))` and no
+  scroller of their own.
+- The rule is stronger than "keep the action strip visible", and the reason is
+  two rules up: **Fyne hands a wheel event to the innermost scrollable under the
+  pointer and does not pass it on.** A control the user must scroll to is not
+  merely inconvenient in a section that also holds a log or a table -- the
+  wheel goes to whichever of them the pointer is over, so at an ordinary window
+  height the control can be unreachable. The user does not have a hard-to-find
+  button; they have no button. This was found twice in one week in
+  clockwork-orange: a plugin form eleven fields long pushed its Download button
+  off the bottom, and the Service section put Start, Stop, Restart, Install and
+  Uninstall in the scrolling half of a split whose other half was a log pane.
+  The gallery's own Log section had it too.
+- The exception is a control that *is* the exhibit: a gallery card whose prose
+  describes the button beside it, a row's own Remove button in a list of rows.
+  There the control is the material, and it travels with the text or the row
+  that explains it. The test is whether the control acts on the section or
+  belongs to what scrolls.
+- A program with more than a couple of these keeps the list of what must stay
+  affixed beside its sections and walks it in a test, the way it keeps the list
+  of what must stay reachable. `fynetest.ScrolledButtons` is the check:
+  a named control must not appear in it.
 - Use `Border`, not `VBox`, when a child must fill the section: the content
   pane is a scroller that sizes its content to at least the viewport.
 - `AppTabs` sizes to its tallest item, so only the selected tab holds real

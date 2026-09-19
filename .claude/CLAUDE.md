@@ -102,7 +102,9 @@ ticket IDs.
 
 ## Git
 
-- Work on `main` directly unless a change is experimental; no PR flow.
+- Feature work happens on branches and lands on `main` through a PR, as in the
+  other ushineko projects, so the work is visible in GitHub rather than only in
+  the log.
 - Never add `Co-Authored-By` trailers or AI attribution footers. No
   exceptions.
 - Commit subjects: lowercase conventional prefix, imperative, sentence-like

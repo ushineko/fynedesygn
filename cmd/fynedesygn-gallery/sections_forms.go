@@ -138,13 +138,21 @@ func (d *logDemo) build(s *shell.Shell) fyne.CanvasObject {
 	// failing, and a pane of fixed height gives it no more room. The position
 	// is the shell's, so it survives this section being rebuilt and the
 	// gallery being closed.
+	//
+	// Start and Stop are affixed above the divider, not in the scroller with
+	// the prose. This section had them in the scroller, which is the bug the
+	// affixing rule is written against: below the fold at an ordinary window
+	// height, and unreachable rather than merely hidden, because the other
+	// half of the split is a log pane and the wheel goes to whatever
+	// scrollable is under the pointer.
 	return s.VSplit("log", 0.55,
-		container.NewVScroll(container.NewVBox(
-			widgets.Heading("Log", "A list of monospace rows drawn on a 100 ms timer, following the tail until you scroll up. The cap here is 300 lines so the drop shows."),
-			container.NewHBox(start, stop),
-			widgets.DimWrapped("Copy puts the whole log on the clipboard with a line saying how many older rows were dropped; Clear empties it."),
-			widgets.DimWrapped("Drag the bar below. Options.Height is the pane's minimum, not its size, so it takes whatever the divider gives it and stops there."),
-		)),
+		container.NewBorder(nil, container.NewHBox(start, stop), nil, nil,
+			container.NewVScroll(container.NewVBox(
+				widgets.Heading("Log", "A list of monospace rows drawn on a 100 ms timer, following the tail until you scroll up. The cap here is 300 lines so the drop shows."),
+				widgets.DimWrapped("Copy puts the whole log on the clipboard with a line saying how many older rows were dropped; Clear empties it."),
+				widgets.DimWrapped("Drag the bar below. Options.Height is the pane's minimum, not its size, so it takes whatever the divider gives it and stops there."),
+				widgets.DimWrapped("Start and Stop are affixed below this text rather than in it: a control that starts work keeps its place however far the section is scrolled."),
+			))),
 		d.pane.Widget(logpane.Options{
 			Title:     "logpane.Pane",
 			Height:    logDemoMinHeight,

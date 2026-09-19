@@ -33,6 +33,14 @@ fails `make check-diagrams`. A section that breaks the affixing rule fails
 until a reader found it — the worst way to find out, because the reader is the
 person it exists for.
 
+### The consumers were not listed, and the count was wrong
+
+The README named three programs in a sentence about provenance and nowhere
+else. There are four: terrariabonker has been building on the library rather
+than migrating to it, reported the table resize cost (spec 015) and asked for
+hover tips (spec 010), and appeared only in changelog entries. `.claude/CLAUDE.md`
+still said "the three apps".
+
 ### A sparkline allocated 118 objects per sample
 
 `glance.Sparkline` rebuilt its `canvas.Line` segments on every refresh and
@@ -51,6 +59,8 @@ would pay for it in garbage rather than in drawing.
   drifted, rather than relying on the rule being remembered.
 - R4 `glance.Sparkline` reuses its segments, with a benchmark and an allocation
   test pinning it.
+- R5 The programs built on this library are linked from the README, and the
+  project's own record of who they are is correct.
 
 ## Acceptance Criteria
 
@@ -62,8 +72,8 @@ would pay for it in garbage rather than in drawing.
 - [x] AC2 `.claude/CLAUDE.md` carries "The README is not optional (mandatory)":
       what must be updated in the same commit, and the four steps tagging
       requires. (R2)
-- [x] AC3 Six canaries in `readme_test.go`, each verified to fail on the drift
-      it is for and to pass on the real file. (R3)
+- [x] AC3 Seven canaries in `readme_test.go`, each verified to fail on the
+      drift it is for and to pass on the real file. (R3)
 - [x] AC4 The canaries look in the right section of the README rather than
       anywhere in it. The first version of `TestEveryPackageIsInTheReadme` was
       **green with the `settings` row deleted**, because `settings` is also an
@@ -74,7 +84,18 @@ would pay for it in garbage rather than in drawing.
       ns and none after. `TestRefreshingAPlotAllocatesNothing` pins the
       allocation count and `TestAShrunkPlotDoesNotDrawItsOldSegments` pins that
       the pool is reused rather than merely cleared. (R4)
-- [x] AC6 `go test -race ./...` passes headless and `make lint` reports 0
+- [x] AC6 A "Used by" section links all four consuming programs with what each
+      one is and what it contributed, and is in the Contents list. Versions are
+      deliberately omitted: they move independently and no canary here can
+      check them, which is the same reasoning that made the Version line a
+      canary rather than a convention. (R5)
+- [x] AC7 `.claude/CLAUDE.md` names four consumers rather than three.
+      terrariabonker has been on the library since before v0.1.27 and appeared
+      only in changelog entries; the project record still said "the three
+      apps". (R5)
+- [x] AC8 `TestTheContentsListMatchesTheHeadings` fails when a section is added
+      without its Contents entry, which happened while writing "Used by". (R3)
+- [x] AC9 `go test -race ./...` passes headless and `make lint` reports 0
       issues.
 
 ## Risks & Assumptions
@@ -116,7 +137,7 @@ would pay for it in garbage rather than in drawing.
 The README had drifted twenty-four releases without anything noticing, because
 nothing builds it and no test read it. This brings it back into line, writes
 the rule down in `.claude/CLAUDE.md`, and — because a rule that must be
-remembered is what failed — adds six canaries that fail when the repository and
+remembered is what failed — adds seven canaries that fail when the repository and
 its front page disagree. Each was verified by breaking the thing it guards;
 one of them was blind on the first attempt and was caught that way.
 

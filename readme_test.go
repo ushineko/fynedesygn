@@ -231,3 +231,42 @@ func allDocs(t *testing.T) string {
 	}
 	return b.String()
 }
+
+// TestTheContentsListMatchesTheHeadings fails when a section has been added
+// and the Contents list has not, or the other way round. Adding a section and
+// forgetting its entry is the easiest of these to do — it happened while
+// writing the "Used by" section that this test now guards.
+func TestTheContentsListMatchesTheHeadings(t *testing.T) {
+	doc := readme(t)
+
+	contents := section(t, doc, "## Contents", "## ")
+	listed := map[string]bool{}
+	for _, m := range regexp.MustCompile(`\[[^\]]+\]\(#([a-z0-9-]+)\)`).FindAllStringSubmatch(contents, -1) {
+		listed[m[1]] = true
+	}
+	require.NotEmpty(t, listed, "the Contents list has no anchors")
+
+	for _, m := range regexp.MustCompile(`(?m)^## (.+)$`).FindAllStringSubmatch(doc, -1) {
+		title := m[1]
+		if title == "Contents" {
+			continue
+		}
+		require.True(t, listed[anchorFor(title)],
+			"the section %q is not in the Contents list", title)
+	}
+}
+
+// anchorFor is GitHub's heading anchor: lower case, spaces to hyphens, and
+// anything else dropped.
+func anchorFor(title string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(title) {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == ' ', r == '-':
+			b.WriteRune('-')
+		}
+	}
+	return b.String()
+}

@@ -14,6 +14,7 @@ hand-synced copies.
 - [What is in it](#what-is-in-it)
 - [Screenshots](#screenshots)
 - [Examples](#examples)
+- [Used by](#used-by)
 - [Status](#status)
 - [Using it](#using-it)
 - [Documentation](#documentation)
@@ -90,6 +91,26 @@ Each example is a complete program with a headless test, in `examples/`, on
 | `job-runner` | A `steps.List` beside a `logpane.Pane`, a job run through `PerformCancellable` that advances steps and logs, and one banner for the result. |
 | `document-viewer` | `markdown.Section` over an embedded guide with a mermaid diagram rendered by `go generate`. |
 | `glance-monitor` | Not a shell program: a `glance` panel of four cards — peripherals, bandwidth, a two-trace sparkline over thermals, and two quota meters — with a context menu as its only interface and the KDE window rule offered behind `-kwin`. |
+
+## Used by
+
+Four programs, all by the same author and all public. The first three carried
+this design system as hand-synced copies before it was extracted, and are the
+reason it exists; the fourth was built on the library from the start.
+
+| Project | What it is | Role here |
+|---|---|---|
+| [clockwork-orange](https://github.com/ushineko/clockwork-orange) | Cross-platform wallpaper manager (KDE Plasma 6, Windows 10/11, macOS) | First adopter. The extraction was driven by its port, and it is the widest user of the shell |
+| [nmsbonker](https://github.com/ushineko/nmsbonker) | No Man's Sky trainer and mod editor | Second adopter. `steps`, the log pane and the cancellable busy popup came from it |
+| [angou](https://github.com/ushineko/angou) | Encryption tool for secrets | The origin. The rationale comments in `docs/design-system.md` are transcribed from its `internal/gui` |
+| [terrariabonker](https://github.com/ushineko/terrariabonker) | Live-memory trainer for Terraria | Built on the library rather than migrated to it. Reported the table resize cost (spec 015) and asked for hover tips (spec 010) |
+
+A component is done when one of these can delete its copy, which is why their
+feedback has its own specs (006, 007) rather than being folded into the
+features it changed.
+
+Versions are deliberately not listed: they move independently and nothing here
+can check them. `go.mod` in each repository is the answer.
 
 ## Status
 

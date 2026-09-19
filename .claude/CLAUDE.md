@@ -17,11 +17,17 @@ below.
 - **Module**: `github.com/ushineko/fynedesygn`
 - **Licence**: MIT. Public repository, distributed for use by other projects.
 - **Consumers, in adoption order**: clockwork-orange, then nmsbonker, then
-  angou. The three apps are the acceptance test: a component is done when an
-  app can delete its copy.
-- **Source of record for behaviour**: the three apps' `internal/gui` packages
-  as they stand today. Where they disagree, `docs/design-system.md` records
-  the choice. angou's rationale comments travel with the code.
+  angou, then terrariabonker. The first three carried the design system as
+  hand-synced copies and are the acceptance test: a component is done when an
+  app can delete its copy. terrariabonker was built on the library rather than
+  migrated to it, so it is the check on whether the API reads well to someone
+  who never had the copy -- specs 010 and 015 came from it.
+- **Source of record for behaviour**: the three copy-carrying apps'
+  `internal/gui` packages as they stand today. Where they disagree,
+  `docs/design-system.md` records the choice. angou's rationale comments travel
+  with the code.
+- All four are linked from the README's "Used by" section, which is where a
+  reader looks for them.
 
 ---
 

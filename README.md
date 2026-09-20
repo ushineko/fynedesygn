@@ -167,6 +167,17 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- `settings` no longer renames a file it cannot parse. An unreadable file is
+  reported through a new `*settings.ParseError` carrying the path and the
+  codec's own error — which knows the line and column — and is left exactly
+  where its owner put it. The store serves reads from defaults so a program
+  still runs, and refuses to save until the caller calls `Replace`, because
+  overwriting a file nobody could read destroys the thing its owner needs to
+  fix. `Unreadable` reports the condition without waiting for a failed `Set`.
+  Supersedes spec 011's R6/AC5 (spec 019, #15).
+
 Every release has an entry, and the **Version** line at the top of this file
 names the latest tag. Both are updated in the same commit as the change they
 describe -- see `.claude/CLAUDE.md`.

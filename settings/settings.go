@@ -65,6 +65,10 @@ type Store struct {
 	mu    sync.Mutex
 	doc   map[string]json.RawMessage
 	dirty bool
+	// unreadable is set when the file on disk did not parse. The store then
+	// serves reads from defaults and refuses to write, because the one thing
+	// worse than leaving a file nobody could read is overwriting it.
+	unreadable *ParseError
 	// seq lets a later change take ownership of the timer, so a run of changes
 	// is one write a second after the last of them rather than one write each.
 	seq   int
@@ -75,10 +79,14 @@ type Store struct {
 Open reads the settings at path, choosing a codec from its extension.
 
 A missing file is not an error: it is a program that has never been configured,
-and the store it returns writes one when something is set. An unreadable or
-unparseable file is reported, and described in the error -- the store is still
-usable, because a window that will not open because its settings file is
-malformed is worse than one that opens with defaults.
+and the store it returns writes one when something is set.
+
+A file that does not parse is reported and left exactly as it is. Nothing on
+disk is renamed, rewritten or removed. The store is still returned and still
+serves reads, because a window that will not open because its settings file is
+malformed is worse than one that opens on defaults -- but it refuses to save
+until the caller calls Replace, since overwriting a file nobody could read
+destroys the very thing its owner needs to fix.
 */
 func Open(path string) (*Store, error) {
 	c, err := CodecFor(path)
@@ -117,10 +125,14 @@ func OpenWith(path string, c Codec) (*Store, error) {
 /*
 load reads the file into the document.
 
-A file that does not parse is renamed aside once, to <name>.bad, and the store
-starts from defaults. Not deleted, because it is the user's; not left where it
-is, because every save from then on would have to either refuse or overwrite it
-without saying so.
+A file that does not parse is **left exactly where it is**. Nothing is renamed,
+written or removed: a caller that asked to read settings has not asked this
+package to rearrange the user's configuration directory, and the moment a file
+fails to parse is the moment its owner most needs to find it where they left it.
+
+The error carries the codec's own, which knows the line and column, so a program
+can tell someone where the mistake is. The store then refuses to save until the
+caller decides what to do about it -- see ParseError and Replace.
 */
 func (s *Store) load() error {
 	b, err := os.ReadFile(s.path) //nolint:gosec // the path the caller chose
@@ -136,17 +148,63 @@ func (s *Store) load() error {
 
 	var doc map[string]json.RawMessage
 	if err := s.codec.Unmarshal(b, &doc); err != nil {
-		aside := s.path + ".bad"
-		if renameErr := os.Rename(s.path, aside); renameErr != nil {
-			return fmt.Errorf("%s does not parse and could not be moved aside: %w", s.path, err)
-		}
-		return fmt.Errorf("%s did not parse and was moved to %s, so defaults are in use: %w",
-			s.path, aside, err)
+		s.unreadable = &ParseError{Path: s.path, Err: err}
+		return s.unreadable
 	}
 	if doc != nil {
 		s.doc = doc
 	}
 	return nil
+}
+
+/*
+ParseError is a settings file that could not be decoded.
+
+It carries the codec's error, which for JSON and YAML alike names the line and
+column, so a caller can show the user where to look rather than only that
+something was wrong.
+*/
+type ParseError struct {
+	Path string
+	Err  error
+}
+
+func (e *ParseError) Error() string {
+	return fmt.Sprintf("%s does not parse: %v (settings will not be saved until it is fixed or replaced)",
+		e.Path, e.Err)
+}
+
+func (e *ParseError) Unwrap() error { return e.Err }
+
+/*
+Unreadable is the error from a file that did not parse, or nil.
+
+A caller can ask before writing rather than learning it from a failed Set.
+*/
+func (s *Store) Unreadable() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.unreadable == nil {
+		return nil
+	}
+	return s.unreadable
+}
+
+/*
+Replace abandons an unreadable file's contents, so the store saves again and the
+next write overwrites it.
+
+The caller decides this and the library never does. Refusing to save is the only
+honest thing a package can do with a file it could not read: renaming it hides
+the user's work somewhere they did not choose, and overwriting it destroys it.
+Replace is how a program says the user has been told and has chosen to start
+again.
+*/
+func (s *Store) Replace() {
+	s.mu.Lock()
+	s.unreadable = nil
+	s.doc = map[string]json.RawMessage{}
+	s.mu.Unlock()
 }
 
 // Path is the file this store reads and writes.
@@ -201,6 +259,11 @@ func (s *Store) Set(key string, v any) error {
 		return fmt.Errorf("encode settings section %q: %w", key, err)
 	}
 	s.mu.Lock()
+	if s.unreadable != nil {
+		err := s.unreadable
+		s.mu.Unlock()
+		return err
+	}
 	same := string(s.doc[key]) == string(raw)
 	if !same {
 		s.doc[key] = raw
@@ -265,6 +328,11 @@ a file it never changed.
 */
 func (s *Store) Flush() error {
 	s.mu.Lock()
+	if s.unreadable != nil {
+		err := s.unreadable
+		s.mu.Unlock()
+		return err
+	}
 	if !s.dirty {
 		s.mu.Unlock()
 		return nil

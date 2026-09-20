@@ -122,16 +122,24 @@ func TestAWholeNumberIsWrittenWhole(t *testing.T) {
 	require.Contains(t, text, "offset: 0.5", "and a fraction stays a fraction")
 }
 
-// A file that is not YAML is moved aside like any other unreadable settings
-// file, rather than being reported as an empty one.
-func TestAFileThatIsNotYamlIsMovedAside(t *testing.T) {
+// A file that is not YAML is reported like any other unreadable settings file,
+// rather than being read as an empty one -- and, since spec 019, left where it
+// is, with the parser's own complaint carried in the error.
+func TestAFileThatIsNotYamlIsReportedAndLeftAlone(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "settings.yaml")
-	require.NoError(t, os.WriteFile(path, []byte("\tthis: [is not\n\t  yaml"), 0o600))
+	body := "\tthis: [is not\n\t  yaml"
+	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
 
 	_, err := settings.Open(path)
 	require.Error(t, err)
-	require.FileExists(t, path+".bad")
+
+	var parse *settings.ParseError
+	require.ErrorAs(t, err, &parse)
+	require.Equal(t, path, parse.Path)
+
+	require.NoFileExists(t, path+".bad")
+	require.Equal(t, body, read(t, path), "the user's file was modified")
 }
 
 /*

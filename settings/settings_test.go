@@ -139,34 +139,79 @@ func TestSettingTheSameValueIsNotAChange(t *testing.T) {
 }
 
 /*
-A file that does not parse is moved aside, not deleted and not obeyed.
+A file that does not parse is reported and left alone.
 
-It is the user's file, so it is kept where they can look at it. It is not left
-in place, because every save from then on would have to either refuse or
-overwrite it without saying so.
+Spec 011 renamed it to <name>.bad and carried on. Spec 019 removed that: a
+library has no business moving a user's files, least of all as a side effect of
+reading them, and least of all at the moment its owner has mistyped it and is
+looking for where they left it. The store refuses to save instead, which is the
+third option spec 011 did not take -- overwriting a file nobody could parse
+destroys the evidence rather than relocating it.
 */
-func TestAFileThatDoesNotParseIsMovedAside(t *testing.T) {
+func TestAFileThatDoesNotParseIsReportedAndLeftWhereItIs(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "settings.json")
 	require.NoError(t, os.WriteFile(path, []byte("{this is not json"), 0o600))
 
 	st, err := settings.Open(path)
 	require.Error(t, err, "the caller is told rather than left to guess")
-	require.Contains(t, err.Error(), ".bad")
 	require.NotNil(t, st, "and the store still works, on defaults")
 
-	aside, err := os.ReadFile(path + ".bad")
-	require.NoError(t, err)
-	require.Equal(t, "{this is not json", string(aside), "kept exactly as it was")
+	var parse *settings.ParseError
+	require.ErrorAs(t, err, &parse)
+	require.Equal(t, path, parse.Path)
+	require.Contains(t, err.Error(), path, "the message names the file")
+	require.NotNil(t, parse.Unwrap(), "and carries the codec's error, which knows where the fault is")
+	require.Equal(t, err, st.Unreadable())
 
+	// Nothing was created, renamed or removed. This is the whole point.
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	require.Equal(t, "settings.json", entries[0].Name())
+
+	on, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, "{this is not json", string(on), "left exactly as it was")
+
+	// Reads answer with defaults, so a program runs.
 	var got jobs
 	require.False(t, st.Get("jobs", &got))
+
+	// Writes refuse, naming the reason, and touch nothing.
+	require.ErrorAs(t, st.Set("jobs", jobs{Parallel: 2}), &parse)
+	require.ErrorAs(t, st.Flush(), &parse)
+	on, err = os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, "{this is not json", string(on), "a refused save wrote anyway")
+}
+
+/*
+Replace is how a caller says the user has been told and has chosen to start
+again. The library never decides this for them.
+*/
+func TestReplaceLetsTheCallerAbandonAFileItCouldNotRead(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.json")
+	require.NoError(t, os.WriteFile(path, []byte("{this is not json"), 0o600))
+
+	st, err := settings.Open(path)
+	require.Error(t, err)
+
+	st.Replace()
+	require.NoError(t, st.Unreadable())
 	require.NoError(t, st.Set("jobs", jobs{Parallel: 2}))
 	require.NoError(t, st.Flush())
 
 	again, err := settings.Open(path)
 	require.NoError(t, err)
+	var got jobs
 	require.True(t, again.Get("jobs", &got))
+	require.Equal(t, 2, got.Parallel)
+
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	require.Len(t, entries, 1, "still no second file")
 }
 
 // A section that no longer decodes into the caller's type reads as absent. A

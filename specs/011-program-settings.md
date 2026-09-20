@@ -95,6 +95,11 @@ points `SettingsPath` at it and keeps one directory rather than two.
 
 ### Reading a file that does not parse
 
+> **Superseded by spec 019.** The dilemma below is real and the resolution was
+> wrong: a library should not move a user's files, least of all while reading
+> them. hotaru now refuses to save instead — the third option this section did
+> not consider — and the file is left exactly where its owner put it.
+
 Renamed aside once, to `<name>.bad`, and the store starts from defaults. Not
 deleted, because it is the user's, and not left in place, because leaving it
 would mean every save from then on refuses or overwrites it unannounced. The
@@ -167,6 +172,9 @@ stops writing to `fyne.Preferences` once the move is done.
   when the window closes and before the process restarts.
 - R6 A file that does not parse is renamed to `<name>.bad` once, the store
   starts from defaults, and the caller is told.
+  **Superseded by spec 019**: nothing is renamed. The error is reported, the
+  file is left where it is, and the store refuses to save until the caller
+  calls `Replace`.
 - R7 Keys beginning `fynedesygn.` are reserved for the library and documented as
   such. The library reads and writes nothing else.
 - R8 `Options.SettingsPath` overrides the default location; the default is
@@ -202,6 +210,7 @@ stops writing to `fyne.Preferences` once the move is done.
   writes a pending change immediately and `Pending` then reports false (R5).
 - [x] AC5 A file of invalid JSON is renamed to `<name>.bad`, the store loads
   defaults, and the error is returned from `Open` rather than swallowed (R6).
+  **Superseded by spec 019**: the rename is gone; the rest holds.
 - [x] AC6 A program's `Set("jobs", …)` and the library's appearance survive each
   other; neither writes the other's key (R7).
 - [x] AC7 With no `SettingsPath`, the shell uses

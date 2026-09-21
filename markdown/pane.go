@@ -312,11 +312,19 @@ func (p *Pane) measure(w float32) {
 	p.width = w
 	for i := range p.blocks {
 		o := p.Visual(i)
-		// One MinSize per block, not two. It is the expensive call here --
-		// it shapes the block's text -- and the second was asking the same
-		// question again after a Resize that cannot change the answer.
+		/*
+			Width first, then height. A block's height is not a property of
+			the block: Fyne's RichText reports unwrapped text until it has
+			been resized, and a mermaid diagram derives its height from the
+			width it was given.
+
+			Spec 015 dropped the second MinSize as "asking the same question
+			again after a Resize that cannot change the answer". It can, and
+			the answer was a document measured several screens short of what
+			it draws as -- see spec 021.
+		*/
+		o.Resize(fyne.NewSize(w, o.MinSize().Height))
 		h := o.MinSize().Height
-		o.Resize(fyne.NewSize(w, h))
 		p.spacers[i].SetMinSize(fyne.NewSize(0, h))
 	}
 	p.body.Refresh()

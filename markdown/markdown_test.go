@@ -263,3 +263,36 @@ func TestFyneStillDrawsMarkdownTablesInsideAScroll(t *testing.T) {
 	require.Contains(t, text, "a")
 	require.Contains(t, text, "2")
 }
+
+/*
+A block is measured after it has been given its width (spec 021).
+
+Fyne's RichText reports the size of unwrapped text until it has been resized,
+and a mermaid diagram derives its height from the width it was given. Asking
+either for its height before telling it how wide it is reserves one line for a
+paragraph that draws as a dozen, so the document comes out short and every
+block below sits above where it will be drawn.
+
+The symptom in hotaru: the About section is rebuilt on a poll, which builds a
+new pane. The new pane measured itself several screens shorter than the one it
+replaced, so the document under the reader's scroll position moved -- which
+reads as the page leaping to the top on the way past the diagram.
+*/
+func TestAFreshPaneIsTheSameHeightAsOneThatHasBeenResized(t *testing.T) {
+	test.NewTempApp(t)
+	src := readme(t)
+
+	settled, sc := paneInScroll(t, 900, 600)
+	for range 6 {
+		scrollBy(sc, -400)
+	}
+	was := settled.MinSize().Height
+
+	fresh := New(src, Options{})
+	sc.Content = container.NewVBox(fresh)
+	sc.Refresh()
+	fresh.Follow(sc)
+
+	require.Equal(t, was, fresh.MinSize().Height,
+		"a rebuilt document is a different height, so everything in it moved")
+}

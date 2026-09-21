@@ -12,7 +12,6 @@ import (
 
 	fynetheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/ushineko/fynedesygn/widgets"
 )
 
 // PickerStart is where a chooser should open: the path already in the field
@@ -50,15 +49,10 @@ func expandHome(p, home string) string {
 	return p
 }
 
-// showSized shows a file dialog and then resizes it. The order matters: before
-// Show the dialog has no window, and Resize asks it for its minimum size,
-// which in Fyne 2.8.1 dereferences that nil window and takes the process with
-// it (docs/fyne-quirks.md, 1).
-func showSized(d *dialog.FileDialog) {
-	widgets.HideTips()
-	d.Show()
-	d.Resize(ChooserSize)
-}
+// showSized shows a file dialog roomy: Fyne's default shows about four names,
+// which is a directory read through a slot. See Roomy for the order and why
+// it matters.
+func showSized(win fyne.Window, d *dialog.FileDialog) { Roomy(d, win) }
 
 // ChooseFile opens a single-file chooser starting near start, filtered when
 // filter is not nil, and hands the chosen path to then. Fyne 2.8.1 has no
@@ -79,7 +73,7 @@ func ChooseFile(win fyne.Window, start string, filter storage.FileFilter, then f
 		d.SetFilter(filter)
 	}
 	d.SetLocation(PickerStart(start))
-	showSized(d)
+	showSized(win, d)
 }
 
 // ChooseFolder opens a directory chooser starting near start.
@@ -91,7 +85,7 @@ func ChooseFolder(win fyne.Window, start string, then func(path string)) {
 		then(lu.Path())
 	}, win)
 	d.SetLocation(PickerStart(start))
-	showSized(d)
+	showSized(win, d)
 }
 
 // BrowseButton is the affordance beside a path field: it opens the chooser

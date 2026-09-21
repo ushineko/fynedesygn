@@ -448,11 +448,19 @@ Border{
   thing people click through without reading. The canonical shape is three
   parts: where the result goes, what happens to what is there, what is left
   alone.
-- File and folder choosers (`dialogs.ChooseFile`, `ChooseFolder`,
-  `WithBrowse`) are 760 x 520 and are resized *after* `Show`.
-  Before `Show` the dialog has no window, and `Resize` asks it for its minimum
+- **A dialog that holds a list is shown with `dialogs.Roomy`.** Fyne sizes a
+  dialog to its content's minimum, which suits a confirmation and suits
+  nothing with a list in it — and a scroller's minimum size is almost nothing,
+  so a dialog built around one opens at the size of its buttons. Found twice
+  in a week by people using it: a file browser showing four names, and a
+  chooser offering eighteen keys through a slot showing one and a half of
+  them, clipped at both ends. `Roomy` takes 85% of the window with the chooser
+  size as a floor, so it is right on a laptop and on a large desk.
+- Roomy shows *then* resizes, and so must anything that sizes a dialog itself.
+  Before `Show` a dialog has no window, and `Resize` asks it for its minimum
   size, which in Fyne 2.8.1 dereferences that nil window and takes the process
-  with it. A regression test taps every chooser button.
+  with it. That is a crash rather than a small dialog, and it reached
+  somebody. A regression test taps every chooser button.
 - A chooser starts in the directory of the field's current path, then its
   parent, then home.
 - Fyne 2.8.1 has no multi-select chooser; an "Add..." button reopens a

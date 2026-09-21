@@ -1,6 +1,6 @@
 # fynedesygn
 
-**Version**: 0.1.37
+**Version**: 0.1.38
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -173,7 +173,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.38 (2026-09-21)
 
 - `Shell.Select` ignores a title no section has, which is what it always said
   it did: the lookup behind it answered 0 for "not found" as well as for "the

@@ -1,6 +1,6 @@
 # fynedesygn
 
-**Version**: 0.1.31
+**Version**: 0.1.32
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -173,7 +173,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.32 (2026-09-21)
 
 - [docs/performance.md](docs/performance.md) gains an optional section on what
   a task manager shows: the difference between RSS, PSS and private dirty

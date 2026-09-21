@@ -174,6 +174,65 @@ Already the design system's rule (`docs/design-system.md`), and it is a
 performance rule too: a banner that pushes the page down forces a layout of
 everything below it. Popups and reserved heights cost one composite instead.
 
+## What a task manager shows, and whether to chase it
+
+Optional. Read this when somebody looks at the process in a system monitor and
+objects to the number, which is a different question from whether the program
+is using memory well.
+
+A Fyne program on a machine with a GPU, freshly launched and idle, measured on
+one:
+
+	Go live heap        24 MB     after a forced collection
+	Go arena            57 MB
+	RSS                291 MB     what a task manager shows
+	PSS                131 MB     the honest share
+	Private_Dirty       85 MB     what actually dies with the process
+
+Where the RSS goes:
+
+	77 MB  libnvidia-gpucomp.so      the driver's shader compiler
+	24 MB  libLLVM.so                mesa's shader compiler
+	24 MB  the program's own binary   fonts, embedded assets, Fyne
+	21 MB  libnvidia-eglcore.so
+	21 MB  libgallium.so
+	 6 MB  libgtk-3.so
+
+**About 145 MB of that is the graphics stack**, mapped in because the process
+opened a GL context, and 176 MB of the RSS is `Shared_Clean` -- shared with
+every other GL application on the machine and counted again in each one's RSS.
+Every Fyne program on that machine has the same floor; so does an Electron one,
+plus a browser engine.
+
+	$ grep -E '^(Rss|Pss|Private_Dirty|Shared_Clean)' /proc/$PID/smaps_rollup
+	$ awk '/^[0-9a-f]/{n=$6} /^Rss:/{r[n]+=$2} END{for(k in r) print r[k], k}' \
+	    /proc/$PID/smaps | sort -rn | head
+
+**PSS is the number worth quoting** and `Private_Dirty` is the number worth
+reducing. RSS counts a library's pages against every process that maps it.
+
+### Two levers, if the visible number matters
+
+Neither is cosmetic and both are measurable, so set them and re-run the
+measurement rather than assuming.
+
+**A memory ceiling below the peak.** `profiling.Limit` makes the collector work
+during a burst instead of letting the arena grow to fit it and keep it. Size it
+from a profile: somewhere above the measured peak live heap, not above the
+worst RSS anybody saw.
+
+**`GODEBUG=madvdontneed=1`.** Go releases with `MADV_FREE`, so freed pages stay
+counted in RSS until the kernel wants them -- which is how a process whose live
+heap is 270 MB shows a 774 MB high-water mark. `madvdontneed` hands them back
+at once, so RSS tracks reality. It costs page faults when the heap grows again.
+
+### And the honest answer
+
+A program with a 24 MB live heap inside a 131 MB proportional footprint, most
+of which belongs to the graphics driver, is not using memory badly -- however
+the number reads in a monitor. Fix what a profile says is wasteful; explain the
+rest.
+
 ## The reusable pieces
 
 Prefer these over hand-rolling the same thing per app. That is what this

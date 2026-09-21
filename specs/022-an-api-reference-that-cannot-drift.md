@@ -1,4 +1,4 @@
-# Spec 020: an API reference that cannot drift
+# Spec 022: an API reference that cannot drift
 
 **Issue**: [#17](https://github.com/ushineko/fynedesygn/issues/17)
 

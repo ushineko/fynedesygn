@@ -1,6 +1,6 @@
 # fynedesygn
 
-**Version**: 0.1.30
+**Version**: 0.1.31
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -176,6 +176,44 @@ MIT. See [LICENSE](LICENSE).
 Every release has an entry, and the **Version** line at the top of this file
 names the latest tag. Both are updated in the same commit as the change they
 describe -- see `.claude/CLAUDE.md`.
+
+### 0.1.31 (2026-09-21)
+
+- `imagecache`: decoded images held once, shared, and bounded. `canvas.Image`
+  decodes from its resource and decodes again on every refresh, so a section
+  rebuilt when somebody navigates to it decodes its pictures once per visit —
+  measured in hotaru as 128 MB of `image.NewNRGBA`, twelve copies of one
+  diagram, plus 73 MB of paletted frames because handing a GIF to
+  `canvas.Image` decodes the whole animation to draw a ninety-six pixel
+  thumbnail. `markdown` and `mermaid` decode through it. It is also what makes
+  a large picture affordable: one copy of a 10 MB diagram is reasonable and
+  twelve are not (spec 025, #24).
+
+- `widgets.Swatch`: a tappable block of colour, one widget where a
+  `canvas.Rectangle` under an invisible `widget.Button` is five objects and an
+  expensive measurement. A resize profile of hotaru's scene editor put
+  `buttonRenderer.MinSize` at 14% of all samples — a theme lookup, a padding
+  calculation and a `RichText.MinSize` per block, for blocks whose label is
+  the empty string, on every layout of a scroller that lays out everything it
+  holds (spec 024, #26).
+
+- `profiling`: an opt-in pprof endpoint bound to loopback whatever address it
+  is given, and a soft memory ceiling that defers to `GOMEMLIMIT`, with
+  [docs/performance.md](docs/performance.md) as the standard guidance — how to
+  measure, how to tell a live heap from churn from resident pages, and what
+  costs in a Fyne program. clockwork-orange and terrariabonker had each
+  written their own endpoint (spec 023, #24).
+
+- `shell` binds Ctrl+1 to Ctrl+9 to the first nine sections: the third
+  shortcut people already try, after reload and the sidebar. It also makes a
+  window measurable, since switching sections by hand for a minute to watch
+  what memory does is frantic clicking (spec 025, #24).
+
+- `readme_test.go` gains an eighth canary: a completed spec with no changelog
+  entry. Three entries were lost in one afternoon because the edits that added
+  them looked for `### Unreleased`, which stopped existing the moment 0.1.30
+  was tagged — and a string replace that matches nothing says nothing (spec
+  025, #24).
 
 ### 0.1.30 (2026-09-21)
 

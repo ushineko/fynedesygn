@@ -80,6 +80,12 @@ whatever it holds, and an empty one is simply not drawn.
 That was two mistakes in a row -- first drawing the empty header as a header,
 then, having noticed, demoting it to a data row.
 
+### And sides
+
+A table ruled on the inside and open at the edges is a table somebody has to
+infer the shape of. The verticals are the two edges and every boundary between
+them; a single-column table has no boundary and still has two sides.
+
 ### A roof
 
 A table is closed. Without a rule above the first row the table hangs off the
@@ -110,7 +116,8 @@ what said so.
 column still fits a word and a wide one does not take the whole table.
 
 **R3. Ruled on every side a reader follows**: above the first row, under the
-header, between the rows, under the last one, and down the column boundaries.
+header, between the rows, under the last one, down each column boundary, and
+down both edges.
 
 **R3b. Both forms of table draw as what they are.** A table written without
 headers is written with empty ones, and an empty header is neither a header
@@ -143,6 +150,8 @@ page scroll sideways.
 - [x] AC9. A table whose header cells are all empty draws no header row and
       no blank one in its place; a header naming only one of its columns is
       still a header.
+- [x] AC10. The outermost verticals are at the table's left and right edges,
+      and a single-column table has two of them.
 
 ## Risks & Assumptions
 

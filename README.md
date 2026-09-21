@@ -177,6 +177,12 @@ Every release has an entry, and the **Version** line at the top of this file
 names the latest tag. Both are updated in the same commit as the change they
 describe -- see `.claude/CLAUDE.md`.
 
+### Unreleased
+
+- A Markdown table is ruled down both edges as well as between its columns. A
+  table ruled on the inside and open at the sides is one somebody has to infer
+  the shape of (spec 027, #35).
+
 ### 0.1.36 (2026-09-21)
 
 - A Markdown table has a roof, and a table written without headers does not

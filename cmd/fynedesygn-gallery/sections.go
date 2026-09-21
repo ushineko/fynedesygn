@@ -134,6 +134,7 @@ func buildWidgets(_ *shell.Shell) fyne.CanvasObject {
 			widgets.Note("A note under a row, for the things a value cannot say on its own.", fd.StatusInfo),
 			widgets.Note("A warning note.", fd.StatusWarn),
 		)),
+		demo("Swatch", swatches()),
 		demo("StatusText / Marker", container.NewHBox(
 			widgets.Marker(fd.StatusInfo), widgets.StatusText("info", fd.StatusInfo), widgets.Sep(),
 			widgets.Marker(fd.StatusGood), widgets.StatusText("good", fd.StatusGood), widgets.Sep(),
@@ -483,4 +484,35 @@ func (d *jobDemo) build(s *shell.Shell) fyne.CanvasObject {
 			widgets.DimWrapped(fmt.Sprintf("%s: dark=%v, corner radius %g, padding %g.", p.Name, p.Dark, p.Radius, p.Padding)),
 		),
 	))
+}
+
+/*
+swatches is a row of tappable colour blocks, which is what a palette is made
+of.
+
+A grid of these is the shape the widget was written for: hotaru's scene editor
+draws one per run of lights, and a resize profile of it put
+`buttonRenderer.MinSize` at 14% of all samples before they stopped being
+buttons.
+*/
+func swatches() fyne.CanvasObject {
+	row := container.NewHBox()
+	for _, c := range []color.Color{
+		color.NRGBA{R: 235, G: 110, B: 110, A: 255},
+		color.NRGBA{R: 230, G: 180, B: 90, A: 255},
+		color.NRGBA{R: 126, G: 200, B: 140, A: 255},
+		color.NRGBA{R: 120, G: 190, B: 255, A: 255},
+	} {
+		block := widgets.NewSwatch(fyne.NewSize(28, 28))
+		block.Fill = c
+		block.Stroke = fynetheme.Color(fynetheme.ColorNameSeparator)
+		block.StrokeWidth = 1
+		picked := block
+		block.OnTapped = func() {
+			picked.StrokeWidth = 4 - picked.StrokeWidth
+			picked.Refresh()
+		}
+		row.Add(widgets.WithTip(block, "A tappable block of colour. Click to select."))
+	}
+	return row
 }

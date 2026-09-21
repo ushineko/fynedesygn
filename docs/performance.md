@@ -110,6 +110,26 @@ per pixel at a 1.5x desktop scale.
 
 Decode to the size you draw at, not the size the file happens to be.
 
+### A control that is not a control is cheaper as a `Swatch`
+
+`widget.Button` measures itself with a theme lookup, a padding calculation and
+a `RichText.MinSize` for its label -- which is the right amount of work for a
+button and the wrong amount for a coloured square somebody can click. A resize
+profile of hotaru's scene editor put `buttonRenderer.MinSize` at 14% of all
+samples.
+
+`widgets.Swatch` is one widget whose minimum size is the number it was given.
+The same reasoning applies to anything built as "an invisible control stacked
+over a drawing": count the objects, and ask what each of them measures.
+
+### Fyne's caches are keyed by interface, and that is not free
+
+28% of that same profile was `runtime.mapaccess2`, 61% of it from Fyne's
+renderer cache and 26% from its text-size cache -- with `nilinterhash` and
+`nilinterequal` underneath, because the keys are interface values. There is no
+lever on this from outside Fyne except asking for fewer lookups, which means
+fewer widgets.
+
 ### Give a replaced image resource a name of its own
 
 Fyne caches a decoded image against its resource's name. Handing a

@@ -1,6 +1,6 @@
 # fynedesygn
 
-**Version**: 0.1.33
+**Version**: 0.1.34
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -177,7 +177,7 @@ Every release has an entry, and the **Version** line at the top of this file
 names the latest tag. Both are updated in the same commit as the change they
 describe -- see `.claude/CLAUDE.md`.
 
-### Unreleased
+### 0.1.34 (2026-09-21)
 
 - A Markdown table reads like a table. `markdown.Pane` drew one with
   `container.NewGridWithColumns`, which gives every cell the same size — so

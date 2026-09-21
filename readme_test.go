@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -270,3 +271,58 @@ func anchorFor(title string) string {
 	}
 	return b.String()
 }
+
+/*
+TestEverySpecIsInTheChangelog fails when work has a spec and no entry.
+
+The README rule says every change worth a spec gets one, and the existing
+canary only checks that the first changelog heading has the right shape. Three
+entries were lost in one afternoon because the edit that added them looked for
+`### Unreleased`, which stopped existing the moment a release was tagged, and
+a string replace that matches nothing says nothing.
+
+A spec number is the thing both halves have: the file is `specs/NNN-...` and
+the entry ends `(spec NNN, #issue)`.
+*/
+func TestEverySpecIsInTheChangelog(t *testing.T) {
+	doc := readme(t)
+	at := strings.Index(doc, "## Changelog")
+	require.Positive(t, at, "the README has no changelog")
+	changelog := doc[at:]
+
+	specs, err := filepath.Glob(filepath.Join("specs", "*.md"))
+	require.NoError(t, err)
+	require.NotEmpty(t, specs)
+
+	for _, path := range specs {
+		found := regexp.MustCompile(`^(\d+)-`).FindStringSubmatch(filepath.Base(path))
+		if found == nil {
+			continue
+		}
+		number, err := strconv.Atoi(found[1])
+		require.NoError(t, err)
+		if number < firstCitedSpec {
+			continue
+		}
+		body, err := os.ReadFile(path)
+		require.NoError(t, err)
+		if !strings.Contains(string(body), "## Status: COMPLETE") {
+			continue // not finished, so not in a changelog yet
+		}
+
+		require.Regexp(t, regexp.MustCompile(`(?i)specs? 0*`+found[1]), changelog,
+			"%s is complete and the changelog does not mention it", path)
+	}
+}
+
+/*
+firstCitedSpec is where the convention starts.
+
+Spec 018 is the one that wrote the README rule this canary enforces, so 019 is
+the first entry that could have been written knowing it. The fourteen before
+it are described in the changelog in prose -- 001 to 005 as "First tagged
+release", 014 inside the entry for 0.1.26 -- without the word "spec", and
+rewriting released entries to satisfy a test written afterwards would be
+changing the record to fit the guard.
+*/
+const firstCitedSpec = 19

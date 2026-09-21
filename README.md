@@ -169,6 +169,15 @@ MIT. See [LICENSE](LICENSE).
 
 ### Unreleased
 
+- `markdown.Pane` measures a block after giving it its width, not before. A
+  paragraph's height is a property of the paragraph *and* the width it is
+  given, and a mermaid diagram derives its height from the width it was last
+  resized to, so the first measurement of a fresh pane reserved about two
+  thirds of the height the document draws as. Everything below a mis-measured
+  block sat above where it would be drawn, and the page moved when a width
+  change finally measured it properly. Spec 015 removed that second `MinSize`
+  as a rider on a performance change (spec 021, #21).
+
 - `shell.AboutSection` no longer wraps its page in a scroller. The shell
   already scrolls what a section builds, so an About page was a scroll inside
   a scroll — and `About.Extra`, whose documented purpose is an embedded README

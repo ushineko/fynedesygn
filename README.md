@@ -173,6 +173,16 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- [docs/performance.md](docs/performance.md) gains an optional section on what
+  a task manager shows: the difference between RSS, PSS and private dirty
+  pages, where a Fyne process's resident memory actually goes (about 145 MB of
+  it is the graphics stack, shared with every other GL program on the machine),
+  and the two levers — a memory ceiling and `madvdontneed` — for when the
+  visible number matters. Measured on a freshly launched window whose Go live
+  heap was 24 MB inside a 291 MB RSS (spec 025).
+
 Every release has an entry, and the **Version** line at the top of this file
 names the latest tag. Both are updated in the same commit as the change they
 describe -- see `.claude/CLAUDE.md`.

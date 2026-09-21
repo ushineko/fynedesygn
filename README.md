@@ -1,6 +1,6 @@
 # fynedesygn
 
-**Version**: 0.1.29
+**Version**: 0.1.30
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -167,7 +167,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.30 (2026-09-21)
 
 - `markdown.Pane` measures a block after giving it its width, not before. A
   paragraph's height is a property of the paragraph *and* the width it is

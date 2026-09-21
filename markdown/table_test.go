@@ -205,7 +205,30 @@ func TestATableIsRuledOnEverySideAReaderFollows(t *testing.T) {
 	require.Equal(t, len(lopsided())+1, horizontals,
 		"a table is ruled above, under the header, between the rows and below")
 
-	require.Len(t, frame.Objects[1:], 1, "one vertical per column boundary")
+	/*
+		Both edges and the boundary between: a table ruled on the inside and
+		open at the sides is a table somebody has to infer the shape of.
+	*/
+	require.Len(t, frame.Objects[1:], 3, "a vertical per boundary, and one down each side")
+}
+
+func TestTheOutermostRulesAreTheTablesEdges(t *testing.T) {
+	test.NewTempApp(t)
+
+	frame := &framed{weights: []float32{0.3, 0.7}}
+	at := frame.verticals(1000)
+
+	require.Len(t, at, 3)
+	require.Zero(t, at[0], "the left edge is not at the left")
+	require.InDelta(t, 1000-rowRule, at[2], 0.001, "the right edge is not at the right")
+	require.Greater(t, at[1], at[0])
+	require.Less(t, at[1], at[2])
+}
+
+func TestASingleColumnTableIsStillBoxed(t *testing.T) {
+	// One column has no interior boundary and two sides.
+	frame := &framed{weights: []float32{1}}
+	require.Len(t, frame.verticals(500), 2)
 }
 
 func TestATableWrittenWithoutHeadersHasNoHeaderRow(t *testing.T) {

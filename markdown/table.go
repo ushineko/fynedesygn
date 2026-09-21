@@ -87,10 +87,16 @@ func renderTable(rows [][]string) fyne.CanvasObject {
 
 	stacked := container.New(&stack{}, out...)
 
-	// The verticals go over the rows rather than between them, so they run
-	// the height of the table without every row having to know about them.
-	lines := make([]fyne.CanvasObject, 0, len(weights))
-	for range len(weights) - 1 {
+	/*
+		The verticals: both edges and every boundary between them.
+
+		Drawn over the rows rather than between them, so they run the height
+		of the table without every row having to know about them -- and
+		including the outer two, because a table ruled on the inside and open
+		at the sides is a table somebody has to infer the shape of.
+	*/
+	lines := make([]fyne.CanvasObject, 0, len(weights)+1)
+	for range len(weights) + 1 {
 		lines = append(lines, vertical())
 	}
 	return container.New(&framed{weights: weights}, append([]fyne.CanvasObject{stacked}, lines...)...)
@@ -184,14 +190,36 @@ func (f *framed) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	body.Move(fyne.NewPos(0, 0))
 	body.Resize(size)
 
-	inner := &columns{weights: f.weights}
-	x := float32(0)
+	at := f.verticals(size.Width)
 	for i, line := range objects[1:] {
-		x += inner.width(i, size.Width)
-		line.Move(fyne.NewPos(x+tableGap/2, 0))
+		if i >= len(at) {
+			return
+		}
+		line.Move(fyne.NewPos(at[i], 0))
 		line.Resize(fyne.NewSize(rowRule, size.Height))
+	}
+}
+
+/*
+verticals is where the column rules go: the left edge, each boundary between
+two columns, and the right.
+
+The boundaries sit in the middle of the gap between columns rather than
+against either one, so a line is equally far from the text on both sides of
+it.
+*/
+func (f *framed) verticals(w float32) []float32 {
+	inner := &columns{weights: f.weights}
+	out := make([]float32, 0, len(f.weights)+1)
+	out = append(out, 0)
+
+	x := float32(0)
+	for i := range max(len(f.weights)-1, 0) {
+		x += inner.width(i, w)
+		out = append(out, x+tableGap/2-rowRule/2)
 		x += tableGap
 	}
+	return append(out, w-rowRule)
 }
 
 func (f *framed) MinSize(objects []fyne.CanvasObject) fyne.Size {

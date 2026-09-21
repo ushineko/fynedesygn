@@ -1,6 +1,8 @@
 package markdown
 
 import (
+	"strings"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
@@ -57,17 +59,33 @@ func renderTable(rows [][]string) fyne.CanvasObject {
 	}
 	weights := columnWeights(rows)
 
-	out := make([]fyne.CanvasObject, 0, len(rows)*2)
-	for r, row := range rows {
-		out = append(out, tableRow(row, weights, r == 0))
-		if r == 0 {
-			out = append(out, rule(fynetheme.ColorNameSeparator, headerRule))
-			continue
-		}
-		out = append(out, rule(fynetheme.ColorNameInputBorder, rowRule))
+	/*
+		A roof, because a table is closed.
+
+		Without it the first row hangs off the rule under the header and the
+		top of the table is open, which reads as the page having run out
+		rather than as the table having started.
+	*/
+	out := []fyne.CanvasObject{rule(fynetheme.ColorNameSeparator, headerRule)}
+
+	/*
+		The first row is the header either way -- that is what the `|---|`
+		under it makes it -- so it never becomes a body row. An empty one is
+		simply not drawn.
+	*/
+	if header := rows[0]; titled(header) {
+		out = append(out,
+			tableRow(header, weights, true),
+			rule(fynetheme.ColorNameSeparator, headerRule))
+	}
+	body := rows[1:]
+
+	for _, row := range body {
+		out = append(out, tableRow(row, weights, false),
+			rule(fynetheme.ColorNameInputBorder, rowRule))
 	}
 
-	body := container.New(&stack{}, out...)
+	stacked := container.New(&stack{}, out...)
 
 	// The verticals go over the rows rather than between them, so they run
 	// the height of the table without every row having to know about them.
@@ -75,7 +93,31 @@ func renderTable(rows [][]string) fyne.CanvasObject {
 	for range len(weights) - 1 {
 		lines = append(lines, vertical())
 	}
-	return container.New(&framed{weights: weights}, append([]fyne.CanvasObject{body}, lines...)...)
+	return container.New(&framed{weights: weights}, append([]fyne.CanvasObject{stacked}, lines...)...)
+}
+
+/*
+titled reports whether a table's first row is a header or an empty one.
+
+A pipe table always has a first row and a `|---|---|` under it -- that is what
+makes it a table rather than text with pipes in it -- so a table written
+without headers is written with *empty* ones:
+
+	| | |
+	|---|---|
+	| Lighting | every device OpenRGB can see |
+
+Both forms are ordinary Markdown and both should draw as what they are. An
+empty header drawn as a header is a blank row above the table, which is what
+the gap at the top of hotaru's was.
+*/
+func titled(header []string) bool {
+	for _, cell := range header {
+		if strings.TrimSpace(cell) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 /*

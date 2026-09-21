@@ -177,6 +177,14 @@ Every release has an entry, and the **Version** line at the top of this file
 names the latest tag. Both are updated in the same commit as the change they
 describe -- see `.claude/CLAUDE.md`.
 
+### Unreleased
+
+- A Markdown table has a roof, and a table written without headers does not
+  draw a blank row where its header would be. A pipe table always has a first
+  row with a `|---|---|` under it, so the headerless form is written with
+  empty header cells — both are ordinary Markdown and both now draw as what
+  they are (spec 027, #35).
+
 ### 0.1.35 (2026-09-21)
 
 - A Markdown table is ruled on every side a reader follows: under the header,

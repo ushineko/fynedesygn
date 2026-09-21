@@ -200,8 +200,62 @@ func TestATableIsRuledOnEverySideAReaderFollows(t *testing.T) {
 			horizontals++
 		}
 	}
-	require.Equal(t, len(lopsided()), horizontals,
-		"a rule under the header, between the rows, and under the last one")
+	// A roof, a rule under the header, and one under each row including the
+	// last: one more than there are rows.
+	require.Equal(t, len(lopsided())+1, horizontals,
+		"a table is ruled above, under the header, between the rows and below")
 
 	require.Len(t, frame.Objects[1:], 1, "one vertical per column boundary")
+}
+
+func TestATableWrittenWithoutHeadersHasNoHeaderRow(t *testing.T) {
+	/*
+		A pipe table always has a first row and a `|---|---|` under it, so a
+		table written without headers is written with empty ones -- which is
+		how hotaru's README writes its two-column tables, and how most people
+		do. Both forms are ordinary Markdown.
+
+		Drawn as a header, an empty row is a blank strip above the table.
+	*/
+	test.NewTempApp(t)
+
+	headerless := [][]string{
+		{"", ""},
+		{"Lighting", "every device OpenRGB can see"},
+		{"Scenes", "a named set of colour assignments"},
+	}
+	with := [][]string{
+		{"What", "What it does"},
+		{"Lighting", "every device OpenRGB can see"},
+		{"Scenes", "a named set of colour assignments"},
+	}
+
+	require.Equal(t, 2, drawnRows(t, renderTable(headerless)),
+		"an empty header was drawn as a row")
+	require.Equal(t, 3, drawnRows(t, renderTable(with)),
+		"a header was not drawn")
+}
+
+func TestAHeaderOfOneNamedColumnIsStillAHeader(t *testing.T) {
+	// Partly empty is not empty: a table naming only its second column has a
+	// header, and the blank cell is the author's choice.
+	require.True(t, titled([]string{"", "What it does"}))
+	require.False(t, titled([]string{"", "  "}))
+}
+
+// drawnRows counts the row containers in a rendered table.
+func drawnRows(t *testing.T, drawn fyne.CanvasObject) int {
+	t.Helper()
+	frame, ok := drawn.(*fyne.Container)
+	require.True(t, ok)
+	body, ok := frame.Objects[0].(*fyne.Container)
+	require.True(t, ok)
+
+	var rows int
+	for _, o := range body.Objects {
+		if _, ok := o.(*fyne.Container); ok {
+			rows++
+		}
+	}
+	return rows
 }

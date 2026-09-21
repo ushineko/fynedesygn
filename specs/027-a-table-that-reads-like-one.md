@@ -62,6 +62,30 @@ pipe, or a backtick was going to produce something nobody wrote. The header is
 emphasised by style now, on the segments the cell parsed to, leaving what they
 are alone.
 
+### Both forms of table
+
+A pipe table always has a first row with a `|---|---|` under it -- that is
+what makes it a table rather than text with pipes in it -- so a table written
+*without* headers is written with empty ones:
+
+	| | |
+	|---|---|
+	| Lighting | every device OpenRGB can see |
+
+Both are ordinary Markdown and common, and hotaru's README uses the second.
+Drawn as a header, an empty row is a blank strip above the table; drawn as
+data, it is a blank first line. It is neither: the first row is the header
+whatever it holds, and an empty one is simply not drawn.
+
+That was two mistakes in a row -- first drawing the empty header as a header,
+then, having noticed, demoting it to a data row.
+
+### A roof
+
+A table is closed. Without a rule above the first row the table hangs off the
+one under its header, and the top reads as the page having run out rather than
+as the table having started.
+
 ### The measurement, again
 
 The first attempt asked each cell its height and then gave it its width, and
@@ -85,8 +109,12 @@ what said so.
 **R2. Columns are proportioned to what they hold**, clamped so a narrow
 column still fits a word and a wide one does not take the whole table.
 
-**R3. Ruled on every side a reader follows**: under the header, between the
-rows, under the last one, and down the column boundaries.
+**R3. Ruled on every side a reader follows**: above the first row, under the
+header, between the rows, under the last one, and down the column boundaries.
+
+**R3b. Both forms of table draw as what they are.** A table written without
+headers is written with empty ones, and an empty header is neither a header
+nor a row.
 
 **R3a. A cell is never rewritten to change how it looks.** The header is
 emphasised by style, because an empty cell wrapped in asterisks is a
@@ -109,8 +137,12 @@ page scroll sideways.
 - [x] AC6. The text of every cell is still readable from the tree.
 - [x] AC7. An empty header cell renders as text rather than as a thematic
       break, and a header cell's text is unchanged.
-- [x] AC8. There is a rule under the header, between each pair of rows, under
-      the last row, and one vertical per column boundary.
+- [x] AC8. There is a rule above the first row, under the header, between
+      each pair of rows, under the last row, and one vertical per column
+      boundary.
+- [x] AC9. A table whose header cells are all empty draws no header row and
+      no blank one in its place; a header naming only one of its columns is
+      still a header.
 
 ## Risks & Assumptions
 

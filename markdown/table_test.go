@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ushineko/fynedesygn/fynetest"
@@ -106,17 +108,100 @@ func TestARowLongerThanItsHeaderDoesNotPanic(t *testing.T) {
 	})
 }
 
-// rowHeights is each row's drawn height, skipping the rules between them.
+/*
+rowHeights is each row's drawn height, skipping the rules.
+
+Two levels down: the table is a frame holding the rows and the column rules
+over them, and the rows are a stack of row containers and the horizontal
+rules between them.
+*/
 func rowHeights(t *testing.T, drawn fyne.CanvasObject) []float32 {
 	t.Helper()
-	box, ok := drawn.(*fyne.Container)
+	frame, ok := drawn.(*fyne.Container)
 	require.True(t, ok)
+	require.NotEmpty(t, frame.Objects)
+	body, ok := frame.Objects[0].(*fyne.Container)
+	require.True(t, ok, "the frame's first child should be the rows")
 
 	var out []float32
-	for _, o := range box.Objects {
+	for _, o := range body.Objects {
 		if row, ok := o.(*fyne.Container); ok {
 			out = append(out, row.Size().Height)
 		}
 	}
 	return out
+}
+
+func TestAnEmptyHeaderCellIsNotAHorizontalRule(t *testing.T) {
+	/*
+		A two-column table of label and description is often written with an
+		empty header -- `| | |` -- and the first version made a header bold by
+		wrapping the cell in asterisks, so an empty cell became `****`, which
+		Markdown renders as a thematic break. Two empty header cells drew two
+		short horizontal rules above the table.
+
+		Editing somebody's Markdown to change how it looks is the fault. A
+		cell that already carried emphasis, or a pipe, or nothing at all was
+		going to produce something nobody wrote.
+	*/
+	test.NewTempApp(t)
+
+	row := tableRow([]string{"", ""}, []float32{0.5, 0.5}, true)
+	box, ok := row.(*fyne.Container)
+	require.True(t, ok)
+
+	for _, cell := range box.Objects {
+		rt, ok := cell.(*widget.RichText)
+		require.True(t, ok)
+		for _, segment := range rt.Segments {
+			require.IsType(t, &widget.TextSegment{}, segment,
+				"an empty header cell rendered as something other than text")
+		}
+	}
+}
+
+func TestAHeaderIsBoldWithoutBeingRewritten(t *testing.T) {
+	test.NewTempApp(t)
+
+	row := tableRow([]string{"Key"}, []float32{1}, true)
+	box, _ := row.(*fyne.Container)
+	rt, ok := box.Objects[0].(*widget.RichText)
+	require.True(t, ok)
+
+	/*
+		Every text segment bold, and none of them rewritten.
+
+		A cell of one word comes back as two segments -- the word and a
+		trailing empty one Fyne uses to close the paragraph -- so this reads
+		what is there rather than assuming a count.
+	*/
+	var said string
+	for _, segment := range rt.Segments {
+		text, ok := segment.(*widget.TextSegment)
+		require.True(t, ok)
+		require.True(t, text.Style.TextStyle.Bold, "a header cell is not bold")
+		said += text.Text
+	}
+	require.Equal(t, "Key", said, "a header cell's text was rewritten")
+}
+
+func TestATableIsRuledOnEverySideAReaderFollows(t *testing.T) {
+	// Under the header, between the rows, under the last one, and down the
+	// column boundaries.
+	test.NewTempApp(t)
+
+	drawn := renderTable(lopsided())
+	frame, _ := drawn.(*fyne.Container)
+	body, _ := frame.Objects[0].(*fyne.Container)
+
+	var horizontals int
+	for _, o := range body.Objects {
+		if _, ok := o.(*canvas.Rectangle); ok {
+			horizontals++
+		}
+	}
+	require.Equal(t, len(lopsided()), horizontals,
+		"a rule under the header, between the rows, and under the last one")
+
+	require.Len(t, frame.Objects[1:], 1, "one vertical per column boundary")
 }

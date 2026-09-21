@@ -42,7 +42,15 @@ const (
 	rowRule    float32 = 1
 )
 
-// renderTable draws a pipe table. rows[0] is the header.
+/*
+renderTable draws a pipe table. rows[0] is the header.
+
+Ruled on every side a reader follows: under the header, between the rows,
+under the last one, and down the column boundaries. A grid of lines is what
+tells somebody the thing they are looking at is a table before they have read
+a word of it, and the version without them read as two columns of floating
+text.
+*/
 func renderTable(rows [][]string) fyne.CanvasObject {
 	if len(rows) == 0 {
 		return widget.NewLabel("")
@@ -52,28 +60,103 @@ func renderTable(rows [][]string) fyne.CanvasObject {
 	out := make([]fyne.CanvasObject, 0, len(rows)*2)
 	for r, row := range rows {
 		out = append(out, tableRow(row, weights, r == 0))
-		switch {
-		case r == 0:
+		if r == 0 {
 			out = append(out, rule(fynetheme.ColorNameSeparator, headerRule))
-		case r < len(rows)-1:
-			out = append(out, rule(fynetheme.ColorNameInputBorder, rowRule))
+			continue
 		}
+		out = append(out, rule(fynetheme.ColorNameInputBorder, rowRule))
 	}
-	return container.New(&stack{}, out...)
+
+	body := container.New(&stack{}, out...)
+
+	// The verticals go over the rows rather than between them, so they run
+	// the height of the table without every row having to know about them.
+	lines := make([]fyne.CanvasObject, 0, len(weights))
+	for range len(weights) - 1 {
+		lines = append(lines, vertical())
+	}
+	return container.New(&framed{weights: weights}, append([]fyne.CanvasObject{body}, lines...)...)
 }
 
-// tableRow is one row, laid out to the table's column weights.
+/*
+tableRow is one row, laid out to the table's column weights.
+
+The header is emphasised by **style**, not by wrapping the text in asterisks.
+That is what the first version did, and a table whose header cells are empty
+-- which is how a two-column table of label and description is often written
+-- turned each of them into `****`, which Markdown renders as a thematic
+break. Two empty header cells drew two short horizontal rules.
+
+Editing somebody's Markdown to change how it looks is the fault; a cell that
+already carried emphasis, or a pipe, or nothing at all, was going to produce
+something nobody wrote.
+*/
 func tableRow(cells []string, weights []float32, header bool) fyne.CanvasObject {
 	drawn := make([]fyne.CanvasObject, 0, len(cells))
 	for _, cell := range cells {
-		if header {
-			cell = "**" + cell + "**"
-		}
 		rt := widget.NewRichTextFromMarkdown(cell)
 		rt.Wrapping = fyne.TextWrapWord
+		if header {
+			embolden(rt)
+		}
 		drawn = append(drawn, rt)
 	}
 	return container.New(&columns{weights: weights}, drawn...)
+}
+
+// embolden makes every piece of text in a cell bold, leaving what it is --
+// code, a link, a heading somebody wrote in a cell -- alone.
+func embolden(rt *widget.RichText) {
+	for i, segment := range rt.Segments {
+		text, ok := segment.(*widget.TextSegment)
+		if !ok {
+			continue
+		}
+		text.Style.TextStyle.Bold = true
+		rt.Segments[i] = text
+	}
+}
+
+// vertical is a line down a column boundary.
+func vertical() fyne.CanvasObject {
+	line := canvas.NewRectangle(fynetheme.Color(fynetheme.ColorNameInputBorder))
+	line.SetMinSize(fyne.NewSize(rowRule, 0))
+	return line
+}
+
+/*
+framed puts the column rules over the table.
+
+The rows are laid out first and fill the frame; each vertical is then drawn
+the full height of it, in the gap between two columns. Over rather than
+between, so a row does not have to know how many lines are in the table or
+where they go.
+*/
+type framed struct{ weights []float32 }
+
+func (f *framed) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	if len(objects) == 0 {
+		return
+	}
+	body := objects[0]
+	body.Move(fyne.NewPos(0, 0))
+	body.Resize(size)
+
+	inner := &columns{weights: f.weights}
+	x := float32(0)
+	for i, line := range objects[1:] {
+		x += inner.width(i, size.Width)
+		line.Move(fyne.NewPos(x+tableGap/2, 0))
+		line.Resize(fyne.NewSize(rowRule, size.Height))
+		x += tableGap
+	}
+}
+
+func (f *framed) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	if len(objects) == 0 {
+		return fyne.Size{}
+	}
+	return objects[0].MinSize()
 }
 
 // rule is a hairline across the table.

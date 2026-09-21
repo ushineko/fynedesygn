@@ -36,6 +36,32 @@ It lives in a scroller, and a scroller inside a document takes the wheel from
 the page -- the same trap `CodePanel` exists to avoid, and quirk 7 in
 `docs/fyne-quirks.md`.
 
+### Ruled on every side a reader follows
+
+Under the header, between the rows, under the last one, and down the column
+boundaries. The first version had only the first two, and the report was
+exact: "no vertical lines, bottom line, and there is an extra line at the
+top". A grid of lines is what tells somebody they are looking at a table
+before they have read a word of it.
+
+The verticals are drawn *over* the rows rather than between them, so a row
+does not have to know how many lines the table has or where they go.
+
+### An empty header cell is not a horizontal rule
+
+The extra line at the top was two, one per column, and they were the header.
+
+A two-column table of label and description is often written with an empty
+header -- `| | |` is how hotaru's README writes it -- and the first version
+made a header bold by wrapping each cell in asterisks. An empty cell became
+`****`, which Markdown renders as a thematic break.
+
+Editing somebody's Markdown to change how it looks is the fault, and the empty
+cell is only the case that showed it: a cell already carrying emphasis, or a
+pipe, or a backtick was going to produce something nobody wrote. The header is
+emphasised by style now, on the segments the cell parsed to, leaving what they
+are alone.
+
 ### The measurement, again
 
 The first attempt asked each cell its height and then gave it its width, and
@@ -59,7 +85,12 @@ what said so.
 **R2. Columns are proportioned to what they hold**, clamped so a narrow
 column still fits a word and a wide one does not take the whole table.
 
-**R3. A rule under the header, and between the rows.**
+**R3. Ruled on every side a reader follows**: under the header, between the
+rows, under the last one, and down the column boundaries.
+
+**R3a. A cell is never rewritten to change how it looks.** The header is
+emphasised by style, because an empty cell wrapped in asterisks is a
+horizontal rule and a cell with a backtick in it is something else again.
 
 **R4. No scroller**, because a document's wheel belongs to the document.
 
@@ -76,6 +107,10 @@ page scroll sideways.
 - [x] AC4. A table contains no scrollable.
 - [x] AC5. A row with more cells than the header does not panic.
 - [x] AC6. The text of every cell is still readable from the tree.
+- [x] AC7. An empty header cell renders as text rather than as a thematic
+      break, and a header cell's text is unchanged.
+- [x] AC8. There is a rule under the header, between each pair of rows, under
+      the last row, and one vertical per column boundary.
 
 ## Risks & Assumptions
 

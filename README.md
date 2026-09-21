@@ -177,6 +177,15 @@ Every release has an entry, and the **Version** line at the top of this file
 names the latest tag. Both are updated in the same commit as the change they
 describe -- see `.claude/CLAUDE.md`.
 
+### Unreleased
+
+- A Markdown table is ruled on every side a reader follows: under the header,
+  between the rows, under the last one, and down the column boundaries. And
+  the header is emphasised by style rather than by wrapping each cell in
+  asterisks — an empty header cell, which is how a table of label and
+  description is usually written, became `****` and rendered as a thematic
+  break, drawing two short rules above the table (spec 027, #35).
+
 ### 0.1.34 (2026-09-21)
 
 - A Markdown table reads like a table. `markdown.Pane` drew one with

@@ -167,6 +167,10 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+Every release has an entry, and the **Version** line at the top of this file
+names the latest tag. Both are updated in the same commit as the change they
+describe -- see `.claude/CLAUDE.md`.
+
 ### 0.1.30 (2026-09-21)
 
 - `markdown.Pane` measures a block after giving it its width, not before. A
@@ -193,10 +197,6 @@ MIT. See [LICENSE](LICENSE).
   overwriting a file nobody could read destroys the thing its owner needs to
   fix. `Unreadable` reports the condition without waiting for a failed `Set`.
   Supersedes spec 011's R6/AC5 (spec 019, #15).
-
-Every release has an entry, and the **Version** line at the top of this file
-names the latest tag. Both are updated in the same commit as the change they
-describe -- see `.claude/CLAUDE.md`.
 
 ### 0.1.29 (2026-09-19)
 

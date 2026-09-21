@@ -90,5 +90,15 @@ func buildAbout(s *Shell, a About) fyne.CanvasObject {
 	if a.Extra != nil {
 		items = append(items, widget.NewSeparator(), a.Extra(s))
 	}
-	return container.NewVScroll(container.NewVBox(items...))
+	/*
+		Content, not a scroller.
+
+		The shell puts what a section builds inside Shell.Scroller(), so
+		wrapping again is a scroll inside a scroll -- the rule this module
+		states, broken by this module. It also made About.Extra's own purpose
+		impossible: a document pane following the content scroller was
+		following the outer one while sitting in the inner one, and rendered
+		the first screenful and nothing after it (spec 020).
+	*/
+	return container.NewVBox(items...)
 }

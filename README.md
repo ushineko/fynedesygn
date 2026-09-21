@@ -169,6 +169,13 @@ MIT. See [LICENSE](LICENSE).
 
 ### Unreleased
 
+- `shell.AboutSection` no longer wraps its page in a scroller. The shell
+  already scrolls what a section builds, so an About page was a scroll inside
+  a scroll — and `About.Extra`, whose documented purpose is an embedded README
+  that follows the content scroller, was handing that pane the outer scroller
+  while sitting in the inner one: one screenful of document over the blank
+  height of the rest. Found in hotaru (spec 020, #19).
+
 - `settings` no longer renames a file it cannot parse. An unreadable file is
   reported through a new `*settings.ParseError` carrying the path and the
   codec's own error — which knows the line and column — and is left exactly

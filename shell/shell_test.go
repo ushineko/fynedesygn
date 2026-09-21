@@ -682,3 +682,42 @@ func TestNothingIsSaidWhileTheModalPopupIsUp(t *testing.T) {
 	s.Perform("Third...", func(context.Context) error { return nil })
 	require.Empty(t, s.FlashText(), "the popup already says what is running")
 }
+
+func TestAboutIsNotAScrollInsideAScroll(t *testing.T) {
+	/*
+		The shell puts what a section builds inside its content scroller, so
+		an About page that wrapped its own was breaking the rule this module
+		states -- and, worse, making About.Extra's purpose impossible: a
+		document pane following the content scroller was following the outer
+		one while sitting in the inner one, and rendered the first screenful
+		and nothing below it (spec 020).
+	*/
+	s := headless(t, testOptions(AboutSection(About{
+		Name: "demo", Blurb: "Does a thing.",
+		Extra: func(*Shell) fyne.CanvasObject { return widget.NewLabel("extra content") },
+	})))
+	require.False(t, fynetest.ScrollableIn(s.Current().Build(s)),
+		"the About page brought a scroller of its own")
+}
+
+func TestWhatAboutExtraBuildsIsInsideTheScrollerItIsGiven(t *testing.T) {
+	/*
+		The claim About.Extra makes: it receives the shell "so it can follow
+		the content scroller". That is only true if what it builds ends up
+		inside that scroller -- otherwise a document pane attaches to a
+		scroller it is not in, never hears that the viewport moved, and draws
+		one screenful over the height of the whole document.
+	*/
+	var given *Shell
+	s := onScreen(t, testOptions(AboutSection(About{
+		Name: "demo",
+		Extra: func(inner *Shell) fyne.CanvasObject {
+			given = inner
+			return widget.NewLabel("extra content")
+		},
+	})))
+
+	require.Same(t, s, given, "Extra was handed a different shell")
+
+	require.Contains(t, fynetest.Text(s.Scroller().Content), "extra content")
+}

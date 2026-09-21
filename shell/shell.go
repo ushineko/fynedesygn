@@ -241,7 +241,13 @@ func newShell(a fyne.App, o Options) *Shell {
 		s.appearance.Scheme = fdtheme.SchemeByName(o.Scheme).Name
 		s.oneRun = true
 	}
+	// The section to open on, or the first: a name that is not there is a
+	// program asking for something it no longer has, and the first section
+	// is the honest answer to "open somewhere".
 	s.current = s.index(o.Section)
+	if s.current < 0 {
+		s.current = 0
+	}
 	if o.OnCreate != nil {
 		o.OnCreate(s)
 	}
@@ -447,7 +453,7 @@ func (s *Shell) index(title string) int {
 			return i
 		}
 	}
-	return 0
+	return -1
 }
 
 // Sections are the program's sections in navigation order.
@@ -461,10 +467,23 @@ func (s *Shell) Current() Section {
 	return s.opts.Sections[s.current]
 }
 
-// Select moves the navigation to a titled section. Used by buttons that hand
-// the reader on ("View report" after a job). Unknown titles are ignored.
+/*
+Select moves the navigation to a titled section. Used by buttons that hand the
+reader on ("View report" after a job).
+
+**An unknown title is ignored**, which is what this always said and did not do:
+it navigated to the first section instead. A program whose sections have been
+rearranged -- a section folded into a group, a title reworded -- then jumped to
+the front every time it asked for a name that had moved, and nothing said why.
+Found in hotaru, where dropping a picture on the window selected "Pictures"
+after that section had become part of a "Create" group, and the window went to
+the service page instead.
+*/
 func (s *Shell) Select(title string) {
 	i := s.index(title)
+	if i < 0 {
+		return
+	}
 	if s.nav == nil {
 		s.current = i
 		return

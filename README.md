@@ -35,6 +35,7 @@ hand-synced copies.
 | `markdown` | A Markdown document pane that renders per block near the viewport, draws code blocks and pipe tables itself, resolves images from an `fs.FS`, and shows pre-rendered mermaid diagrams; `Section` for a document page. |
 | `mermaid` | Hash-keyed lookup of pre-rendered diagram PNGs (light and dark), the widget that draws them, and the `mmdc` renderer and checker behind `go generate`. |
 | `dialogs` | Destructive confirmation, prompt and detail dialogs, file and folder choosers that do not crash, the desktop opener, and a yes-or-no question a worker goroutine can ask. |
+| `profiling` | An opt-in pprof endpoint bound to loopback whatever address it is given, and a soft memory ceiling that defers to `GOMEMLIMIT`. See [Performance](docs/performance.md). |
 | `settings` | A program's settings in one file the user can read: one section per top-level key, each decoded into the caller's own type, written a second after the last change. The file extension chooses the format. |
 | `settings/yamlcodec` | YAML for `.yaml` and `.yml`, imported for its effect so a program that writes JSON carries no YAML parser. |
 | `shell` | The window skeleton: header, section nav, content pane, status bar, busy indicator, banners, `Perform`, section lifecycle, plus the standard Appearance and About sections. |
@@ -131,6 +132,10 @@ module's tests does not: they use the Fyne test driver.
 
 - [Design system](docs/design-system.md): the layout rules and policies for
   application windows.
+- [Performance](docs/performance.md): how to measure, how to read a Go heap
+  profile, and what costs in a Fyne program. Read it before optimising
+  anything: three readings of clockwork-orange's source gave three answers and
+  one of them was wrong, where the profile took a minute.
 - [Glance windows](docs/glance.md): the rules for frameless, always-on-top
   status panels, and the desktop integration they need.
 - [Rendering Markdown](docs/markdown.md).

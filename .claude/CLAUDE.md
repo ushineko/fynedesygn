@@ -100,6 +100,21 @@ issue and the link when convenient — but a new spec should start from one.
 - **The UI thread is sacred.** Components hop to it with `fyne.Do`, never
   `fyne.DoAndWait`. Work that runs while `Shell.OnScreen()` is false runs
   inline so headless tests are deterministic.
+- **Performance is measured, never reasoned about.** A change to a hot path,
+  a cache size or a memory setting is accepted on a profile taken before and
+  after, on the same machine doing the same thing, with the number in the
+  commit message. Three readings of clockwork-orange's source gave three
+  answers about its memory and one was wrong; the heap profile took a minute.
+  `docs/performance.md` is the standard guidance -- how to turn `profiling`
+  on, how to read what comes back, and the Fyne behaviours that cost. **A
+  component that would be rebuilt per app belongs in this module**, which is
+  what `profiling` is: clockwork-orange and terrariabonker had each written
+  their own pprof endpoint.
+- **Build the tree once; update it in place.** Rebuilding a widget tree on a
+  timer creates widgets at that rate, and Fyne has not always destroyed the
+  renderers it caches for them. Rebuild when the shape changes, not when a
+  number does -- it is a correctness rule as much as a speed one, because a
+  rebuild takes the control out from under whoever is typing in it.
 - **Prefer a library over hand-rolled infrastructure** (angou standing
   decision). Fyne is the only required runtime dependency of the core
   packages; anything heavier must be justified in the spec that adds it.

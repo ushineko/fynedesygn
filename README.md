@@ -173,6 +173,21 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+Every release has an entry, and the **Version** line at the top of this file
+names the latest tag. Both are updated in the same commit as the change they
+describe -- see `.claude/CLAUDE.md`.
+
+### Unreleased
+
+- `dialogs.Roomy`: a dialog holding a list is shown at most of the window
+  rather than at the size Fyne would choose. A scroller's minimum size is
+  almost nothing, so a dialog built around one opens at the size of its
+  buttons — found twice in a week by people using it, as a file browser
+  showing four names and a chooser offering eighteen keys through a slot
+  showing one and a half. Sized from the window with the chooser size as a
+  floor; the file choosers go through it now. The rule is in
+  [docs/design-system.md](docs/design-system.md) (spec 026, #32).
+
 ### 0.1.32 (2026-09-21)
 
 - [docs/performance.md](docs/performance.md) gains an optional section on what
@@ -182,10 +197,6 @@ MIT. See [LICENSE](LICENSE).
   and the two levers — a memory ceiling and `madvdontneed` — for when the
   visible number matters. Measured on a freshly launched window whose Go live
   heap was 24 MB inside a 291 MB RSS (spec 025).
-
-Every release has an entry, and the **Version** line at the top of this file
-names the latest tag. Both are updated in the same commit as the change they
-describe -- see `.claude/CLAUDE.md`.
 
 ### 0.1.31 (2026-09-21)
 

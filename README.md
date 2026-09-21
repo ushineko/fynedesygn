@@ -173,6 +173,15 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- `Shell.Select` ignores a title no section has, which is what it always said
+  it did: the lookup behind it answered 0 for "not found" as well as for "the
+  first one", so a program whose sections had been rearranged jumped to the
+  front page every time it asked for a name that had moved. `Options.Section`
+  still falls back to the first section, because "open somewhere" and
+  "navigate now" are not the same question (spec 028, #44).
+
 Every release has an entry, and the **Version** line at the top of this file
 names the latest tag. Both are updated in the same commit as the change they
 describe -- see `.claude/CLAUDE.md`.

@@ -754,3 +754,50 @@ func TestNumberKeysSelectSections(t *testing.T) {
 	require.NotPanics(t, func() { s.selectIndex(8) })
 	require.Equal(t, "A", s.Current().Title(), "a number past the end changed the section")
 }
+
+func TestSelectingASectionThatIsNotThereStaysWhereItIs(t *testing.T) {
+	/*
+		"Unknown titles are ignored" is what Select has always said. What it
+		did was navigate to the first section, because the lookup answered 0
+		for "not found" as well as for "the first one".
+
+		So a program whose sections were rearranged -- one folded into a
+		group, a title reworded -- jumped to the front every time it asked
+		for a name that had moved, and nothing said why. hotaru's window did
+		exactly that: dropping a picture on it selected "Pictures" after that
+		section had become part of a "Create" group, and the window went to
+		the service page.
+	*/
+	var log []string
+	a := &logSection{"A", &log}
+	b := &logSection{"B", &log}
+
+	s := onScreen(t, testOptions(a, b))
+	s.Select("B")
+	require.Equal(t, b, s.Current())
+
+	log = nil
+	s.Select("Pictures")
+	require.Equal(t, b, s.Current(), "a name that is not there moved the navigation")
+	require.Empty(t, log, "it rebuilt something as well")
+
+	// And headless, which is the path a program takes before its window
+	// exists -- and the one where the wrong answer is silent.
+	h := headless(t, testOptions(a, b))
+	h.Select("B")
+	h.Select("Pictures")
+	require.Equal(t, b, h.Current())
+}
+
+func TestOpeningOnASectionThatIsNotThereOpensTheFirst(t *testing.T) {
+	// The other half, and deliberately not the same answer: Options.Section
+	// is a program saying where to open, and the first section is the honest
+	// reply to a name that is no longer there. A dead window would not be.
+	var log []string
+	a := &logSection{"A", &log}
+	b := &logSection{"B", &log}
+
+	o := testOptions(a, b)
+	o.Section = "Nowhere"
+	require.Equal(t, a, headless(t, o).Current())
+}

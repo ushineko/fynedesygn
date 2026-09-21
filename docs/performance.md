@@ -130,6 +130,38 @@ renderer cache and 26% from its text-size cache -- with `nilinterhash` and
 lever on this from outside Fyne except asking for fewer lookups, which means
 fewer widgets.
 
+### Decode a picture once, through the shared cache
+
+`canvas.Image` decodes from its resource, and decodes again on every refresh.
+A section rebuilt when somebody navigates to it therefore decodes its pictures
+once per visit, and each copy stays alive until Fyne's caches expire it a
+minute later. hotaru was measured holding 128 MB of `image.NewNRGBA` -- twelve
+copies of one 1246x2186 diagram -- and 73 MB of paletted frames, because
+handing a GIF to `canvas.Image` decodes the whole animation to draw a square
+ninety-six pixels across.
+
+	img, err := imagecache.Shared.Get(key, func() (image.Image, error) {
+		return gif.Decode(bytes.NewReader(body))
+	})
+	picture := canvas.NewImageFromImage(img)
+
+`markdown` and `mermaid` do this for you. For an app's own pictures, the key
+is whatever makes two requests the same thing -- a content hash, a path and a
+modification time -- and a key that does not change when the picture does is
+the one way to use it badly.
+
+**It is also what makes a large picture affordable.** One copy of a 10 MB
+diagram is a reasonable thing to hold; twelve are not. Size the picture for
+what draws it, and then let the cache make the size a one-off.
+
+### Decode to the size you draw at
+
+A GIF handed to `canvas.Image` is decoded in full: every frame, at its own
+resolution. For a thumbnail, decode the first frame yourself and scale it once
+-- `gif.Decode` rather than `gif.DecodeAll`, and `x/image/draw` to the size the
+list actually draws. Sixty frames at 640x640 is 25 MB; a 192-pixel thumbnail
+is 147 KB.
+
 ### Give a replaced image resource a name of its own
 
 Fyne caches a decoded image against its resource's name. Handing a

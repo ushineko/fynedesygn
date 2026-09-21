@@ -721,3 +721,36 @@ func TestWhatAboutExtraBuildsIsInsideTheScrollerItIsGiven(t *testing.T) {
 
 	require.Contains(t, fynetest.Text(s.Scroller().Content), "extra content")
 }
+
+func TestNumberKeysSelectSections(t *testing.T) {
+	/*
+		The third binding people already try, after reload and the sidebar.
+		It also makes a program measurable: switching sections by hand for a
+		minute to watch what memory does is frantic clicking, and a key is
+		not.
+	*/
+	sections := []Section{
+		NewSection("A", nil, func(*Shell) fyne.CanvasObject { return widget.NewLabel("a") }),
+		NewSection("B", nil, func(*Shell) fyne.CanvasObject { return widget.NewLabel("b") }),
+		NewSection("C", nil, func(*Shell) fyne.CanvasObject { return widget.NewLabel("c") }),
+	}
+	s := onScreen(t, testOptions(sections...))
+
+	/*
+		What the shortcut calls, rather than the shortcut.
+
+		Fyne's test canvas has no shortcut dispatch -- `AddShortcut` goes
+		nowhere it can be triggered from -- so a headless test cannot press
+		Ctrl+3. This covers the half that is reachable: that selecting by
+		index lands on the right section and that a number past the end is
+		not a panic. The binding itself is three lines beside the two the
+		shell already had, and was checked by pressing it.
+	*/
+	s.selectIndex(2)
+	require.Equal(t, "C", s.Current().Title())
+	s.selectIndex(0)
+	require.Equal(t, "A", s.Current().Title())
+
+	require.NotPanics(t, func() { s.selectIndex(8) })
+	require.Equal(t, "A", s.Current().Title(), "a number past the end changed the section")
+}

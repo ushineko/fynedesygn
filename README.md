@@ -177,6 +177,15 @@ Every release has an entry, and the **Version** line at the top of this file
 names the latest tag. Both are updated in the same commit as the change they
 describe -- see `.claude/CLAUDE.md`.
 
+### Unreleased
+
+- A Markdown table reads like a table. `markdown.Pane` drew one with
+  `container.NewGridWithColumns`, which gives every cell the same size — so
+  every row was as tall as the tallest row in the table, every column the same
+  width whatever it held, and nothing separated the rows. Columns are
+  proportioned to their content now, each row is as tall as its own, and there
+  is a rule under the header and between the rows (spec 027, #35).
+
 ### 0.1.33 (2026-09-21)
 
 - `dialogs.Roomy`: a dialog holding a list is shown at most of the window

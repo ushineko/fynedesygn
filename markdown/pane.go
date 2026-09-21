@@ -407,22 +407,6 @@ func RenderBlock(src string, o Options) fyne.CanvasObject {
 // renderTable draws a pipe table as a grid of cells with a bold header row,
 // each cell rendered as inline Markdown so code spans and emphasis survive.
 // Fyne's own table segment lives in a scroller, which would take the wheel.
-func renderTable(rows [][]string) fyne.CanvasObject {
-	cols := len(rows[0])
-	cells := make([]fyne.CanvasObject, 0, len(rows)*cols)
-	for r, row := range rows {
-		for _, cell := range row {
-			if r == 0 {
-				cell = "**" + cell + "**"
-			}
-			rt := widget.NewRichTextFromMarkdown(cell)
-			rt.Wrapping = fyne.TextWrapWord
-			cells = append(cells, rt)
-		}
-	}
-	return container.NewGridWithColumns(cols, cells...)
-}
-
 // renderDiagram looks the diagram up for the active palette's darkness, and
 // falls back to the source under a caption when there is no image.
 func renderDiagram(code string, o Options) fyne.CanvasObject {

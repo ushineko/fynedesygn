@@ -342,6 +342,26 @@ func (s *Shell) buildWindow() {
 			&desktop.CustomShortcut{KeyName: fyne.KeyB, Modifier: fyne.KeyModifierControl},
 			func(fyne.Shortcut) { s.toggleNav() })
 	}
+	/*
+		Ctrl+1 to Ctrl+9 select a section.
+
+		The third binding people already try, after reload and the sidebar --
+		it is what every browser, terminal and editor does with numbered tabs.
+		Nine because that is how many keys there are in a row, and a program
+		with more sections than that has a bigger problem than its shortcuts.
+
+		Bound by index rather than by title so a program can rename a section
+		without renaming a shortcut nobody wrote down.
+	*/
+	for i := range min(len(o.Sections), 9) {
+		s.Window.Canvas().AddShortcut(
+			&desktop.CustomShortcut{
+				KeyName:  fyne.KeyName(rune('1' + i)),
+				Modifier: fyne.KeyModifierControl,
+			},
+			func(fyne.Shortcut) { s.selectIndex(i) })
+	}
+
 	s.Window.Canvas().SetOnTypedKey(func(e *fyne.KeyEvent) {
 		if e.Name == fyne.KeyF5 {
 			s.Invalidate()

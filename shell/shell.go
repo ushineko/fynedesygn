@@ -47,6 +47,10 @@ type Options struct {
 	SettingsPath string
 	// Sections in navigation order. At least one.
 	Sections []Section
+
+	// Groups fold runs of sections under headings in the navigation list.
+	// Optional, and drawn only in the shape that has a list; see group.go.
+	Groups []NavGroup
 	// Section is the title to open on; empty or unknown opens the first. A
 	// wrong name gives a wrong screenshot, which is obvious, not a dead window.
 	Section string
@@ -140,8 +144,16 @@ type Shell struct {
 
 	nav     *widget.List
 	content *container.Scroll
-	frame   *fyne.Container // holds the status bar at index frameStatusBar
-	current int
+
+	// The navigation list's rows, which are the sections plus a heading per
+	// group and minus the members of a closed one, the groups the user has
+	// closed, and the flag that restores a selection without swapping the
+	// section under it. See group.go.
+	rows     []navRow
+	closed   map[string]bool
+	navQuiet bool
+	frame    *fyne.Container // holds the status bar at index frameStatusBar
+	current  int
 
 	busyMu    sync.Mutex // guards the busy fields from Busy's goroutine callers
 	busyCount int
@@ -236,6 +248,7 @@ func newShell(a fyne.App, o Options) *Shell {
 	s.openSettings()
 	s.loadSplits()
 	s.loadNav()
+	s.loadGroups()
 	s.appearance = fdtheme.LoadAppearanceFrom(s.store, a.Preferences())
 	if o.Scheme != "" {
 		s.appearance.Scheme = fdtheme.SchemeByName(o.Scheme).Name
@@ -307,30 +320,9 @@ func (s *Shell) theme() fyne.Theme {
 func (s *Shell) buildWindow() {
 	o := s.opts
 	s.content = container.NewScroll(widget.NewLabel(""))
-	secs := o.Sections
 
-	s.nav = widget.NewList(
-		func() int { return len(secs) },
-		func() fyne.CanvasObject {
-			return container.NewHBox(widget.NewIcon(fynetheme.HomeIcon()), widget.NewLabel("placeholder"))
-		},
-		func(i widget.ListItemID, obj fyne.CanvasObject) {
-			row := obj.(*fyne.Container)
-			icon := row.Objects[0].(*widget.Icon)
-			if r := secs[i].Icon(); r != nil {
-				icon.SetResource(r)
-				icon.Show()
-			} else {
-				icon.Hide()
-			}
-			row.Objects[1].(*widget.Label).SetText(secs[i].Title())
-		},
-	)
-	s.nav.OnSelected = func(i widget.ListItemID) {
-		s.current = i
-		s.swap(false)
-	}
-
+	s.buildRows()
+	s.nav = s.newNavList()
 	// Result banners and the progress indicator float over the content as
 	// popups, so nothing below the header reflows when an operation starts,
 	// finishes or reports. The frame holds the status bar alone.
@@ -441,7 +433,16 @@ func (s *Shell) header() fyne.CanvasObject {
 		sections would have arrived squeezed into a few pixels at the leading
 		edge. In a Border centre it takes the room the actions do not.
 	*/
-	bar := container.NewBorder(nil, nil, nil, container.NewHBox(actions...), s.headerLead())
+	// The actions at their own height, against the top of the row.
+	//
+	// A Border stretches what it is given to the height of the row, and the
+	// row is two buttons tall whenever the navigation is along the top with a
+	// group open -- so Refresh was drawn twice as tall as every other button,
+	// which says it is twice the control. The top rather than the middle:
+	// these act on the window, and the window's first row is where its
+	// controls live however many rows the navigation has grown to.
+	bar := container.NewBorder(nil, nil, nil,
+		container.NewVBox(container.NewHBox(actions...)), s.headerLead())
 	return container.NewVBox(container.NewPadded(bar), widget.NewSeparator())
 }
 

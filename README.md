@@ -1,6 +1,6 @@
 # fynedesygn
 
-**Version**: 0.1.38
+**Version**: 0.1.39
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -173,7 +173,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.39 (2026-09-22)
 
 - A navigation along the top is drawn in the header rather than in a strip of
   its own beneath it, where the program's name used to be. The window is a row

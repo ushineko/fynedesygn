@@ -70,7 +70,10 @@ renders code blocks itself.
 
 ```
 Border{
-  top:    header      = VBox( Padded(HBox(bold app name, Spacer, header actions...)), Separator )
+  top:    header      = VBox( Padded(Border(trailing: HBox(header actions...),
+                                           centre:   bold app name, or the
+                                                     navigation when it is
+                                                     along the top)), Separator )
   bottom: status bar  = VBox( Separator, Padded(HBox(segments..., Spacer)) )
   center: HSplit( nav *widget.List, content *container.Scroll ).SetOffset(0.16)
 }
@@ -348,6 +351,12 @@ Border{
 - Icons on the left is a fixed strip, not a split: a divider on something sized
   to its icons has nothing to give. Along the top it is a row that scrolls when
   it overflows.
+- **Along the top means in the header**, where the program's name would
+  otherwise be, not in a strip of its own beneath it. The window is a row
+  shorter and the name is not said twice: the shell already puts it in the
+  window title. Down the left the name stays, where it reads as what the list
+  belongs to. Hiding the navigation brings the name back, because there is
+  nothing to put in its place.
 - In any icons-only shape each icon carries its section's title as a tip, and a
   section with no icon of its own gets a generic one. Without the first the
   window is a row of pictures to guess at; without the second it is a section

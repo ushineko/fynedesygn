@@ -175,6 +175,10 @@ MIT. See [LICENSE](LICENSE).
 
 ### Unreleased
 
+- A navigation along the top is drawn in the header rather than in a strip of
+  its own beneath it, where the program's name used to be. The window is a row
+  shorter in that shape and the name is not said twice -- the shell already
+  puts it in the window title. Down the left nothing changes (spec 030).
 - Every dialog closes from its corner. Fyne's dialog draws a title and the
   buttons it is given and nothing else, so a dialog could only be left by
   finding the right button among the others -- fine for a confirmation, where

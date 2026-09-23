@@ -421,16 +421,49 @@ func (s *Shell) layout() {
 // header is the window's title strip: the program name, then Refresh and the
 // program's own actions at the trailing edge.
 func (s *Shell) header() fyne.CanvasObject {
-	title := widget.NewLabelWithStyle(s.opts.Name, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	items := []fyne.CanvasObject{title, layout.NewSpacer()}
+	actions := []fyne.CanvasObject{}
 	if c := s.navControl(); c != nil {
-		items = append(items, c)
+		actions = append(actions, c)
 	}
-	items = append(items, widget.NewButtonWithIcon("Refresh", fynetheme.ViewRefreshIcon(), func() { s.Invalidate() }))
+	actions = append(actions,
+		widget.NewButtonWithIcon("Refresh", fynetheme.ViewRefreshIcon(), func() { s.Invalidate() }))
 	if s.opts.Header != nil {
-		items = append(items, s.opts.Header(s)...)
+		actions = append(actions, s.opts.Header(s)...)
 	}
-	return container.NewVBox(container.NewPadded(container.NewHBox(items...)), widget.NewSeparator())
+
+	/*
+		A Border rather than an HBox and a spacer.
+
+		The two lay the actions out identically — hard against the trailing
+		edge — but a Border hands what is left to what it opens with, and
+		what it opens with may be the navigation, which is a scroller. A
+		scroller in an HBox asks for almost nothing and gets it, so the
+		sections would have arrived squeezed into a few pixels at the leading
+		edge. In a Border centre it takes the room the actions do not.
+	*/
+	bar := container.NewBorder(nil, nil, nil, container.NewHBox(actions...), s.headerLead())
+	return container.NewVBox(container.NewPadded(bar), widget.NewSeparator())
+}
+
+/*
+headerLead is what the header opens with: the navigation when it is along the
+top, and the program's name otherwise.
+
+A navigation along the top used to be a second strip under the header, which
+spent a whole row of the window on a handful of buttons while the row above it
+held a program name the title bar was already showing. The shell sets the
+window title from Options.Name and Version, so in that shape the label was the
+same word twice, one line apart, in exchange for the space the sections could
+have been sitting in.
+
+Down the left it stays: there the name sits above the navigation and reads as
+what the list belongs to, and there is no row to save.
+*/
+func (s *Shell) headerLead() fyne.CanvasObject {
+	if s.navPlace == NavTop && s.navMode != NavHidden {
+		return s.navHolderFor(true)
+	}
+	return widget.NewLabelWithStyle(s.opts.Name, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 }
 
 // statusBar lays the program's segments out sequentially.

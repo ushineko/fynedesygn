@@ -288,7 +288,9 @@ func (s *Shell) body() fyne.CanvasObject {
 		return s.content
 	}
 	if s.navPlace == NavTop {
-		return container.NewBorder(s.navHolderFor(true), nil, nil, nil, s.content)
+		// Along the top means in the header, which has already drawn it. See
+		// Shell.headerLead.
+		return s.content
 	}
 	if s.navMode == NavIcons {
 		return container.NewBorder(nil, nil, s.navHolderFor(false), nil, s.content)

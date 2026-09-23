@@ -3,15 +3,18 @@ package dialogs
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ushineko/fynedesygn/fynetest"
+	fdtheme "github.com/ushineko/fynedesygn/theme"
 )
 
 func testWindow(t *testing.T) fyne.Window {
@@ -200,4 +203,88 @@ func TestEveryDialogClosesFromItsCorner(t *testing.T) {
 			t.Fatal("the corner X left the caller waiting")
 		}
 	})
+}
+
+/*
+The font chooser previews the highlighted family and commits nothing until
+Choose.
+
+The dropdown it replaces listed 311 names in a face that told you nothing
+about any of them, so choosing meant applying one to the whole window to see
+it and applying another to get back.
+*/
+func TestChooseFontPreviewsBeforeCommitting(t *testing.T) {
+	w := testWindow(t)
+	chosen := ""
+	base := fdtheme.DefaultAppearance()
+
+	ChooseFont(w, "Interface font", base.Font, base, false, func(name string) { chosen = name })
+	dlg := overlay(t, w)
+
+	/*
+		The sample carries the family's own file.
+
+		A theme override does not survive the trip to the painter: text is
+		measured through a path that is handed no object, and the face is
+		cached against a scope the text objects do not always carry. A
+		resource on the object is what actually decides the glyphs.
+
+		Highlighted first, because the chooser opens on whatever the window
+		is using, and the bundled default has no file to name.
+	*/
+	list, found := fynetest.First[*widget.List](dlg)
+	require.True(t, found, "the chooser has no list")
+	for i, name := range fdtheme.FontNames() {
+		if fdtheme.PreviewFont(name) != nil {
+			list.Select(i)
+			break
+		}
+	}
+	var sourced bool
+	for _, line := range fynetest.All[*canvas.Text](dlg) {
+		if line.FontSource != nil {
+			sourced = true
+			break
+		}
+	}
+	if !sourced {
+		t.Error("no line of the sample names the font it is drawn from")
+	}
+	// And it names the family, which is what the eye checks against the list.
+	if !strings.Contains(strings.Join(fynetest.Texts(dlg), "\n"), base.Font) {
+		t.Errorf("the sample does not name the family: %v", fynetest.Texts(dlg))
+	}
+
+	// Browsing has answered nothing yet.
+	if chosen != "" {
+		t.Errorf("opening the chooser already chose %q", chosen)
+	}
+
+	// Choose takes the family the sample is showing, which is the one that
+	// was highlighted.
+	showing := ""
+	for _, text := range fynetest.Texts(dlg) {
+		if strings.HasPrefix(text, "Sample — ") {
+			showing = strings.TrimPrefix(text, "Sample — ")
+		}
+	}
+	test.Tap(fynetest.FindButton(dlg, "Choose"))
+	if chosen != showing {
+		t.Errorf("Choose answered %q while the sample showed %q", chosen, showing)
+	}
+}
+
+// Cancel answers nothing at all: the window keeps the font it had.
+func TestChooseFontCancelsWithoutChoosing(t *testing.T) {
+	w := testWindow(t)
+	chosen := ""
+	base := fdtheme.DefaultAppearance()
+
+	ChooseFont(w, "Interface font", base.Font, base, false, func(name string) { chosen = name })
+	test.Tap(fynetest.FindButton(overlay(t, w), "Cancel"))
+
+	if chosen != "" {
+		t.Errorf("Cancel chose %q", chosen)
+	}
+	require.Nil(t, w.Canvas().Overlays().Top())
 }

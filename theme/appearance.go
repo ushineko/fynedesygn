@@ -177,3 +177,55 @@ func ScaleValue(label string) float32 {
 	}
 	return f
 }
+
+/*
+PreviewTheme is this appearance with one font family swapped in, for showing
+somebody what that family looks like before they choose it.
+
+Everything else stays: the scheme, the size, the scale and the other family.
+A preview that changed two things at once would not be a preview of either.
+
+The family is read through PreviewFont, so looking through a long list costs
+what looking at one costs. Pass mono=true to preview the monospace family,
+which is chosen separately and never taken from the interface font.
+*/
+func (a Appearance) PreviewTheme(family string, mono bool) Theme {
+	options := Options{
+		Font:     LoadFont(a.Font),
+		Mono:     LoadFont(a.Mono),
+		TextSize: a.TextSize,
+	}
+	/*
+		A family this machine cannot read previews as what would actually be
+		drawn: the appearance's own font.
+
+		That covers two cases with one rule. An unreadable font falls back
+		rather than failing, which is this package's standing answer, and a
+		program offering a "follow the interface" entry alongside the
+		families gets the right picture for it without the chooser having to
+		know what that entry means.
+	*/
+	if f := PreviewFont(family); f != nil {
+		/*
+			The interface face is set whichever slot is being chosen, and the
+			monospace one as well when it is the monospace slot.
+
+			Because a preview should be drawn by the simplest path there is.
+			Fyne resolves monospace text through a list — the theme's face,
+			its own bundled monospace, and a system font for the generic
+			"monospace" family — and what comes out of that list is not
+			reliably the face the theme handed it. A sample drawn in the
+			plain style takes the theme's face directly, which is the one
+			thing a preview cannot afford to be wrong about.
+
+			Whether the family is a monospace family at all is a separate
+			question, and Font.IsMonospace answers it in words rather than by
+			hoping the reader notices.
+		*/
+		options.Font = f
+		if mono {
+			options.Mono = f
+		}
+	}
+	return New(SchemeByName(a.Scheme), options)
+}

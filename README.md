@@ -173,6 +173,25 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- A font can be seen before it is chosen. `dialogs.ChooseFont` shows a sample
+  in the highlighted family and commits nothing until Choose, replacing the
+  two dropdowns of names in the Appearance section. The sample is drawn from
+  the family's file through `canvas.Text.FontSource`: a theme override loses
+  the family on the way to the painter, which is a preview that reports one
+  face and draws another. The pointer previews nothing and chooses nothing —
+  hovering a row on the way to Choose used to pick it — while the arrow keys
+  move the cursor and Enter accepts. It says
+  when a family has no glyphs for the sample -- most families on a Linux
+  machine are script fonts with no Latin letters at all -- and says when one
+  offered as a monospace face is not monospace — and the monospace chooser
+  offers only the families that are, measured rather than filtered by name.
+  The list is not drawn in the
+  fonts it lists: 311 families at 2.5 MB each is 778 MB to render a menu, so
+  `theme.PreviewFont` reads a family without keeping it and one font is alive
+  at a time (spec 032, #53).
+
 ### 0.1.40 (2026-09-23)
 
 - The navigation folds. A program may declare groups -- a heading with member

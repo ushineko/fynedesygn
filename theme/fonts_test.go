@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"github.com/stretchr/testify/require"
@@ -72,4 +73,88 @@ func TestSplitFaceReadsFamilyAndStyleFromTheFilename(t *testing.T) {
 
 func TestPlatformFontDirectoriesAreNonEmpty(t *testing.T) {
 	require.NotEmpty(t, platformFontDirs())
+}
+
+/*
+Loading every family is not free, which is why previewing does not.
+
+The number in the comment on PreviewFont comes from here. It is a measurement
+rather than an assertion about this machine: the check is only that a family
+costs enough to matter, because the design of the font chooser rests on it.
+*/
+func TestLoadingEveryFamilyIsNotFree(t *testing.T) {
+	names := FontNames()
+	if len(names) < 2 {
+		t.Skip("no system fonts on this machine")
+	}
+
+	start := time.Now()
+	bytes, loaded := 0, 0
+	for _, name := range names {
+		f := PreviewFont(name)
+		if f == nil || f.regular == nil {
+			continue
+		}
+		loaded++
+		bytes += len(f.regular.Content())
+	}
+	took := time.Since(start)
+	if loaded == 0 {
+		t.Skip("no readable families on this machine")
+	}
+	t.Logf("%d families, %.0f MB of regular faces, %v", loaded,
+		float64(bytes)/(1<<20), took)
+
+	// A face is a file, and files are not small. If this ever stops being
+	// true the chooser could draw every row in its own font after all.
+	if perFamily := bytes / loaded; perFamily < 50*1024 {
+		t.Errorf("a family's regular face averages %d bytes; preview-one-at-a-time "+
+			"may no longer be necessary", perFamily)
+	}
+}
+
+/*
+Previewing a family does not leave it resident.
+
+The chooser reads a font per name somebody moves through, and the font cache
+never releases: previewing through LoadFont would have grown the process by a
+family's worth of memory for every name scrolled past.
+*/
+func TestPreviewingDoesNotFillTheCache(t *testing.T) {
+	names := FontNames()
+	var name string
+	for _, candidate := range names {
+		if candidate != DefaultFontName && PreviewFont(candidate) != nil {
+			name = candidate
+			break
+		}
+	}
+	if name == "" {
+		t.Skip("no readable system font on this machine")
+	}
+
+	fontsMu.Lock()
+	_, cached := fontCache[name]
+	fontsMu.Unlock()
+	if cached {
+		t.Fatalf("%s was already resident, so this proves nothing", name)
+	}
+
+	PreviewFont(name)
+
+	fontsMu.Lock()
+	_, cached = fontCache[name]
+	fontsMu.Unlock()
+	if cached {
+		t.Errorf("previewing %s left it in the cache", name)
+	}
+
+	// And loading it for real still does.
+	LoadFont(name)
+	fontsMu.Lock()
+	_, cached = fontCache[name]
+	fontsMu.Unlock()
+	if !cached {
+		t.Errorf("loading %s did not keep it", name)
+	}
 }

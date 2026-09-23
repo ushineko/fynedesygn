@@ -8,6 +8,9 @@ import (
 	"sync"
 
 	"fyne.io/fyne/v2"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/sfnt"
+	"golang.org/x/image/math/fixed"
 )
 
 /*
@@ -37,6 +40,10 @@ type family struct {
 	italic     string
 	boldItalic string
 }
+
+// monoCache remembers which families are monospace. Guarded by fontsMu, and
+// never invalidated: a font file does not change shape while a program runs.
+var monoCache = map[string]bool{} //nolint:gochecknoglobals // a measurement, kept
 
 var (
 	fontsMu   sync.Mutex
@@ -188,7 +195,43 @@ func LoadFont(name string) *Font {
 	if f, ok := fontCache[name]; ok {
 		return f
 	}
+	f := readFamily(name)
+	fontCache[name] = f
+	return f
+}
 
+/*
+PreviewFont reads a family's faces without keeping them, for showing somebody
+what a font looks like before they choose it.
+
+LoadFont caches for the life of the process, which is right for the two or
+three families a program actually draws in and wrong for browsing. A font is
+its file: this machine carries 311 families, and reading every one costs
+778 MB and 731 ms (2.5 MB and 2.4 ms each, measured by
+TestLoadingEveryFamilyIsNotFree). A picker that previewed through LoadFont
+would grow the process by a family's worth of memory for every name somebody
+scrolled past, and never give any of it back.
+
+So a preview reads the file each time and lets the result go. One font is
+alive at a time, and the cost of looking through all of them is the cost of
+looking at one.
+*/
+func PreviewFont(name string) *Font {
+	if name == "" || name == DefaultFontName {
+		return nil
+	}
+	fontsMu.Lock()
+	defer fontsMu.Unlock()
+	if f, ok := fontCache[name]; ok {
+		// Already resident because the program draws in it: no reason to
+		// read it again.
+		return f
+	}
+	return readFamily(name)
+}
+
+// readFamily reads a family's faces from disk. Call with fontsMu held.
+func readFamily(name string) *Font {
 	var fam *family
 	all := families()
 	for i := range all {
@@ -198,7 +241,6 @@ func LoadFont(name string) *Font {
 		}
 	}
 	if fam == nil {
-		fontCache[name] = nil
 		return nil
 	}
 
@@ -220,9 +262,9 @@ func LoadFont(name string) *Font {
 		boldItalic: read(fam.boldItalic),
 	}
 	if lf.regular == nil {
-		lf = nil
+		// A family with no regular face is one nothing can be drawn in.
+		return nil
 	}
-	fontCache[name] = lf
 	return lf
 }
 
@@ -245,4 +287,172 @@ func (f *Font) Face(s fyne.TextStyle) fyne.Resource {
 		r = f.regular
 	}
 	return r
+}
+
+/*
+Missing counts the runes in text that this family has no glyph for.
+
+Many of the families on a Linux machine are script fonts: Noto ships one per
+writing system, and most of them carry punctuation and digits and not a single
+Latin letter. Drawing a Latin sample in one of those shows a line of fallback
+glyphs from some other font — which is a preview that lies twice, once by
+looking like every other script font and once by looking like nothing
+changed.
+
+So a preview asks first. A nil family, or one whose face cannot be parsed,
+answers with the whole length: it can draw none of it.
+*/
+func (f *Font) Missing(text string) int {
+	if f == nil || f.regular == nil {
+		return len([]rune(text))
+	}
+	face, err := sfnt.Parse(f.regular.Content())
+	if err != nil {
+		return len([]rune(text))
+	}
+
+	var buf sfnt.Buffer
+	missing := 0
+	for _, r := range text {
+		index, err := face.GlyphIndex(&buf, r)
+		if err != nil || index == 0 {
+			missing++
+		}
+	}
+	return missing
+}
+
+/*
+Covered is the runes of text this family can draw, in order.
+
+For showing somebody a script font's real face: it carries digits and
+punctuation even when it carries no letters, and those in the family's own
+shapes are worth more than a line of somebody else's glyphs.
+*/
+func (f *Font) Covered(text string) string {
+	if f == nil || f.regular == nil {
+		return ""
+	}
+	face, err := sfnt.Parse(f.regular.Content())
+	if err != nil {
+		return ""
+	}
+
+	var buf sfnt.Buffer
+	out := make([]rune, 0, len(text))
+	for _, r := range text {
+		index, err := face.GlyphIndex(&buf, r)
+		if err != nil || index == 0 {
+			continue
+		}
+		out = append(out, r)
+	}
+	return string(out)
+}
+
+/*
+IsMonospace reports whether every letter in this family is the same width.
+
+For a font being chosen as a program's monospace face, where a proportional
+family is not a matter of taste but a mistake: columns stop lining up, and the
+places that asked for monospace did so because alignment was the point.
+
+Measured rather than guessed from the name. "Liberation Sans" is obviously
+proportional and "Meslo LGLDZ Nerd Font Propo" is not obviously anything, yet
+the second is the one that will misalign a log pane.
+*/
+func (f *Font) IsMonospace() bool {
+	if f == nil || f.regular == nil {
+		return false
+	}
+	face, err := sfnt.Parse(f.regular.Content())
+	if err != nil {
+		return false
+	}
+
+	return oneWidth(face)
+}
+
+/*
+MonospaceNames lists the families whose letters are all one width, with the
+bundled default first.
+
+For a monospace picker, where a proportional family is not a matter of taste
+but a mistake: the places that asked for monospace did so because alignment
+was the point, and a font that breaks it is worth not offering at all.
+
+Measured, never read off the name. "Meslo LGLDZ Nerd Font Propo" is the
+proportional one and "Ligconsolata" is not obviously anything; a picker
+filtered by the word "Mono" would offer the first and hide the second.
+
+The measurement is kept, because it does not change while the program runs and
+the answer for 311 families is what makes a picker open at once rather than
+after a second of reading font files.
+*/
+func MonospaceNames() []string {
+	fontsMu.Lock()
+	defer fontsMu.Unlock()
+
+	names := []string{DefaultFontName}
+	for _, f := range families() {
+		if monospacedFamily(f) {
+			names = append(names, f.name)
+		}
+	}
+	return names
+}
+
+/*
+monospacedFamily reads a family's regular face far enough to compare a few
+advance widths. Call with fontsMu held.
+
+Opened as a file rather than loaded as a resource: sfnt reads the tables it
+needs through the ReaderAt and no more, so asking this of every family costs
+a few kilobytes each instead of the 2.5 MB a whole face weighs.
+*/
+func monospacedFamily(f family) bool {
+	if answer, ok := monoCache[f.name]; ok {
+		return answer
+	}
+	answer := false
+	if file, err := os.Open(f.regular); err == nil { // #nosec G304 -- a path this package discovered
+		if face, err := sfnt.ParseReaderAt(file); err == nil {
+			answer = oneWidth(face)
+		}
+		_ = file.Close()
+	}
+	monoCache[f.name] = answer
+	return answer
+}
+
+/*
+oneWidth reports whether these letters all advance by the same amount.
+
+Five characters rather than the whole alphabet: a family that varies at all
+varies between an i and an M, and one that does not is monospace by the only
+definition that matters here. A face carrying none of them answers no, because
+a preview cannot show what it cannot draw either.
+*/
+func oneWidth(face *sfnt.Font) bool {
+	var buf sfnt.Buffer
+	const ppem = 64
+	width := fixed.Int26_6(0)
+	for _, r := range "iMW.1" {
+		index, err := face.GlyphIndex(&buf, r)
+		if err != nil || index == 0 {
+			continue
+		}
+		advance, err := face.GlyphAdvance(&buf, index, ppem, font.HintingNone)
+		if err != nil {
+			return false
+		}
+		if width == 0 {
+			width = advance
+			continue
+		}
+		if advance != width {
+			return false
+		}
+	}
+	return width != 0
 }

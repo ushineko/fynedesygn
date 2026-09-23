@@ -63,8 +63,25 @@ func TestEveryPackageIsInTheReadme(t *testing.T) {
 		}
 		require.Contains(t, packages, "`"+dir+"`",
 			"package %s is not in the What is in it table", dir)
+
+		/*
+			And it links to its own reference.
+
+			The table is the API index: the sentence says what a package is
+			for and the link says what is in it. Fifteen links are fifteen
+			chances to rot, so the link is checked where the name already is
+			-- a package added without one fails exactly as a package added
+			without a row does.
+		*/
+		require.Contains(t, packages,
+			"[`"+dir+"`](https://pkg.go.dev/"+module+"/"+dir+")",
+			"package %s is in the table with no link to its reference", dir)
 	}
 }
+
+// module is this library's import path, which the README's reference links
+// are built from.
+const module = "github.com/ushineko/fynedesygn"
 
 // section is the part of the README between two headings, so a name is looked
 // for where it belongs rather than anywhere in the file.

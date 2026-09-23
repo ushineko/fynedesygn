@@ -217,6 +217,37 @@ Border{
   may offer a separate console font for its log panes.
 - Fonts are discovered, never embedded, so the module carries no font
   licences.
+- **A font is chosen in `dialogs.ChooseFont`, not a dropdown.** It shows a
+  sample in the highlighted family — the family's own name, a line of prose,
+  and the shapes that tell families apart — and commits nothing until Choose.
+  A dropdown of names tells you nothing about any of them, so choosing a font
+  meant applying one to the whole window to see it and applying another to get
+  back.
+- **A font preview draws from the file, never through a theme.**
+  `canvas.Text.FontSource` names the face and is checked before any theme or
+  scope. A `container.ThemeOverride` looks like it works and does not: text is
+  measured through a path handed no object, the face is cached against a scope
+  the text objects do not reliably carry, and monospace text is resolved
+  through a list of faces rather than the one the theme named. All three lose
+  the family somewhere between deciding it and drawing it, and the result is a
+  preview that confidently reports the family it was given while showing
+  somebody else's glyphs.
+- **A preview must be able to fail only loudly.** It follows the highlight
+  however that moved — `widget.List` reports the keyboard through
+  `OnHighlighted` and the mouse through `OnSelected`, and listening to one
+  leaves the sample showing a family nobody is pointing at — and it says what
+  it actually drew. Most families on a Linux machine are script fonts with no
+  Latin letters, so a Latin sample in one is another font's glyphs standing
+  in: identical for every such family, and indistinguishable from a preview
+  that has stopped working. `theme.Font.Missing` counts what a family cannot
+  draw and `Covered` returns what it can.
+- **The list of names is drawn in the interface font, deliberately.** Fyne
+  draws every widget in the app's theme, so a row in its own face needs a
+  theme of its own and a font read from disk. This machine carries 311
+  families at 2.5 MB each: 778 MB and 731 ms to render one menu, in a cache
+  that never releases. `theme.PreviewFont` reads a family without keeping it,
+  so one font is alive at a time and looking through every family costs what
+  looking at one costs.
 
 ## Sections
 

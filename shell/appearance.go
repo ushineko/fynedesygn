@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	fd "github.com/ushineko/fynedesygn"
+	"github.com/ushineko/fynedesygn/dialogs"
 	fdtheme "github.com/ushineko/fynedesygn/theme"
 	"github.com/ushineko/fynedesygn/widgets"
 )
@@ -32,11 +33,31 @@ func buildAppearance(s *Shell, monoSample string) fyne.CanvasObject {
 	scheme := widget.NewSelect(fdtheme.SchemeNames(), func(name string) { a.Scheme = name; apply() })
 	scheme.SetSelected(a.Scheme)
 
-	font := widget.NewSelect(fdtheme.FontNames(), func(name string) { a.Font = name; apply() })
-	font.SetSelected(a.Font)
+	/*
+		Fonts are chosen in a chooser, not a dropdown.
 
-	mono := widget.NewSelect(fdtheme.FontNames(), func(name string) { a.Mono = name; apply() })
-	mono.SetSelected(a.Mono)
+		A dropdown lists 311 names on this machine in a face that tells you
+		nothing about any of them, so choosing meant applying one to the
+		whole window to see it, then applying another to get back. The
+		chooser shows a sample in the highlighted family and changes nothing
+		until Choose. See dialogs.ChooseFont for why the list itself is not
+		drawn in the fonts it lists.
+	*/
+	var font, mono *widget.Button
+	font = widget.NewButton(fontLabel(a.Font), func() {
+		dialogs.ChooseFont(s.Window, "Interface font", a.Font, a, false, func(name string) {
+			a.Font = name
+			font.SetText(fontLabel(name))
+			apply()
+		})
+	})
+	mono = widget.NewButton(fontLabel(a.Mono), func() {
+		dialogs.ChooseFont(s.Window, "Monospace font", a.Mono, a, true, func(name string) {
+			a.Mono = name
+			mono.SetText(fontLabel(name))
+			apply()
+		})
+	})
 
 	sizes := make([]string, 0, len(fdtheme.TextSizes()))
 	for _, v := range fdtheme.TextSizes() {
@@ -71,8 +92,8 @@ func buildAppearance(s *Shell, monoSample string) fyne.CanvasObject {
 	reset := widget.NewButton("Reset to defaults", func() {
 		a = fdtheme.DefaultAppearance()
 		scheme.SetSelected(a.Scheme)
-		font.SetSelected(a.Font)
-		mono.SetSelected(a.Mono)
+		font.SetText(fontLabel(a.Font))
+		mono.SetText(fontLabel(a.Mono))
 		size.SetSelected(fmt.Sprintf("%g", a.TextSize))
 		scale.SetSelected(fdtheme.ScaleLabel(a.Scale))
 		apply()
@@ -106,4 +127,13 @@ func buildAppearance(s *Shell, monoSample string) fyne.CanvasObject {
 			"scale. Fyne draws text without hinting, which on a fractionally scaled desktop reads soft at the "+
 			"default size; 1.2 is usually enough. It takes effect when the window is opened."),
 	))
+}
+
+// fontLabel is a family on the button that opens the chooser: its name, and
+// an ellipsis because the button opens something rather than doing it.
+func fontLabel(name string) string {
+	if name == "" {
+		name = fdtheme.DefaultFontName
+	}
+	return name + "…"
 }

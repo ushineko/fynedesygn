@@ -174,10 +174,10 @@ func options() shell.Options {
 }
 ```
 
-`AppID` and `Name` are the desktop identity: the settings file's location,
+**`AppID` and `Name`** are the desktop identity: the settings file's location,
 the window title, the icon a desktop entry matches.
 
-`Sections` is the navigation. Each one is a title, an icon and a function
+**`Sections`** is the navigation. Each one is a title, an icon and a function
 that builds its content, and the shell draws the chrome around them — header,
 navigation, status bar, banners. A section is rebuilt when something it
 watches changes, so it is a *function of state* rather than a widget tree
@@ -188,7 +188,7 @@ from a Markdown string, and `shell.AboutSection` is the About page every
 program has. Writing a section of your own means implementing `shell.Section`,
 which is a `Title`, an `Icon` and a `Build`.
 
-**Work that takes time does not go in Build.** It goes through
+**Work that takes time does not go in `Build`.** It goes through
 `Shell.Perform`, which runs it off the UI thread, shows the busy indicator and
 reports failure as a banner:
 
@@ -268,6 +268,14 @@ MIT. See [LICENSE](LICENSE).
   tutorial describes cannot quietly stop compiling (spec 033, #55).
 - `settings.ParseError` documents its `Error` and `Unwrap`, which were the
   only exported identifiers in the module without a comment.
+- A document with bold around a code span no longer crashes. Emphasising an
+  identifier parses to a segment that is bold *and* monospace, and a theme
+  without that
+  face returns nothing that Fyne then dereferences. This library's own theme
+  has the face; Fyne's test theme has not, so it took down headless tests --
+  which is how every consumer tests their own sections. Each segment's style is
+  checked before the painter sees it, and bold is dropped where the theme
+  cannot draw it. Quirk 35 (spec 034, #56).
 
 ### 0.1.41 (2026-09-23)
 

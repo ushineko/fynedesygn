@@ -399,7 +399,7 @@ func RenderBlock(src string, o Options) fyne.CanvasObject {
 	if rows, ok := TableBlock(src); ok {
 		return renderTable(rows)
 	}
-	rt := widget.NewRichTextFromMarkdown(src)
+	rt := drawable(widget.NewRichTextFromMarkdown(src))
 	rt.Wrapping = fyne.TextWrapWord
 	return rt
 }

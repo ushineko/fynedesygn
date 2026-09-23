@@ -142,7 +142,7 @@ something nobody wrote.
 func tableRow(cells []string, weights []float32, header bool) fyne.CanvasObject {
 	drawn := make([]fyne.CanvasObject, 0, len(cells))
 	for _, cell := range cells {
-		rt := widget.NewRichTextFromMarkdown(cell)
+		rt := drawable(widget.NewRichTextFromMarkdown(cell))
 		rt.Wrapping = fyne.TextWrapWord
 		if header {
 			embolden(rt)

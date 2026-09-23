@@ -182,16 +182,27 @@ func TestEachShapeLaysOutWhereItShould(t *testing.T) {
 	require.Contains(t, body.Objects, fyne.CanvasObject(s.navHolder))
 	require.Contains(t, body.Objects, fyne.CanvasObject(s.content))
 
+	/*
+		Along the top is in the header, not a strip of its own: the content
+		takes the whole body, and the buttons are drawn where the program's
+		name used to be. See Shell.headerLead.
+	*/
 	s.SetNavShape(NavIcons, NavTop)
-	body, ok = s.body().(*fyne.Container)
-	require.True(t, ok)
-	require.Contains(t, body.Objects, fyne.CanvasObject(s.navHolder))
+	require.Same(t, s.content, s.body(), "the top navigation costs the body no room")
+	header := s.header()
+	require.Contains(t, fynetest.All[fyne.CanvasObject](header),
+		fyne.CanvasObject(s.navHolder), "the navigation is not in the header")
 
 	s.SetNavShape(NavLabels, NavTop)
-	require.Contains(t, fynetest.Texts(s.body()), "Three", "labels along the top are labels")
+	require.Contains(t, fynetest.Texts(s.header()), "Three", "labels along the top are labels")
+	require.NotContains(t, fynetest.Texts(s.header()), s.opts.Name,
+		"the name is drawn as well as the sections it was replaced by")
 
+	// Hidden gives the body back too, and the name returns to the header:
+	// with no navigation there is nothing to put in its place.
 	s.SetNavShape(NavHidden, NavTop)
 	require.Same(t, s.content, s.body())
+	require.Contains(t, fynetest.Texts(s.header()), s.opts.Name)
 }
 
 /*
@@ -364,4 +375,25 @@ func TestTheShapeMenuOpensUnderItsButton(t *testing.T) {
 	require.LessOrEqual(t, menu.Position().X, at.X+1)
 	require.Greater(t, menu.Position().X, at.X-menu.Size().Width,
 		"beside the button, not in the corner of the window")
+}
+
+/*
+The navigation along the top gets the width the header can spare.
+
+It is a scroller, and a scroller asks for almost nothing: put in an HBox
+beside the actions it would have arrived squeezed into a few pixels at the
+leading edge, which is the shape of bug that looks like the buttons are
+broken rather than the layout is.
+*/
+func TestTheTopNavigationIsGivenRoom(t *testing.T) {
+	s, _ := shaped(t, everyShape)
+	s.SetNavShape(NavIcons, NavTop)
+
+	s.Window.Resize(fyne.NewSize(1000, 600))
+	s.Window.Canvas().Capture()
+
+	got := s.navHolder.Size().Width
+	if got < 300 {
+		t.Errorf("the navigation is %.0f wide in a 1000 wide window", got)
+	}
 }

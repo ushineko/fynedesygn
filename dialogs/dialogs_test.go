@@ -137,3 +137,67 @@ func TestTheQuestionAnswersExactlyOnceWhicheverWayItCloses(t *testing.T) {
 		t.Fatal("no answer on dismissal")
 	}
 }
+
+// closer is the dialog's corner X: the one button with an icon and no label.
+func closer(t *testing.T, o fyne.CanvasObject) *widget.Button {
+	t.Helper()
+	for _, b := range fynetest.All[*widget.Button](o) {
+		if b.Text == "" && b.Icon != nil {
+			return b
+		}
+	}
+	return nil
+}
+
+/*
+Every dialog closes from its corner.
+
+Fyne's dialog draws a title and the buttons it is given and nothing else, so
+without this a dialog can only be left by finding the right button among the
+others -- which is fine for a confirmation, where choosing is the point, and
+wrong for a long read-only answer somebody opened to look at.
+*/
+func TestEveryDialogClosesFromItsCorner(t *testing.T) {
+	t.Run("ShowDetail", func(t *testing.T) {
+		w := testWindow(t)
+		ShowDetail(w, "A long answer", widget.NewLabel("body"), 400, 300)
+		x := closer(t, overlay(t, w))
+		require.NotNil(t, x, "no corner close")
+		test.Tap(x)
+		require.Nil(t, w.Canvas().Overlays().Top())
+	})
+
+	// The X on a confirmation is a dismissal, never the destructive choice.
+	t.Run("ConfirmDestructive", func(t *testing.T) {
+		w := testWindow(t)
+		ran := 0
+		ConfirmDestructive(w, "Remove?", "detail", "Remove", func() { ran++ })
+		test.Tap(closer(t, overlay(t, w)))
+		require.Nil(t, w.Canvas().Overlays().Top())
+		require.Zero(t, ran, "the corner X ran the destructive action")
+	})
+
+	t.Run("Prompt", func(t *testing.T) {
+		w := testWindow(t)
+		ran := 0
+		Prompt(w, "Name it", "Save", widget.NewEntry(), func() { ran++ })
+		test.Tap(closer(t, overlay(t, w)))
+		require.Nil(t, w.Canvas().Overlays().Top())
+		require.Zero(t, ran, "the corner X confirmed the prompt")
+	})
+
+	// A blocking question must answer exactly once however it is closed, or
+	// the worker waiting on it never wakes up.
+	t.Run("Decide", func(t *testing.T) {
+		w := testWindow(t)
+		answer := make(chan bool, 1)
+		ask(w, "Go on?", "detail", "Yes", "No", answer)
+		test.Tap(closer(t, overlay(t, w)))
+		select {
+		case got := <-answer:
+			require.False(t, got, "the corner X answered yes")
+		case <-time.After(time.Second):
+			t.Fatal("the corner X left the caller waiting")
+		}
+	})
+}

@@ -70,7 +70,10 @@ renders code blocks itself.
 
 ```
 Border{
-  top:    header      = VBox( Padded(HBox(bold app name, Spacer, header actions...)), Separator )
+  top:    header      = VBox( Padded(Border(trailing: HBox(header actions...),
+                                           centre:   bold app name, or the
+                                                     navigation when it is
+                                                     along the top)), Separator )
   bottom: status bar  = VBox( Separator, Padded(HBox(segments..., Spacer)) )
   center: HSplit( nav *widget.List, content *container.Scroll ).SetOffset(0.16)
 }
@@ -348,6 +351,12 @@ Border{
 - Icons on the left is a fixed strip, not a split: a divider on something sized
   to its icons has nothing to give. Along the top it is a row that scrolls when
   it overflows.
+- **Along the top means in the header**, where the program's name would
+  otherwise be, not in a strip of its own beneath it. The window is a row
+  shorter and the name is not said twice: the shell already puts it in the
+  window title. Down the left the name stays, where it reads as what the list
+  belongs to. Hiding the navigation brings the name back, because there is
+  nothing to put in its place.
 - In any icons-only shape each icon carries its section's title as a tip, and a
   section with no icon of its own gets a generic one. Without the first the
   window is a row of pictures to guess at; without the second it is a section
@@ -469,6 +478,14 @@ Border{
   UI thread with `fyne.Do`, put a dialog up, and wait on a channel; a `sent`
   guard makes every close path answer exactly once. Focus the entry after
   showing.
+- **Every dialog closes from its corner.** An X at the top right of the
+  content, in addition to whatever buttons the dialog carries. Fyne's dialog
+  has no close affordance and no way to put one in its title bar, so a dialog
+  without this can only be left by finding the right button among the others
+  -- which is fine for a confirmation, where choosing is the point, and wrong
+  for a long read-only answer. The X is a dismissal and never an answer: it
+  does not run a destructive action, confirm a prompt, or answer a blocking
+  question yes.
 - Buttons that open a dialog end in an ellipsis.
 - A validation failure inside an editor dialog is shown in the dialog, not as
   a banner behind it: the refusal names the line, and the editor is where to

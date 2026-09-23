@@ -31,7 +31,9 @@ func Decide(win fyne.Window, title, detail, yes, no string) bool {
 func ask(win fyne.Window, title, detail, yes, no string, answer chan<- bool) *dialog.CustomDialog {
 	body := widget.NewLabel(detail)
 	body.Wrapping = fyne.TextWrapWord
-	d := dialog.NewCustomWithoutButtons(title, container.NewVBox(body), win)
+	var d *dialog.CustomDialog
+	d = dialog.NewCustomWithoutButtons(title,
+		closable(container.NewVBox(body), func() { d.Hide() }), win)
 
 	sent := false
 	send := func(v bool) {

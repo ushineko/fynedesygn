@@ -180,7 +180,9 @@ MIT. See [LICENSE](LICENSE).
   two dropdowns of names in the Appearance section. The sample is drawn from
   the family's file through `canvas.Text.FontSource`: a theme override loses
   the family on the way to the painter, which is a preview that reports one
-  face and draws another. It follows the keyboard as well as the mouse, says
+  face and draws another. The pointer previews nothing and chooses nothing —
+  hovering a row on the way to Choose used to pick it — while the arrow keys
+  move the cursor and Enter accepts. It says
   when a family has no glyphs for the sample -- most families on a Linux
   machine are script fonts with no Latin letters at all -- and says when one
   offered as a monospace face is not monospace — and the monospace chooser

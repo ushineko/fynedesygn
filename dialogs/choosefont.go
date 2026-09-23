@@ -97,34 +97,47 @@ func ChooseFontFrom(win fyne.Window, title string, names []string, current strin
 		},
 	)
 	/*
-		One row means one thing: the family being previewed, and the one
+		One row means one thing: the family the sample is showing, and the one
 		Choose will take.
 
-		widget.List has two of its own and reports them separately — arrow
-		keys move currentHighlight and call OnHighlighted, a click or Space
-		selects and calls OnSelected — and it draws them differently. Left
-		alone that put three marks on screen at once: the row the keyboard
-		was on, the row the pointer was over, and a bright selection sitting
-		wherever it had last been clicked. The sample followed one of them
-		and Choose took another.
+		widget.List offers two callbacks and neither means what it sounds
+		like. OnHighlighted fires when the *pointer passes over* a row as
+		well as when the arrow keys move — so a preview driven by it followed
+		the mouse on its way to the Choose button. And because the preview
+		also selected, and Select returns early for the row already selected,
+		the click that followed did nothing at all: the family under the
+		pointer had chosen itself on the way past.
 
-		So each moves the other. The guard is for the round trip: Select
+		So the pointer merely draws Fyne's own hover, the cursor is moved by
+		the arrow keys and by clicks, and those two are the only things that
+		change what is chosen. The guard is for the round trip, because Select
 		calls back into this.
 	*/
 	syncing := false
-	show := func(i widget.ListItemID) {
+	cursor := -1
+	choose := func(i widget.ListItemID) {
 		if syncing || i < 0 || i >= len(shown) {
 			return
 		}
-		picked = shown[i]
+		cursor, picked = i, shown[i]
 		drawSample(picked)
 
 		syncing = true
 		list.Select(i)
 		syncing = false
 	}
-	list.OnSelected = show
-	list.OnHighlighted = show
+	list.OnSelected = choose
+	// Hover draws, and decides nothing.
+	list.OnHighlighted = nil
+
+	move := func(delta int) {
+		next := cursor + delta
+		if next < 0 || next >= len(shown) {
+			return
+		}
+		list.Highlight(next)
+		choose(next)
+	}
 
 	/*
 		A filter, because 311 families is not a list anybody reads.
@@ -133,7 +146,7 @@ func ChooseFontFrom(win fyne.Window, title string, names []string, current strin
 		family survives the narrowing, so typing a few letters does not
 		quietly change what Choose would take.
 	*/
-	filter := widget.NewEntry()
+	filter := newFontFilter()
 	filter.SetPlaceHolder("Filter…")
 	filter.OnChanged = func(text string) {
 		text = strings.ToLower(strings.TrimSpace(text))
@@ -147,8 +160,24 @@ func ChooseFontFrom(win fyne.Window, title string, names []string, current strin
 		selectFamily(list, shown, picked)
 	}
 
+	/*
+		The keyboard lives on the filter, and stays there.
+
+		Somewhere has to hold it: widget.List spends the arrow keys itself
+		and ignores Enter, and it takes the focus back on every click, so a
+		key handler anywhere else is one click from silence. The filter is
+		where a person's hands already are — and from here the arrows move
+		the cursor and Enter takes what the sample is showing, which is what
+		a list of 311 names needs to be usable at all.
+	*/
+	filter.up = func() { move(-1) }
+	filter.down = func() { move(1) }
+
 	drawSample(picked)
 	selectFamily(list, shown, picked)
+	if i := indexOf(shown, picked); i >= 0 {
+		cursor = i
+	}
 
 	head := fyne.CanvasObject(filter)
 	if mono {
@@ -160,13 +189,69 @@ func ChooseFontFrom(win fyne.Window, title string, names []string, current strin
 
 	body := container.NewBorder(head, sample, nil, nil, list)
 	d := ConfirmWithBody(win, title, body, "Choose", func() { then(picked) })
+	filter.accept = func() {
+		d.Hide()
+		then(picked)
+	}
 	d.Resize(RoomySize(win, FontChooserFloor))
 	raise(win, d)
+	// Focused, so the arrows and Enter work without a click first.
+	if canvas := fyne.CurrentApp().Driver().CanvasForObject(list); canvas != nil {
+		canvas.Focus(filter)
+	}
 }
 
 // FontChooserFloor is the smallest the chooser will be: a list that shows
 // enough names to scroll through, and a sample big enough to judge.
 var FontChooserFloor = fyne.NewSize(720, 560) //nolint:gochecknoglobals // a size, not state
+
+/*
+fontFilter is the filter box, which is also where the keyboard lives.
+
+widget.List spends the arrow keys itself, ignores Enter, and takes the focus
+on every click, so a picker that wants "arrow to it and press Enter" has to
+hold the keys somewhere the list cannot take them back from.
+*/
+type fontFilter struct {
+	widget.Entry
+
+	up, down, accept func()
+}
+
+func newFontFilter() *fontFilter {
+	f := &fontFilter{}
+	f.ExtendBaseWidget(f)
+	return f
+}
+
+func (f *fontFilter) TypedKey(e *fyne.KeyEvent) {
+	switch e.Name {
+	case fyne.KeyUp:
+		call(f.up)
+	case fyne.KeyDown:
+		call(f.down)
+	case fyne.KeyReturn, fyne.KeyEnter:
+		call(f.accept)
+	default:
+		f.Entry.TypedKey(e)
+	}
+}
+
+func call(fn func()) {
+	if fn != nil {
+		fn()
+	}
+}
+
+// indexOf is where a family sits in a list, or -1.
+func indexOf(names []string, name string) int {
+	for i, candidate := range names {
+		if candidate == name {
+			return i
+		}
+	}
+	return -1
+}
 
 // selectFamily highlights a family if it is in the list, and highlights
 // nothing when the filter has excluded it.

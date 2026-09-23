@@ -10,6 +10,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/ushineko/fynedesygn/fynetest"
@@ -173,12 +174,9 @@ func TestTheKeyboardMovesThePreview(t *testing.T) {
 	base := fdtheme.DefaultAppearance()
 	ChooseFont(w, "Interface font", base.Font, base, false, func(string) {})
 
-	list, ok := fynetest.First[*widget.List](overlay(t, w))
+	filter, ok := fynetest.First[*fontFilter](overlay(t, w))
 	if !ok {
-		t.Fatal("the chooser has no list")
-	}
-	if list.OnHighlighted == nil {
-		t.Fatal("the chooser does not listen for the keyboard's highlight")
+		t.Fatal("the chooser has no filter to hold the keyboard")
 	}
 
 	drawn := func() string {
@@ -190,18 +188,79 @@ func TestTheKeyboardMovesThePreview(t *testing.T) {
 		return ""
 	}
 
-	names := fdtheme.FontNames()
 	before := drawn()
-
-	// What the arrow keys do: move the highlight without selecting.
-	list.OnHighlighted(2)
+	filter.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
 
 	after := drawn()
 	if after == before {
-		t.Errorf("the sample stayed on %q when the highlight moved", before)
+		t.Errorf("the sample stayed on %q when the cursor moved", before)
 	}
-	if after != names[2] {
-		t.Errorf("the sample shows %q, the highlight is on %q", after, names[2])
+}
+
+/*
+The pointer previews nothing.
+
+widget.List fires OnHighlighted when the pointer passes over a row as well as
+when the arrow keys move, so a preview driven by it followed the mouse on its
+way to the Choose button — and because the preview also selected, and Select
+returns early for the row already selected, the click that followed did
+nothing: the family under the pointer had chosen itself on the way past.
+*/
+func TestHoveringChoosesNothing(t *testing.T) {
+	w := testWindow(t)
+	base := fdtheme.DefaultAppearance()
+	chosen := ""
+	ChooseFont(w, "Interface font", base.Font, base, false, func(n string) { chosen = n })
+	w.Resize(fyne.NewSize(900, 700))
+	w.Canvas().Capture()
+
+	dlg := overlay(t, w)
+	showing := func() string {
+		for _, text := range fynetest.Texts(dlg) {
+			if strings.HasPrefix(text, "Sample — ") {
+				return strings.TrimPrefix(text, "Sample — ")
+			}
+		}
+		return ""
+	}
+
+	before := showing()
+	for _, at := range []fyne.Position{{X: 300, Y: 260}, {X: 300, Y: 300}, {X: 300, Y: 340}} {
+		test.MoveMouse(w.Canvas(), at)
+		w.Canvas().Capture()
+	}
+	if after := showing(); after != before {
+		t.Errorf("the pointer moved the sample from %q to %q", before, after)
+	}
+
+	/*
+		And a click is honoured, wherever the pointer has been.
+
+		Through Select, which is what a click calls: listItem.onTapped
+		focuses the list, moves its highlight and selects the row.
+	*/
+	list, ok := fynetest.First[*widget.List](dlg)
+	if !ok {
+		t.Fatal("the chooser has no list")
+	}
+	list.Select(3)
+	w.Canvas().Capture()
+	clicked := showing()
+	if clicked == before {
+		t.Fatalf("the click changed nothing; the sample still shows %q", before)
+	}
+
+	// Enter takes what the sample is showing.
+	filter, found := fynetest.First[*fontFilter](dlg)
+	if !found {
+		t.Fatal("the chooser has no filter to hold the keyboard")
+	}
+	filter.TypedKey(&fyne.KeyEvent{Name: fyne.KeyReturn})
+	if chosen != clicked {
+		t.Errorf("Enter chose %q while the sample showed %q", chosen, clicked)
+	}
+	if w.Canvas().Overlays().Top() != nil {
+		t.Error("Enter left the chooser open")
 	}
 }
 
@@ -238,7 +297,7 @@ func TestAFamilyThatCannotDrawTheSampleSaysSo(t *testing.T) {
 		t.Skip("every family on this machine draws Latin")
 	}
 
-	list.OnHighlighted(letterless)
+	list.Select(letterless)
 	said := strings.Join(fynetest.Texts(overlay(t, w)), "\n")
 	if !strings.Contains(said, "no Latin letters") {
 		t.Errorf("%s draws no Latin and the sample does not say so:\n%s",
@@ -271,7 +330,7 @@ func TestAFamilyThatDrawsTheSampleNamesItsFace(t *testing.T) {
 		t.Skip("no family on this machine draws the whole sample")
 	}
 
-	list.OnHighlighted(full)
+	list.Select(full)
 	said := strings.Join(fynetest.Texts(overlay(t, w)), "\n")
 	if !strings.Contains(said, "drawn in ") || strings.Contains(said, "missing") {
 		t.Errorf("%s draws the whole sample, and the sample says:\n%s", names[full], said)

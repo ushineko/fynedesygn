@@ -236,7 +236,7 @@ func TestChooseFontPreviewsBeforeCommitting(t *testing.T) {
 	require.True(t, found, "the chooser has no list")
 	for i, name := range fdtheme.FontNames() {
 		if fdtheme.PreviewFont(name) != nil {
-			list.OnHighlighted(i)
+			list.Select(i)
 			break
 		}
 	}

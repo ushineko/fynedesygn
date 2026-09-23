@@ -140,6 +140,25 @@ Whatever is already set stays on the list even when it fails the test: a
 picker that cannot show the current setting is a picker that has lost it, and
 the note under the sample says why that setting was a poor one.
 
+### The pointer decides nothing
+
+`widget.List` offers `OnSelected` and `OnHighlighted`, and the second does not
+mean what it sounds like: `listItem.onHovered` fires it, so it reports the
+*pointer passing over* a row as well as the arrow keys moving. A preview
+driven by it followed the mouse on its way to the Choose button — and because
+the preview also selected, and `Select` returns early for the row already
+selected, the click that followed did nothing at all. The family under the
+pointer had chosen itself on the way past.
+
+So the pointer only draws Fyne's own hover. The cursor moves on the arrow keys
+and on clicks, and those are the only two things that change what is chosen.
+
+`Enter` needed somewhere to live. The list spends the arrow keys itself,
+ignores Enter, and takes the focus back on every click, so a key handler
+anywhere else is one click from silence — the filter box holds them instead,
+where a person's hands already are. The arrows move the cursor and Enter takes
+what the sample is showing.
+
 ## Requirements
 
 - R1. A family can be seen before it is chosen, at the size and scheme the
@@ -156,6 +175,10 @@ the note under the sample says why that setting was a poor one.
 - R9. A proportional family offered as a monospace face says so.
 - R10. The monospace chooser lists only monospace families, plus whatever is
   already set.
+- R11. The pointer previews nothing and chooses nothing; a click is honoured
+  wherever the pointer has been.
+- R12. The arrow keys move the cursor and Enter accepts, without a click
+  first.
 
 ## Acceptance Criteria
 
@@ -185,7 +208,12 @@ the note under the sample says why that setting was a poor one.
   (`TestTheMonospaceChooserOffersOnlyMonospaceFamilies`) and keeps the current
   one when it is not among them
   (`TestTheMonospaceChooserKeepsTheCurrentFamily`).
-- [x] AC11. The whole suite passes and `make lint` is clean.
+- [x] AC11. Hovering moves neither the sample nor the choice, a click is
+  honoured afterwards, and Enter takes what the sample shows and closes the
+  chooser (`TestHoveringChoosesNothing`).
+- [x] AC12. The arrow keys move the sample with no click first
+  (`TestTheKeyboardMovesThePreview`).
+- [x] AC13. The whole suite passes and `make lint` is clean.
 
 ## Risks & Assumptions
 

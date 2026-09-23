@@ -223,6 +223,14 @@ Border{
   A dropdown of names tells you nothing about any of them, so choosing a font
   meant applying one to the whole window to see it and applying another to get
   back.
+- **In a picker, the pointer decides nothing.** `widget.List.OnHighlighted`
+  fires when the pointer passes over a row as well as when the arrow keys
+  move, so a preview driven by it follows the mouse on its way to the confirm
+  button — and if the preview also selects, the click that follows is
+  swallowed, because `Select` returns early for the row already selected. The
+  cursor moves on the arrows and on clicks; hovering only draws. Enter belongs
+  on a widget the list cannot take the focus from, which in practice means the
+  filter box.
 - **A monospace picker offers only monospace families** (`theme.MonospaceNames`),
   measured by advance width rather than filtered by name: "Meslo LGLDZ Nerd
   Font Propo" is the proportional one. Whatever is already set stays on the

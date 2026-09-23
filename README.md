@@ -173,6 +173,16 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- Every dialog closes from its corner. Fyne's dialog draws a title and the
+  buttons it is given and nothing else, so a dialog could only be left by
+  finding the right button among the others -- fine for a confirmation, where
+  choosing is the point, and wrong for a long read-only answer somebody opened
+  to look at. The X is a dismissal and never an answer: it does not run a
+  destructive action, does not confirm a prompt, and answers `Decide` false
+  rather than leaving its caller waiting (spec 029).
+
 ### 0.1.38 (2026-09-21)
 
 - `Shell.Select` ignores a title no section has, which is what it always said

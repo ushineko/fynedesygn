@@ -469,6 +469,14 @@ Border{
   UI thread with `fyne.Do`, put a dialog up, and wait on a channel; a `sent`
   guard makes every close path answer exactly once. Focus the entry after
   showing.
+- **Every dialog closes from its corner.** An X at the top right of the
+  content, in addition to whatever buttons the dialog carries. Fyne's dialog
+  has no close affordance and no way to put one in its title bar, so a dialog
+  without this can only be left by finding the right button among the others
+  -- which is fine for a confirmation, where choosing is the point, and wrong
+  for a long read-only answer. The X is a dismissal and never an answer: it
+  does not run a destructive action, confirm a prompt, or answer a blocking
+  question yes.
 - Buttons that open a dialog end in an ellipsis.
 - A validation failure inside an editor dialog is shown in the dialog, not as
   a banner behind it: the refusal names the line, and the editor is where to

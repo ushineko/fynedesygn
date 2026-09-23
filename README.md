@@ -1,5 +1,7 @@
 # fynedesygn
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
+
 **Version**: 0.1.41
 
 A design system and wrapper library for building desktop user interfaces with
@@ -17,6 +19,7 @@ hand-synced copies.
 - [Used by](#used-by)
 - [Status](#status)
 - [Using it](#using-it)
+- [Tutorial](#tutorial)
 - [Documentation](#documentation)
 - [Development](#development)
 - [Licence](#licence)
@@ -26,27 +29,27 @@ hand-synced copies.
 
 | Package | Purpose |
 |---|---|
-| `fynedesygn` | Shared vocabulary: `Status`; the embedded README. |
-| `theme` | Nine colour schemes (Breeze Dark and Light, Oxygen Dark, Adwaita Dark and Light, Windows Dark and Light, macOS Dark and Light), a `fyne.Theme` that applies them, system font discovery, appearance preferences, interface scale, the Linux cursor-theme fix. |
-| `widgets` | The small shared primitives: headings, cards, fact rows, status text and markers, fixed-size wrappers, human-readable sizes and ages. |
-| `table` | A read-only detail table with one status per row and measured column widths. |
-| `logpane` | A mutex-guarded log model and a fixed-height monospace pane drawn on a timer with follow-tail, Copy and Clear. |
-| `forms` | A form whose widgets are held apart from the section (Set never fires the change hook, so Revert reverts), the slider-and-entry pair that commits once per gesture, validated numeric entries. |
-| `markdown` | A Markdown document pane that renders per block near the viewport, draws code blocks and pipe tables itself, resolves images from an `fs.FS`, and shows pre-rendered mermaid diagrams; `Section` for a document page. |
-| `mermaid` | Hash-keyed lookup of pre-rendered diagram PNGs (light and dark), the widget that draws them, and the `mmdc` renderer and checker behind `go generate`. |
-| `dialogs` | Destructive confirmation, prompt and detail dialogs, file and folder choosers that do not crash, the desktop opener, and a yes-or-no question a worker goroutine can ask. |
-| `imagecache` | A bounded, shared cache of decoded images, so a section rebuilt on every visit does not decode its pictures again. Least-recently-used eviction by decoded bytes. |
-| `profiling` | An opt-in pprof endpoint bound to loopback whatever address it is given, and a soft memory ceiling that defers to `GOMEMLIMIT`. See [Performance](docs/performance.md). |
-| `settings` | A program's settings in one file the user can read: one section per top-level key, each decoded into the caller's own type, written a second after the last change. The file extension chooses the format. |
-| `settings/yamlcodec` | YAML for `.yaml` and `.yml`, imported for its effect so a program that writes JSON carries no YAML parser. |
-| `shell` | The window skeleton: header, section nav, content pane, status bar, busy indicator, banners, `Perform`, section lifecycle, plus the standard Appearance and About sections. |
-| `glance` | The other window archetype: a frameless, always-on-top status panel sized to its content, with cards that hide when their source is silent, fixed-width value formatting, a sparkline and a quota meter. |
-| `glance/kwin` | The KDE Plasma window rule a glance window needs — above, no border, and the opacity Fyne cannot draw itself. |
-| `steps` | The step list a job shows beside its log, updated in place. |
-| `fynetest` | Headless test helpers: tree walking, finders, text extraction, scrollable detection. |
-| `cmd/fynedesygn-gallery` | The reference program. Every component in every scheme, with `--section` and `--scheme` for screenshots. |
-| `cmd/fynedesygn-mermaid` | The `go generate` helper that renders missing diagrams; `-check` in CI fails on stale ones. |
-| `docs` | The documents in `docs/` and their diagrams, embedded for the gallery. |
+| [`fynedesygn`](https://pkg.go.dev/github.com/ushineko/fynedesygn) | Shared vocabulary: `Status`; the embedded README. |
+| [`theme`](https://pkg.go.dev/github.com/ushineko/fynedesygn/theme) | Nine colour schemes (Breeze Dark and Light, Oxygen Dark, Adwaita Dark and Light, Windows Dark and Light, macOS Dark and Light), a `fyne.Theme` that applies them, system font discovery, appearance preferences, interface scale, the Linux cursor-theme fix. |
+| [`widgets`](https://pkg.go.dev/github.com/ushineko/fynedesygn/widgets) | The small shared primitives: headings, cards, fact rows, status text and markers, fixed-size wrappers, human-readable sizes and ages. |
+| [`table`](https://pkg.go.dev/github.com/ushineko/fynedesygn/table) | A read-only detail table with one status per row and measured column widths. |
+| [`logpane`](https://pkg.go.dev/github.com/ushineko/fynedesygn/logpane) | A mutex-guarded log model and a fixed-height monospace pane drawn on a timer with follow-tail, Copy and Clear. |
+| [`forms`](https://pkg.go.dev/github.com/ushineko/fynedesygn/forms) | A form whose widgets are held apart from the section (Set never fires the change hook, so Revert reverts), the slider-and-entry pair that commits once per gesture, validated numeric entries. |
+| [`markdown`](https://pkg.go.dev/github.com/ushineko/fynedesygn/markdown) | A Markdown document pane that renders per block near the viewport, draws code blocks and pipe tables itself, resolves images from an `fs.FS`, and shows pre-rendered mermaid diagrams; `Section` for a document page. |
+| [`mermaid`](https://pkg.go.dev/github.com/ushineko/fynedesygn/mermaid) | Hash-keyed lookup of pre-rendered diagram PNGs (light and dark), the widget that draws them, and the `mmdc` renderer and checker behind `go generate`. |
+| [`dialogs`](https://pkg.go.dev/github.com/ushineko/fynedesygn/dialogs) | Destructive confirmation, prompt and detail dialogs, file and folder choosers that do not crash, the desktop opener, and a yes-or-no question a worker goroutine can ask. |
+| [`imagecache`](https://pkg.go.dev/github.com/ushineko/fynedesygn/imagecache) | A bounded, shared cache of decoded images, so a section rebuilt on every visit does not decode its pictures again. Least-recently-used eviction by decoded bytes. |
+| [`profiling`](https://pkg.go.dev/github.com/ushineko/fynedesygn/profiling) | An opt-in pprof endpoint bound to loopback whatever address it is given, and a soft memory ceiling that defers to `GOMEMLIMIT`. See [Performance](docs/performance.md). |
+| [`settings`](https://pkg.go.dev/github.com/ushineko/fynedesygn/settings) | A program's settings in one file the user can read: one section per top-level key, each decoded into the caller's own type, written a second after the last change. The file extension chooses the format. |
+| [`settings/yamlcodec`](https://pkg.go.dev/github.com/ushineko/fynedesygn/settings/yamlcodec) | YAML for `.yaml` and `.yml`, imported for its effect so a program that writes JSON carries no YAML parser. |
+| [`shell`](https://pkg.go.dev/github.com/ushineko/fynedesygn/shell) | The window skeleton: header, section nav, content pane, status bar, busy indicator, banners, `Perform`, section lifecycle, plus the standard Appearance and About sections. |
+| [`glance`](https://pkg.go.dev/github.com/ushineko/fynedesygn/glance) | The other window archetype: a frameless, always-on-top status panel sized to its content, with cards that hide when their source is silent, fixed-width value formatting, a sparkline and a quota meter. |
+| [`glance/kwin`](https://pkg.go.dev/github.com/ushineko/fynedesygn/glance/kwin) | The KDE Plasma window rule a glance window needs — above, no border, and the opacity Fyne cannot draw itself. |
+| [`steps`](https://pkg.go.dev/github.com/ushineko/fynedesygn/steps) | The step list a job shows beside its log, updated in place. |
+| [`fynetest`](https://pkg.go.dev/github.com/ushineko/fynedesygn/fynetest) | Headless test helpers: tree walking, finders, text extraction, scrollable detection. |
+| [`cmd/fynedesygn-gallery`](https://pkg.go.dev/github.com/ushineko/fynedesygn/cmd/fynedesygn-gallery) | The reference program. Every component in every scheme, with `--section` and `--scheme` for screenshots. |
+| [`cmd/fynedesygn-mermaid`](https://pkg.go.dev/github.com/ushineko/fynedesygn/cmd/fynedesygn-mermaid) | The `go generate` helper that renders missing diagrams; `-check` in CI fails on stale ones. |
+| [`docs`](https://pkg.go.dev/github.com/ushineko/fynedesygn/docs) | The documents in `docs/` and their diagrams, embedded for the gallery. |
 | `examples/` | Small programs, one per UI pattern; see [Examples](#examples). |
 | `tools/` | The screenshot harness for KDE/Wayland. |
 
@@ -129,6 +132,85 @@ The library pins `fyne.io/fyne/v2 v2.8.1`. Building a Fyne program needs CGO
 and, on Linux, the OpenGL and X11 or Wayland development headers. Running this
 module's tests does not: they use the Fyne test driver.
 
+The API reference is on
+[pkg.go.dev](https://pkg.go.dev/github.com/ushineko/fynedesygn), and every
+package in the table above links to its own page there.
+
+## Tutorial
+
+The whole of a program is a `shell.Options` and a call to `shell.Run`. This is
+[`examples/document-viewer/main.go`](examples/document-viewer/main.go) in full
+— forty-four lines, built by `make build-examples` and covered by a headless
+test, so it is a thing that runs rather than a thing that reads well.
+
+**A window is a list of sections.**
+
+```go
+func main() { shell.Run(options()) }
+```
+
+`Run` builds the window, restores the appearance the user chose last time, and
+blocks until it closes. Everything a program decides, it decides in the
+`Options` it hands over.
+
+```go
+func options() shell.Options {
+	guide, _ := content.ReadFile("guide.md")
+	opts := markdown.Options{FS: content, Diagrams: mermaid.NewSet(content, "diagrams")}
+	return shell.Options{
+		AppID: "io.ushineko.fynedesygn.example.docviewer",
+		Name:  "document-viewer",
+		Sections: []shell.Section{
+			markdown.Section("Guide", fynetheme.DocumentIcon, string(guide), opts, func(*shell.Shell) fyne.CanvasObject {
+				return widgets.Heading("Guide", "An embedded document with a diagram rendered at development time.")
+			}),
+			shell.AboutSection(shell.About{
+				Name: "document-viewer", Version: "example",
+				Blurb: "One of the fynedesygn examples.",
+				Facts: []shell.Fact{{Label: "Document", Value: "guide.md, embedded"}},
+			}),
+		},
+	}
+}
+```
+
+**`AppID` and `Name`** are the desktop identity: the settings file's location,
+the window title, the icon a desktop entry matches.
+
+**`Sections`** is the navigation. Each one is a title, an icon and a function
+that builds its content, and the shell draws the chrome around them — header,
+navigation, status bar, banners. A section is rebuilt when something it
+watches changes, so it is a *function of state* rather than a widget tree
+somebody mutates; see [Design system](docs/design-system.md).
+
+**Two of those sections here are free.** `markdown.Section` is a whole page
+from a Markdown string, and `shell.AboutSection` is the About page every
+program has. Writing a section of your own means implementing `shell.Section`,
+which is a `Title`, an `Icon` and a `Build`.
+
+**Work that takes time does not go in `Build`.** It goes through
+`Shell.Perform`, which runs it off the UI thread, shows the busy indicator and
+reports failure as a banner:
+
+```go
+sh.Perform("loading", func(ctx context.Context) error {
+	rows, err := fetch(ctx)
+	if err != nil {
+		return err
+	}
+	onScreen(func() { section.rows = rows; sh.Invalidate() })
+	return nil
+})
+```
+
+Nothing that draws may be called from inside that function — Fyne is
+single-threaded for anything touching the screen — so results are handed back
+with `fyne.Do`. That rule, and what happens when it is broken, is in
+[Fyne quirks](docs/fyne-quirks.md).
+
+From here, the [Examples](#examples) are one per pattern: a table with a
+detail pane, a settings form, a job with a log, and a frameless status panel.
+
 ## Documentation
 
 - [Design system](docs/design-system.md): the layout rules and policies for
@@ -172,6 +254,28 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### Unreleased
+
+- The API reference is reachable. A Go Reference badge, and every package in
+  the "What is in it" table links to its own page on pkg.go.dev, so the table
+  that already said what each package is *for* now also says what is *in* it.
+  A test fails when a package is in the table without a link, in the same
+  place one fails when a package has no row at all (spec 033, #55).
+- A Tutorial section walks through `examples/document-viewer/main.go` — the
+  smallest complete program in the repository, forty-four lines, already built
+  by `make build-examples` and covered by a headless test, so what the
+  tutorial describes cannot quietly stop compiling (spec 033, #55).
+- `settings.ParseError` documents its `Error` and `Unwrap`, which were the
+  only exported identifiers in the module without a comment.
+- A document with bold around a code span no longer crashes. Emphasising an
+  identifier parses to a segment that is bold *and* monospace, and a theme
+  without that
+  face returns nothing that Fyne then dereferences. This library's own theme
+  has the face; Fyne's test theme has not, so it took down headless tests --
+  which is how every consumer tests their own sections. Each segment's style is
+  checked before the painter sees it, and bold is dropped where the theme
+  cannot draw it. Quirk 35 (spec 034, #56).
 
 ### 0.1.41 (2026-09-23)
 

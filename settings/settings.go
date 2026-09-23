@@ -169,11 +169,15 @@ type ParseError struct {
 	Err  error
 }
 
+// Error names the section that could not be decoded, so a program reporting
+// this tells its user which part of their file to look at.
 func (e *ParseError) Error() string {
 	return fmt.Sprintf("%s does not parse: %v (settings will not be saved until it is fixed or replaced)",
 		e.Path, e.Err)
 }
 
+// Unwrap is the codec's own error, for a caller that wants to match on it
+// rather than on the section it came from.
 func (e *ParseError) Unwrap() error { return e.Err }
 
 /*

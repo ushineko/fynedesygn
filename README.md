@@ -190,7 +190,7 @@ MIT. See [LICENSE](LICENSE).
   The list is not drawn in the
   fonts it lists: 311 families at 2.5 MB each is 778 MB to render a menu, so
   `theme.PreviewFont` reads a family without keeping it and one font is alive
-  at a time (spec 032).
+  at a time (spec 032, #53).
 
 ### 0.1.40 (2026-09-23)
 

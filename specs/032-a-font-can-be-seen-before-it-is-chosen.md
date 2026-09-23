@@ -1,6 +1,6 @@
 # Spec 032: a font can be seen before it is chosen
 
-**Issue**: TBD — to be filed before the PR.
+**Issue**: [#53](https://github.com/ushineko/fynedesygn/issues/53)
 
 ## Status: COMPLETE
 

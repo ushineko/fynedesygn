@@ -1,6 +1,6 @@
 # Spec 029: a dialog can be dismissed from its corner
 
-**Issue**: TBD — to be filed before the PR.
+**Issue**: [#47](https://github.com/ushineko/fynedesygn/issues/47)
 
 ## Status: COMPLETE
 

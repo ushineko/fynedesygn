@@ -178,14 +178,14 @@ MIT. See [LICENSE](LICENSE).
 - A navigation along the top is drawn in the header rather than in a strip of
   its own beneath it, where the program's name used to be. The window is a row
   shorter in that shape and the name is not said twice -- the shell already
-  puts it in the window title. Down the left nothing changes (spec 030).
+  puts it in the window title. Down the left nothing changes (spec 030, #48).
 - Every dialog closes from its corner. Fyne's dialog draws a title and the
   buttons it is given and nothing else, so a dialog could only be left by
   finding the right button among the others -- fine for a confirmation, where
   choosing is the point, and wrong for a long read-only answer somebody opened
   to look at. The X is a dismissal and never an answer: it does not run a
   destructive action, does not confirm a prompt, and answers `Decide` false
-  rather than leaving its caller waiting (spec 029).
+  rather than leaving its caller waiting (spec 029, #47).
 
 ### 0.1.38 (2026-09-21)
 

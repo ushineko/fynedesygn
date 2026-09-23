@@ -1,6 +1,6 @@
 # Spec 030: the navigation takes the header
 
-**Issue**: TBD — to be filed before the PR.
+**Issue**: [#48](https://github.com/ushineko/fynedesygn/issues/48)
 
 ## Status: COMPLETE
 

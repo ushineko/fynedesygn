@@ -356,3 +356,72 @@ func TestAProportionalFamilySaysSoInTheMonospaceChooser(t *testing.T) {
 		t.Errorf("%s is monospaced and the sample says %q", monospaced, got)
 	}
 }
+
+/*
+The monospace chooser offers only monospace families.
+
+A proportional family chosen as the monospace face is not a matter of taste
+but a mistake: the places that asked for monospace did so because alignment
+was the point. And it cannot be filtered by name — "Meslo LGLDZ Nerd Font
+Propo" is the proportional one.
+*/
+func TestTheMonospaceChooserOffersOnlyMonospaceFamilies(t *testing.T) {
+	w := testWindow(t)
+	base := fdtheme.DefaultAppearance()
+	ChooseFont(w, "Monospace font", fdtheme.DefaultFontName, base, true, func(string) {})
+
+	list, ok := fynetest.First[*widget.List](overlay(t, w))
+	if !ok {
+		t.Fatal("the chooser has no list")
+	}
+	offered := fdtheme.MonospaceNames()
+	if list.Length() != len(offered) {
+		t.Errorf("the chooser lists %d families, %d are monospace",
+			list.Length(), len(offered))
+	}
+	if len(offered) >= len(fdtheme.FontNames()) {
+		t.Skip("every family on this machine is monospace")
+	}
+
+	// Every one of them really is, and the interface chooser still offers
+	// all of them.
+	for _, name := range offered {
+		f := fdtheme.PreviewFont(name)
+		if f != nil && !f.IsMonospace() {
+			t.Errorf("%q is offered as monospace and is not", name)
+		}
+	}
+}
+
+/*
+And what is already chosen stays on the list, whatever it is.
+
+A picker that cannot show the current setting is a picker that has lost it —
+and the setting may predate the filter, or have been written by hand.
+*/
+func TestTheMonospaceChooserKeepsTheCurrentFamily(t *testing.T) {
+	proportional := ""
+	for _, name := range fdtheme.FontNames() {
+		f := fdtheme.PreviewFont(name)
+		if f != nil && !f.IsMonospace() {
+			proportional = name
+			break
+		}
+	}
+	if proportional == "" {
+		t.Skip("every family on this machine is monospace")
+	}
+
+	w := testWindow(t)
+	base := fdtheme.DefaultAppearance()
+	ChooseFont(w, "Monospace font", proportional, base, true, func(string) {})
+
+	said := strings.Join(fynetest.Texts(overlay(t, w)), "\n")
+	if !strings.Contains(said, proportional) {
+		t.Errorf("the chooser dropped the family that is set, %q", proportional)
+	}
+	// And says why it should not have been chosen.
+	if !strings.Contains(said, "not a monospace family") {
+		t.Errorf("it does not say %q is proportional:\n%s", proportional, said)
+	}
+}

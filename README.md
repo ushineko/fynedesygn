@@ -183,7 +183,9 @@ MIT. See [LICENSE](LICENSE).
   face and draws another. It follows the keyboard as well as the mouse, says
   when a family has no glyphs for the sample -- most families on a Linux
   machine are script fonts with no Latin letters at all -- and says when one
-  offered as a monospace face is not monospace. The list is not drawn in the
+  offered as a monospace face is not monospace — and the monospace chooser
+  offers only the families that are, measured rather than filtered by name.
+  The list is not drawn in the
   fonts it lists: 311 families at 2.5 MB each is 778 MB to render a menu, so
   `theme.PreviewFont` reads a family without keeping it and one font is alive
   at a time (spec 032).

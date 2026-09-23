@@ -223,6 +223,11 @@ Border{
   A dropdown of names tells you nothing about any of them, so choosing a font
   meant applying one to the whole window to see it and applying another to get
   back.
+- **A monospace picker offers only monospace families** (`theme.MonospaceNames`),
+  measured by advance width rather than filtered by name: "Meslo LGLDZ Nerd
+  Font Propo" is the proportional one. Whatever is already set stays on the
+  list even when it fails the test, because a picker that cannot show the
+  current setting has lost it.
 - **A font preview draws from the file, never through a theme.**
   `canvas.Text.FontSource` names the face and is checked before any theme or
   scope. A `container.ThemeOverride` looks like it works and does not: text is

@@ -1,6 +1,7 @@
 package dialogs
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -33,7 +34,34 @@ and committing another to get back.
 */
 func ChooseFont(win fyne.Window, title, current string, base fdtheme.Appearance,
 	mono bool, then func(name string)) {
-	ChooseFontFrom(win, title, fdtheme.FontNames(), current, base, mono, then)
+	names := fdtheme.FontNames()
+	if mono {
+		/*
+			Only the families that are actually monospace.
+
+			A proportional family chosen as the monospace face is not a
+			matter of taste but a mistake: the places that asked for
+			monospace did so because alignment was the point. Offering 310
+			families when 79 of them can do the job is offering 231 chances
+			to make it.
+
+			Measured, never read off the name — "Meslo LGLDZ Nerd Font
+			Propo" is the proportional one — and what is already chosen stays
+			on the list whatever it is, because a picker that cannot show the
+			current setting is a picker that has lost it.
+		*/
+		names = withCurrent(fdtheme.MonospaceNames(), current)
+	}
+	ChooseFontFrom(win, title, names, current, base, mono, then)
+}
+
+// withCurrent makes sure a list offers what is already set, so the chooser
+// opens on it rather than on nothing.
+func withCurrent(names []string, current string) []string {
+	if current == "" || slices.Contains(names, current) {
+		return names
+	}
+	return append(names, current)
 }
 
 /*
@@ -122,7 +150,15 @@ func ChooseFontFrom(win fyne.Window, title string, names []string, current strin
 	drawSample(picked)
 	selectFamily(list, shown, picked)
 
-	body := container.NewBorder(filter, sample, nil, nil, list)
+	head := fyne.CanvasObject(filter)
+	if mono {
+		// Said plainly, because a list of 79 where the interface font's had
+		// 310 is otherwise a list that looks broken.
+		head = container.NewVBox(filter,
+			caption("Monospace families only — measured, not chosen by name."))
+	}
+
+	body := container.NewBorder(head, sample, nil, nil, list)
 	d := ConfirmWithBody(win, title, body, "Choose", func() { then(picked) })
 	d.Resize(RoomySize(win, FontChooserFloor))
 	raise(win, d)

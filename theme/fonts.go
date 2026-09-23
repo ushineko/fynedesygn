@@ -41,6 +41,10 @@ type family struct {
 	boldItalic string
 }
 
+// monoCache remembers which families are monospace. Guarded by fontsMu, and
+// never invalidated: a font file does not change shape while a program runs.
+var monoCache = map[string]bool{} //nolint:gochecknoglobals // a measurement, kept
+
 var (
 	fontsMu   sync.Mutex
 	fontDirs  []string // nil means the platform's defaults
@@ -366,6 +370,70 @@ func (f *Font) IsMonospace() bool {
 		return false
 	}
 
+	return oneWidth(face)
+}
+
+/*
+MonospaceNames lists the families whose letters are all one width, with the
+bundled default first.
+
+For a monospace picker, where a proportional family is not a matter of taste
+but a mistake: the places that asked for monospace did so because alignment
+was the point, and a font that breaks it is worth not offering at all.
+
+Measured, never read off the name. "Meslo LGLDZ Nerd Font Propo" is the
+proportional one and "Ligconsolata" is not obviously anything; a picker
+filtered by the word "Mono" would offer the first and hide the second.
+
+The measurement is kept, because it does not change while the program runs and
+the answer for 311 families is what makes a picker open at once rather than
+after a second of reading font files.
+*/
+func MonospaceNames() []string {
+	fontsMu.Lock()
+	defer fontsMu.Unlock()
+
+	names := []string{DefaultFontName}
+	for _, f := range families() {
+		if monospacedFamily(f) {
+			names = append(names, f.name)
+		}
+	}
+	return names
+}
+
+/*
+monospacedFamily reads a family's regular face far enough to compare a few
+advance widths. Call with fontsMu held.
+
+Opened as a file rather than loaded as a resource: sfnt reads the tables it
+needs through the ReaderAt and no more, so asking this of every family costs
+a few kilobytes each instead of the 2.5 MB a whole face weighs.
+*/
+func monospacedFamily(f family) bool {
+	if answer, ok := monoCache[f.name]; ok {
+		return answer
+	}
+	answer := false
+	if file, err := os.Open(f.regular); err == nil { // #nosec G304 -- a path this package discovered
+		if face, err := sfnt.ParseReaderAt(file); err == nil {
+			answer = oneWidth(face)
+		}
+		_ = file.Close()
+	}
+	monoCache[f.name] = answer
+	return answer
+}
+
+/*
+oneWidth reports whether these letters all advance by the same amount.
+
+Five characters rather than the whole alphabet: a family that varies at all
+varies between an i and an M, and one that does not is monospace by the only
+definition that matters here. A face carrying none of them answers no, because
+a preview cannot show what it cannot draw either.
+*/
+func oneWidth(face *sfnt.Font) bool {
 	var buf sfnt.Buffer
 	const ppem = 64
 	width := fixed.Int26_6(0)

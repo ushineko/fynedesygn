@@ -122,6 +122,24 @@ string from this file", checked before any theme or scope
 (`painter.CachedFontFace`). The sample is built from `canvas.Text` with the
 family's file on it, and there is no override in the chooser at all.
 
+### The monospace chooser offers only monospace families
+
+A proportional family chosen as the monospace face is not a matter of taste
+but a mistake, and it cannot be filtered by name: "Meslo LGLDZ Nerd Font
+Propo" is the proportional one and "Ligconsolata" is not obviously anything.
+
+`theme.MonospaceNames` measures instead — 79 of this machine's 310 families —
+by opening each family's regular face with `sfnt.ParseReaderAt` and comparing
+the advance widths of `iMW.1`. Through the `ReaderAt` it reads the tables it
+needs and no more: 136 ms for all 310, against the 731 ms and 778 MB that
+loading them would cost. The answer is kept, because a font file does not
+change shape while a program runs, and a second opening of the chooser takes
+10 µs.
+
+Whatever is already set stays on the list even when it fails the test: a
+picker that cannot show the current setting is a picker that has lost it, and
+the note under the sample says why that setting was a poor one.
+
 ## Requirements
 
 - R1. A family can be seen before it is chosen, at the size and scheme the
@@ -136,6 +154,8 @@ family's file on it, and there is no override in the chooser at all.
   font's glyphs as if they were its own.
 - R8. The sample is drawn from the family's file, not through a theme.
 - R9. A proportional family offered as a monospace face says so.
+- R10. The monospace chooser lists only monospace families, plus whatever is
+  already set.
 
 ## Acceptance Criteria
 
@@ -161,7 +181,11 @@ family's file on it, and there is no override in the chooser at all.
   (`TestTheMonospaceChooserPreviewsTheFamily`).
 - [x] AC9. A proportional family offered as a monospace face says "columns
   will not line up" (`TestAProportionalFamilySaysSoInTheMonospaceChooser`).
-- [x] AC10. The whole suite passes and `make lint` is clean.
+- [x] AC10. The monospace chooser lists exactly the monospace families
+  (`TestTheMonospaceChooserOffersOnlyMonospaceFamilies`) and keeps the current
+  one when it is not among them
+  (`TestTheMonospaceChooserKeepsTheCurrentFamily`).
+- [x] AC11. The whole suite passes and `make lint` is clean.
 
 ## Risks & Assumptions
 

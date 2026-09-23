@@ -1,6 +1,6 @@
 # fynedesygn
 
-**Version**: 0.1.39
+**Version**: 0.1.40
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -173,7 +173,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.40 (2026-09-23)
 
 - The navigation folds. A program may declare groups -- a heading with member
   sections under it, opened and closed from the heading -- for a window whose

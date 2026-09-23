@@ -25,6 +25,8 @@ import (
 	"os"
 	"strings"
 
+	fynetheme "fyne.io/fyne/v2/theme"
+
 	"github.com/ushineko/fynedesygn/shell"
 	fdtheme "github.com/ushineko/fynedesygn/theme"
 )
@@ -73,6 +75,13 @@ func options(section, scheme string) shell.Options {
 		// before it is judged in a program.
 		NavModes:      []shell.NavMode{shell.NavLabels, shell.NavIcons, shell.NavHidden},
 		NavPlacements: []shell.NavPlacement{shell.NavLeft, shell.NavTop},
+		// And a group, for the same reason: spec 031 is judged here first.
+		// Three sections of one kind is exactly the shape a group is for.
+		Groups: []shell.NavGroup{{
+			Title:   "Components",
+			Icon:    fynetheme.ViewFullScreenIcon,
+			Members: []string{"Widgets", "Table", "Fonts"},
+		}},
 	}
 }
 

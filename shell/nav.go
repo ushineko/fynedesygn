@@ -316,39 +316,137 @@ func (s *Shell) redrawNav() {
 }
 
 /*
-navButtons is one button per section, laid out along the edge it is drawn on.
+navButtons is the navigation drawn as buttons, for the shapes that have no
+list: icons-only down the left, and anything along the top.
 
 Each carries its section's title as a tip, which is not decoration in an
 icons-only navigation: without it the window is a row of pictures to guess at.
 A section with no icon of its own gets a generic one, because a blank button is
 a section nobody can reach.
+
+A group is a button too, and its members are drawn under it -- a second row
+beneath the top row, or indented beneath it down the left. The button opens
+and closes the group and goes nowhere itself, the same as the heading in the
+list: the row of buttons is the same list drawn sideways, and a group that
+collapsed in one shape and not the other would be two behaviours to learn.
 */
 func (s *Shell) navButtons(horizontal bool) fyne.CanvasObject {
 	labels := s.navMode == NavLabels
-	items := make([]fyne.CanvasObject, 0, len(s.opts.Sections))
-	for i, sec := range s.opts.Sections {
-		icon := sec.Icon()
-		if icon == nil {
-			icon = fynetheme.RadioButtonIcon()
+
+	top := make([]fyne.CanvasObject, 0, len(s.opts.Sections))
+	subs := make([][]fyne.CanvasObject, 0, len(s.opts.Groups))
+	at := make(map[int]int, len(s.opts.Groups)) // group -> its row in subs
+	for i := range s.opts.Sections {
+		g := s.groupOf(i)
+		if g < 0 {
+			top = append(top, s.navButton(i, labels))
+			continue
 		}
-		title := ""
-		if labels {
-			title = sec.Title()
+		if _, ok := at[g]; !ok {
+			at[g] = len(subs)
+			subs = append(subs, nil)
+			top = append(top, s.navGroupButton(g, labels))
 		}
-		btn := widget.NewButtonWithIcon(title, icon, func() { s.selectIndex(i) })
-		if i == s.current {
-			btn.Importance = widget.HighImportance
+		if s.closed[s.opts.Groups[g].Title] {
+			continue
 		}
-		items = append(items, widgets.WithTip(btn, sec.Title()))
+		subs[at[g]] = append(subs[at[g]], s.navButton(i, labels))
 	}
 
 	if horizontal {
-		row := container.NewHScroll(container.NewHBox(items...))
-		return row
+		// The top row, then a row per open group. Each scrolls on its own:
+		// a window narrower than its sections must not hide the row that
+		// says which group those sections belong to.
+		rows := []fyne.CanvasObject{container.NewHScroll(container.NewHBox(top...))}
+		for _, items := range subs {
+			if len(items) == 0 {
+				continue
+			}
+			rows = append(rows, container.NewHScroll(container.NewHBox(items...)))
+		}
+		if len(rows) == 1 {
+			return rows[0]
+		}
+		return container.NewVBox(rows...)
 	}
-	// Down the left: the buttons at their natural height, a spacer under them
-	// so a short list does not stretch, and a scroller for a long one.
-	return container.NewVScroll(container.NewVBox(items...))
+
+	// Down the left: the buttons at their natural height in navigation order,
+	// members indented under the group they belong to, and a scroller for a
+	// list longer than the window.
+	return container.NewVScroll(container.NewVBox(s.navColumn(top, subs, at)...))
+}
+
+// navColumn is the button navigation down the left edge: the top-level
+// buttons in order, each group's members indented under its button.
+func (s *Shell) navColumn(top []fyne.CanvasObject, subs [][]fyne.CanvasObject, at map[int]int) []fyne.CanvasObject {
+	out := make([]fyne.CanvasObject, 0, len(top))
+	seen := make(map[int]bool, len(at))
+	ti := 0
+	for i := range s.opts.Sections {
+		g := s.groupOf(i)
+		if g < 0 {
+			out = append(out, top[ti])
+			ti++
+			continue
+		}
+		if seen[g] {
+			continue
+		}
+		seen[g] = true
+		out = append(out, top[ti])
+		ti++
+		for _, m := range subs[at[g]] {
+			out = append(out, container.NewBorder(nil, nil, navIndent(), nil, m))
+		}
+	}
+	return out
+}
+
+// navButton is one section's button.
+func (s *Shell) navButton(i int, labels bool) fyne.CanvasObject {
+	sec := s.opts.Sections[i]
+	icon := sec.Icon()
+	if icon == nil {
+		icon = fynetheme.RadioButtonIcon()
+	}
+	title := ""
+	if labels {
+		title = sec.Title()
+	}
+	btn := widget.NewButtonWithIcon(title, icon, func() { s.selectIndex(i) })
+	if i == s.current {
+		btn.Importance = widget.HighImportance
+	}
+	return widgets.WithTip(btn, sec.Title())
+}
+
+/*
+navGroupButton is a group's button: it opens and closes the group and is not
+a place.
+
+It is drawn as current whenever the section being read is one of its members,
+open or closed. Open, that is two buttons lit for one section -- which is what
+it is: the branch and the leaf, the same pair the list lights when a member is
+selected under its heading. Closed it is the only thing left to say where the
+reader is, and a rule that lit it only then would be a button that changed
+appearance for a reason the reader cannot see.
+*/
+func (s *Shell) navGroupButton(g int, labels bool) fyne.CanvasObject {
+	grp := s.opts.Groups[g]
+	closed := s.closed[grp.Title]
+	icon := grp.resource()
+	if icon == nil {
+		icon = navTwisty(closed)
+	}
+	title := ""
+	if labels {
+		title = grp.Title
+	}
+	btn := widget.NewButtonWithIcon(title, icon, func() { s.setGroupClosed(g, !s.closed[grp.Title]) })
+	if s.groupOf(s.current) == g {
+		btn.Importance = widget.HighImportance
+	}
+	return widgets.WithTip(btn, grp.Title)
 }
 
 // selectIndex moves to a section from whichever navigation is drawn.
@@ -357,7 +455,17 @@ func (s *Shell) selectIndex(i int) {
 		return
 	}
 	if s.usesList() && s.nav != nil {
-		s.nav.Select(i) // the list's own selection drives the swap
+		// A section inside a closed group is still a place the program can
+		// send the reader -- Ctrl+3, a "View report" button, --section. The
+		// group opens so the list shows where they have been sent.
+		if g := s.groupOf(i); g >= 0 {
+			s.setGroupClosed(g, false)
+		}
+		row := s.rowFor(i)
+		if row < 0 {
+			return
+		}
+		s.nav.Select(row) // the list's own selection drives the swap
 		return
 	}
 	s.current = i

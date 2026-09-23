@@ -173,6 +173,22 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- The navigation folds. A program may declare groups -- a heading with member
+  sections under it, opened and closed from the heading -- for a window whose
+  list has grown past the point where it reads as a set of places. A group is
+  not a section: it has no page, `Select` does not reach it and `Ctrl+1..9`
+  still count sections in the order the program listed them, so folding three
+  of them under a heading does not renumber the shortcuts of the ones below.
+  Every shape draws it: a disclosure row in the list, a button with its members
+  indented beneath it down the left, and along the top a button on the top row
+  with its members on a second row (spec 031, #51).
+- The header's actions keep their own height and sit against the top of the
+  header row. The `Border` they sit in stretched them to the height of the row,
+  which was only ever one button tall until a group could add a second (spec
+  031, #51).
+
 ### 0.1.39 (2026-09-22)
 
 - A navigation along the top is drawn in the header rather than in a strip of

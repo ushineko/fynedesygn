@@ -70,12 +70,14 @@ renders code blocks itself.
 
 ```
 Border{
-  top:    header      = VBox( Padded(Border(trailing: HBox(header actions...),
+  top:    header      = VBox( Padded(Border(trailing: VBox(HBox(header actions...)),
                                            centre:   bold app name, or the
                                                      navigation when it is
                                                      along the top)), Separator )
   bottom: status bar  = VBox( Separator, Padded(HBox(segments..., Spacer)) )
   center: HSplit( nav *widget.List, content *container.Scroll ).SetOffset(0.16)
+          nav rows = sections, plus a heading per group, minus a closed
+                     group's members
 }
 ```
 
@@ -363,6 +365,43 @@ Border{
   nobody can reach.
 - The shape is the window's, not the section's: changing it keeps the current
   section and does not rebuild it.
+- The header's own actions keep their own height and sit against the top of
+  the header row. A `Border` stretches what it is given to the height of its
+  row, and the row is two buttons tall whenever a group is open along the top;
+  Refresh drawn twice as tall as every other button says it is twice the
+  control.
+
+## Groups in the navigation
+
+- **A navigation past seven or eight entries stops reading as a set of places
+  and starts reading as an inventory.** The entries that caused it are usually
+  of a kind -- three sources of pictures, four reports, five importers -- and
+  what the reader wants from the list is the kind, until the moment they want
+  one of them. `Options.Groups []NavGroup` folds them under a heading.
+- **A group is not a section.** No page, not something `Select` reaches, never
+  returned by `Current`, and not counted by `Ctrl+1..9` -- those stay bound to
+  sections in the order the program listed them, so folding three of them under
+  a heading does not renumber the shortcuts of the ones below.
+- **Members are section titles**, matched case-insensitively, and should be
+  contiguous in `Sections` order: the list is drawn in that order and the
+  heading appears where the first member would have been. A title that names no
+  section is ignored, and a group whose members all do is not drawn -- so a
+  program that builds sections conditionally lists the group either way.
+- **Closing a group does not move the reader.** The page on screen stays and is
+  not rebuilt; closing the group that holds it leaves nothing highlighted,
+  which is honest, and opening it again puts the highlight back.
+- **Navigating to a member opens the group.** `--section`, `Select` and
+  `Ctrl+1..9` are navigation, and a window that went somewhere without showing
+  where has lost the reader.
+- **Every shape draws it.** A disclosure row in the list with its members
+  indented; a button with its members indented beneath it in icons-only down
+  the left; along the top a button on the top row and the members on a second
+  row, never in the middle of the row the reader picks a group from.
+- **The group button is lit while the page is one of its members**, open or
+  closed. Open that is two lit buttons for one section, which is what it is:
+  the branch and the leaf.
+- Open and closed is remembered under `fynedesygn.nav.groups`. Closed is what
+  is stored, so a group a program adds later starts open.
 
 ## Dividers
 

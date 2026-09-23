@@ -1,6 +1,6 @@
 # fynedesygn
 
-**Version**: 0.1.40
+**Version**: 0.1.41
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -173,24 +173,37 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.41 (2026-09-23)
 
 - A font can be seen before it is chosen. `dialogs.ChooseFont` shows a sample
   in the highlighted family and commits nothing until Choose, replacing the
-  two dropdowns of names in the Appearance section. The sample is drawn from
-  the family's file through `canvas.Text.FontSource`: a theme override loses
-  the family on the way to the painter, which is a preview that reports one
-  face and draws another. The pointer previews nothing and chooses nothing —
-  hovering a row on the way to Choose used to pick it — while the arrow keys
-  move the cursor and Enter accepts. It says
-  when a family has no glyphs for the sample -- most families on a Linux
-  machine are script fonts with no Latin letters at all -- and says when one
-  offered as a monospace face is not monospace — and the monospace chooser
-  offers only the families that are, measured rather than filtered by name.
-  The list is not drawn in the
-  fonts it lists: 311 families at 2.5 MB each is 778 MB to render a menu, so
-  `theme.PreviewFont` reads a family without keeping it and one font is alive
-  at a time (spec 032, #53).
+  two dropdowns of names in the Appearance section.
+
+  The sample is drawn from the family's own file through
+  `canvas.Text.FontSource`. A `container.ThemeOverride` loses the family on the
+  way to the painter -- text is measured through a path handed no object, the
+  face is cached against a scope the text objects do not reliably carry, and
+  monospace text is resolved through a list of faces rather than the one the
+  theme named -- which is a preview that reports one face and draws another.
+
+  The pointer previews nothing and chooses nothing: `widget.List.OnHighlighted`
+  is fired by hovering as well as by the arrow keys, so a row was picking
+  itself as the mouse passed over it on the way to Choose, and reading a font
+  file each time it did. The arrow keys move the cursor, Enter accepts, and a
+  click is honoured wherever the pointer has been.
+
+  It says when a family has no glyphs for the sample and shows what the family
+  does carry instead -- most families on a Linux machine are script fonts with
+  no Latin letters, so a Latin sentence in one is another font's glyphs
+  standing in. The monospace chooser offers only the families that are
+  monospace, measured by advance width rather than filtered by name: "Meslo
+  LGLDZ Nerd Font Propo" is the proportional one.
+
+  The list itself is not drawn in the fonts it lists, and that is measured
+  rather than assumed: 311 families at 2.5 MB each is 778 MB and 731 ms to
+  render one menu, in a cache that never releases. `theme.PreviewFont` reads a
+  family without keeping it, so one font is alive at a time and looking
+  through every family costs what looking at one costs (spec 032, #53).
 
 ### 0.1.40 (2026-09-23)
 

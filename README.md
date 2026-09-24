@@ -225,6 +225,8 @@ detail pane, a settings form, a job with a log, and a frameless status panel.
 - [Mermaid diagrams](docs/mermaid.md).
 - [Fyne quirks](docs/fyne-quirks.md): what the module works around and the
   canary test for each.
+- [How this is written](docs/style.md): the plain technical English these
+  documents use, and what a test checks.
 
 ## Development
 
@@ -257,6 +259,19 @@ MIT. See [LICENSE](LICENSE).
 
 ### Unreleased
 
+- Every document in `docs/` is rewritten in plain technical English: plain
+  verbs with one meaning each, the active voice, the simple present, no idiom
+  and no metaphor, and a ceiling of thirty words in a sentence. The rules come
+  from ASD-STE100 and are not that specification, which controls its vocabulary
+  with a licensed dictionary and allows one idea per sentence. Prose cut that
+  short is harder to read, not easier, so the sentence rule is a ceiling and
+  not a target (#55).
+- [How this is written](docs/style.md) records the rules and says plainly that
+  they do not comply with the standard they come from. Three canaries check
+  the mechanical half: the sentence ceiling, a short list of words that add
+  nothing, and that the style document still disclaims compliance. A document
+  opts in by name, so `specs/` and the changelog are untouched — they are a
+  record of what was decided and when (#55).
 - The Fyne quirks table is a table again. Two blank lines sat in the middle of
   it, a blank line ends a Markdown table, and rows 29 to 35 rendered as
   paragraphs with literal pipes in them — on GitHub and in the gallery, which

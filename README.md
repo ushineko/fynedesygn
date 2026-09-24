@@ -255,6 +255,20 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- The Fyne quirks table is a table again. Two blank lines sat in the middle of
+  it, a blank line ends a Markdown table, and rows 29 to 35 rendered as
+  paragraphs with literal pipes in them — on GitHub and in the gallery, which
+  embeds `docs/`. Broken since 2026-09-18 and shipped in eighteen releases,
+  because nothing read the document. Row 28 was also out of order, between 14
+  and 15 (#59).
+- Three canaries now read it: the table has no blank line inside it, the rows
+  are numbered in order, and every row names its canary — which the document's
+  own closing paragraph already asked for. The same reasoning as the README
+  tests: a document nothing builds and no test reads is a document that
+  drifts (#59).
+
 ### 0.1.42 (2026-09-23)
 
 - The API reference is reachable. A Go Reference badge, and every package in

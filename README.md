@@ -257,6 +257,11 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- `glance.Transient.ShowFor` is Show with a hold of its own, for a change
+  worth a longer look than the window's usual hold (#70).
+
 ### 0.1.44 (2026-09-24)
 
 - An indicator that comes and goes. `glance.Transient` shows a glance window

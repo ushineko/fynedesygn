@@ -332,3 +332,50 @@ func TestTheFileEndsWithExactlyOneNewline(t *testing.T) {
 	assert.True(t, strings.HasSuffix(got, "\n"))
 	assert.False(t, strings.HasSuffix(got, "\n\n"))
 }
+
+// TestATitledRuleIsADifferentRuleFromTheUntitledOne: a program's main window
+// and its indicator share an app ID, so the indicator's rule must key on the
+// title as well, and installing it must not replace the main window's rule.
+func TestATitledRuleIsADifferentRuleFromTheUntitledOne(t *testing.T) {
+	path := sandbox(t)
+	require.NoError(t, kwin.Install(kwin.Rule{AppID: "io.example.app", AlwaysOnTop: true}))
+	require.NoError(t, kwin.Install(kwin.Rule{AppID: "io.example.app", Title: "example-indicator", NoBorder: true,
+		SkipTaskbar: true, SkipSwitcher: true, SkipPager: true, NoFocus: true}))
+
+	main, ok, err := kwin.Lookup("io.example.app")
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.True(t, main.AlwaysOnTop)
+	require.False(t, main.NoBorder, "the indicator's rule replaced the main window's")
+
+	ind, ok, err := kwin.LookupTitled("io.example.app", "example-indicator")
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, "example-indicator", ind.Title)
+	require.True(t, ind.NoBorder && ind.SkipTaskbar && ind.SkipSwitcher && ind.SkipPager && ind.NoFocus)
+
+	text := read(t, path)
+	require.Contains(t, text, "title=example-indicator\n")
+	require.Contains(t, text, "titlematch=1\n")
+	require.Contains(t, text, "acceptfocus=false\n")
+	require.Contains(t, text, "acceptfocusrule=2\n")
+	require.Contains(t, text, "skipswitcher=true\n")
+
+	removed, err := kwin.RemoveTitled("io.example.app", "example-indicator")
+	require.NoError(t, err)
+	require.True(t, removed)
+	_, ok, err = kwin.Lookup("io.example.app")
+	require.NoError(t, err)
+	require.True(t, ok, "removing the titled rule took the untitled one")
+}
+
+// TestTurningOffNoFocusRemovesTheKeys: the rule vocabulary has no "accept
+// focus: true, forced" that a glance window wants; off means absent.
+func TestTurningOffNoFocusRemovesTheKeys(t *testing.T) {
+	path := sandbox(t)
+	require.NoError(t, kwin.Install(kwin.Rule{AppID: "io.example.app", Title: "x", NoFocus: true}))
+	require.NoError(t, kwin.Install(kwin.Rule{AppID: "io.example.app", Title: "x"}))
+	text := read(t, path)
+	require.NotContains(t, text, "acceptfocus")
+	require.NotContains(t, text, "skiptaskbar")
+}

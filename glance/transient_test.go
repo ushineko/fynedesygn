@@ -51,6 +51,20 @@ func TestChangesCloseTogetherKeepTheIndicatorUp(t *testing.T) {
 	require.Equal(t, 2, shows, "a new run after a hide did not run OnShow")
 }
 
+// TestAShowCanHoldLongerThanTheWindowsOwn: a change worth a longer look
+// keeps the window up for the hold it asked for, and the next plain Show
+// is back to the window's own.
+func TestAShowCanHoldLongerThanTheWindowsOwn(t *testing.T) {
+	tr, _ := transientWindow(t, 40*time.Millisecond)
+	tr.ShowFor(300 * time.Millisecond)
+	time.Sleep(120 * time.Millisecond)
+	require.True(t, tr.Shown(), "the longer hold ended at the window's own")
+	require.Eventually(t, func() bool { return !tr.Shown() }, time.Second, 5*time.Millisecond)
+	tr.ShowFor(0)
+	require.True(t, tr.Shown())
+	require.Eventually(t, func() bool { return !tr.Shown() }, 500*time.Millisecond, 5*time.Millisecond)
+}
+
 // TestHideStopsTheTimer: a Hide followed by a Show must not be undone by
 // the earlier run's timer.
 func TestHideStopsTheTimer(t *testing.T) {

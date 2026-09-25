@@ -249,7 +249,13 @@ press, a switch of output, a mode that changed. `glance.Transient` holds one.
 `Show` shows the window and starts a hold, `DefaultHold` of 1.5 s; a `Show`
 during the hold restarts it, so changes that arrive close together keep the
 window up rather than making it blink. When the hold runs out the window
-hides on its own. `Hide` takes it down now.
+hides on its own. `Hide` takes it down now. `ShowFor` takes a hold of its
+own, for a change worth a longer look than the usual one.
+
+The window cannot fade in or out. Fyne draws no translucent window
+(quirk 32), so the contents could fade and the window behind them would
+still appear at once as an opaque rectangle. Hold and hide are what there
+is.
 
 - **It is a second window.** The program has a main window, so the indicator
   is made with `Options.Secondary`, which leaves it out of the master role:

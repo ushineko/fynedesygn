@@ -53,7 +53,15 @@ func NewTransient(w *Window, hold time.Duration) *Transient {
 }
 
 // Show shows the window, or keeps it up, for the hold from now.
-func (t *Transient) Show() {
+func (t *Transient) Show() { t.ShowFor(t.hold) }
+
+// ShowFor is Show with a hold of its own: a change worth a longer look, such
+// as a switch of output beside a step of the volume, keeps the window up
+// longer. A hold of zero or less is the window's own.
+func (t *Transient) ShowFor(hold time.Duration) {
+	if hold <= 0 {
+		hold = t.hold
+	}
 	t.mu.Lock()
 	if t.timer != nil {
 		t.timer.Stop()
@@ -80,7 +88,7 @@ func (t *Transient) Show() {
 	// with no ordering against those writes.
 	t.mu.Lock()
 	if t.gen == gen {
-		t.timer = time.AfterFunc(t.hold, func() { fyne.Do(func() { t.expire(gen) }) })
+		t.timer = time.AfterFunc(hold, func() { fyne.Do(func() { t.expire(gen) }) })
 	}
 	t.mu.Unlock()
 }

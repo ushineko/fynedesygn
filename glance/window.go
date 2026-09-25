@@ -38,6 +38,11 @@ type Options struct {
 	// for a glance window means no interface at all: everything a glance
 	// window configures is configured here.
 	Menu func() *fyne.Menu
+
+	// Secondary marks a glance window that belongs to a program with a main
+	// window of its own, such as an indicator. It is not the master window,
+	// so closing or hiding it does not end the program.
+	Secondary bool
 }
 
 // Window is a glance window: a frameless, fixed-size, always-on-top panel
@@ -78,7 +83,9 @@ func NewWindow(a fyne.App, o Options) *Window {
 	// whatever its content measures. It still has to be resized explicitly
 	// when a card goes away (quirk 34), which Panel does.
 	w.win.SetFixedSize(true)
-	w.win.SetMaster()
+	if !o.Secondary {
+		w.win.SetMaster()
+	}
 
 	if o.OnTop {
 		// Before Show, which is the contract: RequestAlwaysOnTop sets a

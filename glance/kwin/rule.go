@@ -18,6 +18,13 @@ type Rule struct {
 	// AppID is the window class to match, exactly.
 	AppID string
 
+	// Title, when set, is the window title to match as well, exactly. A
+	// program whose main window shares the app ID gives its glance window a
+	// title of its own and matches on both, or the rule strips the main
+	// window's titlebar too. A rule with a title is a different rule from
+	// one without: Install, Lookup and Remove key on the pair.
+	Title string
+
 	// Description is what System Settings shows in its rule list. A rule the
 	// user cannot identify is a rule they cannot remove.
 	Description string
@@ -44,6 +51,19 @@ type Rule struct {
 	// initially rather than forced, so the user can still override it from
 	// the window menu.
 	Opacity int
+
+	// SkipTaskbar, SkipSwitcher and SkipPager keep the window out of the
+	// taskbar, the window switcher and the pager, forced. An indicator that
+	// appears in Alt+Tab is a defect.
+	SkipTaskbar  bool
+	SkipSwitcher bool
+	SkipPager    bool
+
+	// NoFocus stops the window from taking the focus, forced. Measured on
+	// Plasma 6: a splash window takes the focus when it is shown (quirk 36),
+	// and an indicator that took the focus from a game on every key press
+	// would be worse than no indicator.
+	NoFocus bool
 }
 
 // The rule-type vocabulary KWin uses for the "…rule" companion of each
@@ -59,10 +79,12 @@ const generalSection = "General"
 // staleKeys are keys an earlier version of a rule may have written that this
 // one must clear.
 //
-// Position is deliberately not a rule. KWin's `position` rule selects a screen
-// and snaps to its origin on Wayland; it does not honour intra-screen
-// coordinates. A rule that half-works is worse than none, so a rule that once
-// set one has it removed rather than left behind.
+// Position is deliberately not a rule. Measured on Plasma 6 on Wayland, a
+// forced `position` with coordinates does place the window there; this
+// package still does not write one, because a position in a rule is fixed to
+// one screen, and a window that should appear on the screen the pointer is on
+// is moved by the compositor's scripting instead (see CentreOnPointerScript).
+// A rule that once set one has it removed rather than left behind.
 var staleKeys = []string{
 	"position", "positionrule",
 	"size", "sizerule",
@@ -84,8 +106,8 @@ func Path() (string, error) {
 }
 
 // Install writes r into the user's KWin rules, replacing the rule for the same
-// AppID if one is already there and appending a new one otherwise. Every other
-// rule in the file is left as it was found.
+// AppID and Title if one is already there and appending a new one otherwise.
+// Every other rule in the file is left as it was found.
 //
 // **This is an explicit step a program offers, never one it takes on its
 // own.** A glance window that silently edited kwinrulesrc on first run would
@@ -106,6 +128,7 @@ func Install(r Rule) error {
 	// any business containing a control character.
 	for _, f := range []struct{ name, value string }{
 		{"app ID", r.AppID},
+		{"title", r.Title},
 		{"description", r.Description},
 	} {
 		if strings.ContainsAny(f.value, "\r\n") {
@@ -122,7 +145,7 @@ func Install(r Rule) error {
 		return err
 	}
 
-	sec := file.section(sectionFor(file, r.AppID))
+	sec := file.section(sectionFor(file, r.AppID, r.Title))
 	if sec == nil {
 		sec = appendRule(file)
 	}
@@ -131,9 +154,13 @@ func Install(r Rule) error {
 	return save(path, file)
 }
 
-// Remove deletes the rule matching appID, and says whether there was one. The
-// file is left untouched when there was not.
-func Remove(appID string) (bool, error) {
+// Remove deletes the rule matching appID and no title, and says whether there
+// was one. The file is left untouched when there was not.
+func Remove(appID string) (bool, error) { return RemoveTitled(appID, "") }
+
+// RemoveTitled deletes the rule matching appID and title, and says whether
+// there was one.
+func RemoveTitled(appID, title string) (bool, error) {
 	path, err := Path()
 	if err != nil {
 		return false, err
@@ -143,7 +170,7 @@ func Remove(appID string) (bool, error) {
 		return false, err
 	}
 
-	name := sectionFor(file, appID)
+	name := sectionFor(file, appID, title)
 	if name == "" {
 		return false, nil
 	}
@@ -165,7 +192,11 @@ func Remove(appID string) (bool, error) {
 
 // Lookup returns the rule installed for appID, and whether there is one. It is
 // what a program's settings section asks before offering to install.
-func Lookup(appID string) (Rule, bool, error) {
+func Lookup(appID string) (Rule, bool, error) { return LookupTitled(appID, "") }
+
+// LookupTitled reads the rule for appID and title, and says whether there is
+// one.
+func LookupTitled(appID, title string) (Rule, bool, error) {
 	path, err := Path()
 	if err != nil {
 		return Rule{}, false, err
@@ -174,18 +205,25 @@ func Lookup(appID string) (Rule, bool, error) {
 	if err != nil {
 		return Rule{}, false, err
 	}
-	name := sectionFor(file, appID)
+	name := sectionFor(file, appID, title)
 	if name == "" {
 		return Rule{}, false, nil
 	}
 	sec := file.section(name)
 
-	r := Rule{AppID: appID}
+	r := Rule{AppID: appID, Title: title}
 	r.Description, _ = sec.get("Description")
-	above, _ := sec.get("above")
-	r.AlwaysOnTop = above == "true"
-	noborder, _ := sec.get("noborder")
-	r.NoBorder = noborder == "true"
+	flag := func(key string) bool {
+		v, _ := sec.get(key)
+		return v == "true"
+	}
+	r.AlwaysOnTop = flag("above")
+	r.NoBorder = flag("noborder")
+	r.SkipTaskbar = flag("skiptaskbar")
+	r.SkipSwitcher = flag("skipswitcher")
+	r.SkipPager = flag("skippager")
+	accept, _ := sec.get("acceptfocus")
+	r.NoFocus = accept == "false"
 	if v, ok := sec.get("opacityactive"); ok {
 		r.Opacity, _ = strconv.Atoi(v)
 	}
@@ -254,17 +292,25 @@ func ruleNames(general *iniSection) []string {
 	return out
 }
 
-// sectionFor finds the listed rule whose wmclass is appID, or "".
-func sectionFor(file *iniFile, appID string) string {
+// sectionFor finds the listed rule whose wmclass is appID and whose title is
+// title (no title key at all when title is empty), or "".
+func sectionFor(file *iniFile, appID, title string) string {
 	general := file.section(generalSection)
 	if general == nil {
 		return ""
 	}
 	for _, name := range ruleNames(general) {
-		if sec := file.section(name); sec != nil {
-			if class, ok := sec.get("wmclass"); ok && class == appID {
-				return name
-			}
+		sec := file.section(name)
+		if sec == nil {
+			continue
+		}
+		class, ok := sec.get("wmclass")
+		if !ok || class != appID {
+			continue
+		}
+		have, _ := sec.get("title")
+		if have == title {
+			return name
 		}
 	}
 	return ""
@@ -299,9 +345,26 @@ func write(sec *iniSection, r Rule) {
 	sec.set("Description", descriptionOf(r))
 	sec.set("wmclass", r.AppID)
 	sec.set("wmclassmatch", "1") // exact
+	if r.Title != "" {
+		sec.set("title", r.Title)
+		sec.set("titlematch", "1") // exact
+	} else {
+		sec.unset("title")
+		sec.unset("titlematch")
+	}
 
 	setFlag(sec, "above", r.AlwaysOnTop, ruleForce)
 	setFlag(sec, "noborder", r.NoBorder, ruleForce)
+	setFlag(sec, "skiptaskbar", r.SkipTaskbar, ruleForce)
+	setFlag(sec, "skipswitcher", r.SkipSwitcher, ruleForce)
+	setFlag(sec, "skippager", r.SkipPager, ruleForce)
+	if r.NoFocus {
+		sec.set("acceptfocus", "false")
+		sec.set("acceptfocusrule", ruleForce)
+	} else {
+		sec.unset("acceptfocus")
+		sec.unset("acceptfocusrule")
+	}
 
 	if r.Opacity > 0 {
 		v := strconv.Itoa(r.Opacity)
@@ -339,6 +402,9 @@ func setFlag(sec *iniSection, key string, on bool, ruleType string) {
 func descriptionOf(r Rule) string {
 	if r.Description != "" {
 		return r.Description
+	}
+	if r.Title != "" {
+		return r.AppID + " " + r.Title + " (glance window)"
 	}
 	return r.AppID + " (glance window)"
 }

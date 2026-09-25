@@ -257,6 +257,18 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- An indicator that comes and goes. `glance.Transient` shows a glance window
+  for a hold after each change and hides it on its own; `Options.Secondary`
+  makes a glance window that is not the program's master. `kwin.Rule` gains
+  `Title`, so a program's second window has a rule of its own, and
+  `SkipTaskbar`, `SkipSwitcher`, `SkipPager` and `NoFocus`, which is what an
+  indicator needs from the compositor; `LookupTitled` and `RemoveTitled` key
+  on the pair. Measured on Plasma 6: a splash window takes the focus when it
+  is shown (quirk 36), and a forced `position` rule does place the window,
+  which `docs/glance.md` said it could not (spec 035, #63).
+
 ### 0.1.43 (2026-09-23)
 
 - Every document in `docs/` is rewritten in plain technical English: plain

@@ -85,11 +85,12 @@ Verified against `fyne.io/fyne/v2 v2.8.1`, the module's pin.
 |---|---|---|
 | A frameless window | Yes: `desktop.Driver.CreateSplashWindow()` — undecorated, `SetPadded(false)`, centred on screen | `internal/driver/glfw/window.go` |
 | Always on top | Yes: `desktop.Window.RequestAlwaysOnTop()`, **before `Show`**; sets the GLFW `Floating` hint | `driver/desktop/window.go` |
-| Position the window | Partly: `desktop.Window.RequestPosition(x, y)`. Its own doc says the request "may be ignored (for example Linux Wayland)" | `driver/desktop/window.go` |
+| Position the window | Partly: `desktop.Window.RequestPosition(x, y)`. Its own doc says the request "may be ignored (for example Linux Wayland)". A KWin rule can place the window; see Desktop integration | `driver/desktop/window.go` |
 | Read the window's position back | **No.** GLFW's position callback is wired internally; nothing on `fyne.Window` exposes a position | quirk 33 |
 | A translucent window background | **No.** The desktop backend never requests `glfw.TransparentFramebuffer`, and asks for no alpha bits. Only the wasm backend requests `AlphaBits, 8` | quirk 32 |
 | Size to content | Yes, in one direction only: a `SetFixedSize(true)` window grows to its content's minimum size on its own, and shrinks only when the program calls `Resize` explicitly | quirk 34 |
 | Know the window was resized | No — quirk 14, already recorded. It does not bite here: a glance window is fixed-size and the program is the only thing that resizes it |
+| Show the window without taking the focus | **No.** A splash window takes the focus when it is shown, on Plasma 6 (quirk 36). A KWin rule with `acceptfocus=false` stops it | `glance/kwin` |
 
 Two of these decide the design, and you cannot correct either one inside the
 process. They are why this page exists before the code does.
@@ -111,6 +112,10 @@ process. They are why this page exists before the code does.
   D-Bus API from outside Qt. A program that wants its glance window in one
   place supplies a compositor rule, in the same way that it supplies a desktop
   entry.
+- **A splash window takes the focus when it is shown** (quirk 36). A panel that
+  a person reads and never touches does not want it, and an indicator that
+  took the focus from a game at every key press would be a defect. The KWin
+  rule below has `NoFocus` for this.
 - The desktop file basename must equal the app ID, as for any window, or
   Wayland cannot match the window to its icon (design-system.md, Platform).
 - No menu bar, no tabs, no `CenterOnScreen` after the first run.
@@ -165,6 +170,9 @@ because it holds every other rule that the user has.
 | `noborder` / `noborderrule` | `true` / `2` | no titlebar, forced |
 | `opacityactive` / `opacityactiverule` | 0–100 / `4` | **this is the translucency**, applied initially |
 | `opacityinactive` / `opacityinactiverule` | 0–100 / `4` | same when unfocused |
+| `title` / `titlematch` | the window title / `1` | exact; for a second window of a program whose main window shares the app ID |
+| `skiptaskbar`, `skipswitcher`, `skippager` (each with `…rule`) | `true` / `2` | out of the taskbar, the switcher and the pager, forced |
+| `acceptfocus` / `acceptfocusrule` | `false` / `2` | never takes the focus, forced |
 
 In the KWin rule vocabulary, `2` is "Force" and `4` is "Apply Initially". Use
 "Apply Initially" for the opacity and not "Force", so that the user can still
@@ -180,11 +188,16 @@ setting. The rule continues after a restart of the compositor, and the
 documentation of `RequestAlwaysOnTop` warns that the window manager can decide
 that other windows stay above yours.
 
-**Do not set the position with a rule.** On Wayland, the KWin `position` rule
-selects a screen and moves the window to the origin of that screen. It does
-not use coordinates inside the screen. A rule that works partly is worse than
-no rule, and the installer of the monitor deletes the old `position`, `size`
-and `screen` keys that an earlier version wrote.
+**A `position` rule does place the window, and this package still does not
+write one.** On Plasma 6 on Wayland, measured on 2026-09-24, a rule with
+`position=500,1300` forced put a splash window at 500,1300. An earlier version
+of this page said that the rule moved the window to the origin of a screen;
+that was not measured, and it is wrong for this version of KWin. The package
+does not write a position, because a position in a rule is fixed to one
+screen. An indicator should appear on the screen the pointer is on, and that
+is a move the program makes at each show, by the Scripting API below. The
+package removes the old `position`, `size` and `screen` keys of a rule it
+rewrites, as before.
 
 **Set the position with the Scripting D-Bus API.** `org.kde.KWin` at
 `/Scripting` loads a small KWin script in JavaScript, runs it, and unloads it.
@@ -228,6 +241,30 @@ other windows, how to lose the border, and how to be translucent.
 
 Until somebody writes and tests each one on that desktop, a glance window there
 has only the functions that Fyne supplies.
+
+## A panel that comes and goes
+
+An indicator is a glance window shown for a moment: the volume after a key
+press, a switch of output, a mode that changed. `glance.Transient` holds one.
+`Show` shows the window and starts a hold, `DefaultHold` of 1.5 s; a `Show`
+during the hold restarts it, so changes that arrive close together keep the
+window up rather than making it blink. When the hold runs out the window
+hides on its own. `Hide` takes it down now.
+
+- **It is a second window.** The program has a main window, so the indicator
+  is made with `Options.Secondary`, which leaves it out of the master role:
+  closing or hiding it does not end the program.
+- **Its rule matches the title.** The main window and the indicator share
+  the app ID, so a rule on the app ID alone would strip the main window's
+  titlebar too. Give the indicator a `Title` of its own, and give `kwin.Rule`
+  the same `Title`. Set `NoBorder`, `AlwaysOnTop`, the three skips and
+  `NoFocus`.
+- **Move it before it shows.** `Transient.OnShow` runs before the window is
+  shown, once for each run. That is the moment to place the window on the
+  screen the pointer is on, which on Wayland is the compositor's to do.
+- **Draw a snapshot, as a card does.** An indicator draws one value: a
+  `Meter` for a level, a `Row` for a state. The program sets the value and
+  calls `Show`; the window does not read anything itself.
 
 ## Opacity without alpha
 
@@ -583,3 +620,4 @@ number. See design-system.md, Numbers.
 | HTTP read deadline / subprocess deadline | 2 s / 5 s |
 | Alert confirm / alert repeat | 3 consecutive polls (~15 s) / 10 minutes |
 | Bandwidth numeric column | 5 characters, right aligned, monospace |
+| Indicator hold after the last change | 1.5 s (`glance.DefaultHold`) |

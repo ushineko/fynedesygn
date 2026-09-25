@@ -75,6 +75,28 @@ the appearance's own font, which is what such an entry would draw as anyway
 */
 func ChooseFontFrom(win fyne.Window, title string, names []string, current string,
 	base fdtheme.Appearance, mono bool, then func(name string)) {
+	ChooseFontWith(win, title, names, current, base, mono, nil, then)
+}
+
+/*
+FontSample draws what a family looks like where the program will use it.
+name is the family and family its faces, nil for the appearance's own font
+or a family that cannot be read; a nil face on a canvas.Text is the theme's
+font, which is what such a family draws as.
+
+A program whose surface is not prose, an indicator, a table, a code pane,
+shows that surface in the family, because a pangram says how the letters
+look and not whether the number fits.
+*/
+type FontSample func(name string, family *fdtheme.Font) fyne.CanvasObject
+
+/*
+ChooseFontWith is ChooseFontFrom with a sample the caller draws. A nil
+sample is the dialog's own: a pangram, the shapes that tell families apart,
+and what the family can draw of its own.
+*/
+func ChooseFontWith(win fyne.Window, title string, names []string, current string,
+	base fdtheme.Appearance, mono bool, draw FontSample, then func(name string)) {
 	shown := append([]string{}, names...)
 	picked := current
 
@@ -83,7 +105,16 @@ func ChooseFontFrom(win fyne.Window, title string, names []string, current strin
 		if name == "" {
 			return
 		}
-		sample.Objects = []fyne.CanvasObject{sampleBlock(name, mono, base)}
+		block := sampleBlock(name, mono, base)
+		if draw != nil {
+			family := fdtheme.PreviewFont(name)
+			block = container.NewVBox(
+				caption("Sample — "+name),
+				draw(name, family),
+				caption(drawnIn(name, mono, base, family)),
+			)
+		}
+		sample.Objects = []fyne.CanvasObject{block}
 		sample.Refresh()
 	}
 

@@ -268,6 +268,9 @@ MIT. See [LICENSE](LICENSE).
   on the pair. Measured on Plasma 6: a splash window takes the focus when it
   is shown (quirk 36), and a forced `position` rule does place the window,
   which `docs/glance.md` said it could not (spec 035, #63).
+- `dialogs.ChooseFontWith` takes the sample from the caller, so a program
+  whose surface is not prose shows that surface in each family: an indicator
+  with its number and its meter, rather than a pangram (#66).
 
 ### 0.1.43 (2026-09-23)
 

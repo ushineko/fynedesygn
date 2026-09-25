@@ -288,3 +288,29 @@ func TestChooseFontCancelsWithoutChoosing(t *testing.T) {
 	}
 	require.Nil(t, w.Canvas().Overlays().Top())
 }
+
+// TestChooseFontWithDrawsTheCallersSample: the sample is the caller's, drawn
+// for the family the cursor is on, and it moves with the cursor.
+func TestChooseFontWithDrawsTheCallersSample(t *testing.T) {
+	a := fynetest.App(t)
+	w := test.NewWindow(widget.NewLabel(""))
+	t.Cleanup(w.Close)
+	base := fdtheme.Appearance{TextSize: 12}
+	names := []string{"Alpha Sans", "Beta Serif"}
+	var drawn []string
+	ChooseFontWith(w, "Indicator font", names, "Alpha Sans", base, false,
+		func(name string, _ *fdtheme.Font) fyne.CanvasObject {
+			drawn = append(drawn, name)
+			return widget.NewLabel("sample in " + name)
+		}, func(string) {})
+	require.NotEmpty(t, drawn)
+	require.Equal(t, "Alpha Sans", drawn[len(drawn)-1], "the sample was not drawn for the current family")
+	overlay := w.Canvas().Overlays().Top()
+	require.NotNil(t, overlay)
+	require.NotNil(t, fynetest.FindLabel(overlay, "sample in Alpha Sans"))
+	list := fynetest.Find[*widget.List](overlay)
+	list.Select(1)
+	require.Equal(t, "Beta Serif", drawn[len(drawn)-1], "the sample did not follow the cursor")
+	require.NotNil(t, fynetest.FindLabel(overlay, "sample in Beta Serif"))
+	_ = a
+}

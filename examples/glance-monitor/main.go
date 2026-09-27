@@ -57,6 +57,8 @@ func main() {
 	show := flag.Bool("kwin", false, "print the KDE window rule this program would install")
 	install := flag.Bool("kwin-install", false, "install the KDE window rule")
 	remove := flag.Bool("kwin-remove", false, "remove the KDE window rule")
+	translucent := flag.Bool("translucent", false,
+		"ask for a window the desktop shows through, where the driver allows it")
 	flag.Parse()
 
 	if *show || *install || *remove {
@@ -71,6 +73,7 @@ func main() {
 	a.Settings().SetTheme(fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{}))
 
 	m := newMonitor()
+	m.translucent = *translucent
 	w := m.build(a)
 	go m.poll()
 	w.ShowAndRun()
@@ -117,7 +120,7 @@ func manageRule(install, remove bool) error {
 		r := rule()
 		fmt.Printf("Would write to %s:\n\n", path)
 		fmt.Printf("  wmclass=%s (exact)\n  above=true (forced)\n  noborder=true (forced)\n"+
-			"  opacityactive=%d, opacityinactive=%d (applied initially)\n\n",
+			"  opacityactive=%d, opacityinactive=%d (forced)\n\n",
 			r.AppID, r.Opacity, r.Opacity)
 		fmt.Println("Run with -kwin-install to write it.")
 		return nil
@@ -133,6 +136,11 @@ func manageRule(install, remove bool) error {
 // monitor is the program's state: the cards and the rows they own.
 type monitor struct {
 	win *glance.Window
+
+	// translucent asks for a window the desktop shows through. It is off by
+	// default: the shot in the README is of the design, and the design is an
+	// opaque panel.
+	translucent bool
 
 	// Bandwidth.
 	bandwidth *glance.Card
@@ -168,10 +176,11 @@ func newMonitor() *monitor { return &monitor{} }
 // thing drawn is the real size rather than an empty frame that grows.
 func (m *monitor) build(a fyne.App) *glance.Window {
 	m.win = glance.NewWindow(a, glance.Options{
-		Title:    "Monitor",
-		MinWidth: 300,
-		OnTop:    true,
-		Menu:     m.menu,
+		Title:       "Monitor",
+		MinWidth:    300,
+		OnTop:       true,
+		Menu:        m.menu,
+		Translucent: m.translucent,
 	})
 
 	m.bandwidth = glance.NewCard("Bandwidth")

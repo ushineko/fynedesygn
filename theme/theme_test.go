@@ -100,3 +100,23 @@ func TestAlphaKeepsTheHueAndSetsOnlyTheOpacity(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, color.NRGBA{R: 10, G: 20, B: 30, A: 0x40}, c)
 }
+
+// The wrapper changes one role. It is checked against the role a popup menu
+// draws with, because that is the one a glance window cannot afford to lose:
+// the context menu is the only interface it has.
+func TestATransparentBackgroundLeavesAPopupOpaque(t *testing.T) {
+	base := New(BreezeDark, Options{})
+	seethrough := WithTransparentBackground(base)
+
+	_, _, _, a := seethrough.Color(fynetheme.ColorNameBackground, fynetheme.VariantDark).RGBA()
+	require.Zero(t, a, "the window background is what the painter clears with; it has to be transparent")
+
+	_, _, _, a = seethrough.Color(fynetheme.ColorNameOverlayBackground, fynetheme.VariantDark).RGBA()
+	require.NotZero(t, a, "a transparent popup is an invisible context menu")
+
+	require.Equal(t,
+		base.Color(fynetheme.ColorNameForeground, fynetheme.VariantDark),
+		seethrough.Color(fynetheme.ColorNameForeground, fynetheme.VariantDark),
+		"the wrapper changed a role that is not the background")
+	require.Equal(t, base.Size(fynetheme.SizeNameText), seethrough.Size(fynetheme.SizeNameText))
+}

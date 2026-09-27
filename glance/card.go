@@ -22,6 +22,32 @@ import (
 // disagree about panels the way they disagree about buttons.
 const CardRadius float32 = 8
 
+// CardPadH is a card's inner margin at the sides. With CardPadTop,
+// CardPadBottom and CardGap it sets the card's geometry, and each of the four
+// is a factor of the text size rather than a pixel count. A margin set for one
+// size is proportionally huge at a smaller one: the monitor multiplies every
+// margin by its font scale for that reason, and this is the same arithmetic
+// with the scale already applied by the theme.
+//
+// The factors come from the monitor's own numbers at its 11 px face: 15 px at
+// the sides, 8 above the title, 10 under the last row, and 11 between one
+// section and the next. A card padded with the scheme's padding token instead
+// (3 px in Breeze) sits its rows against its own border, which is the single
+// largest difference between a glance window drawn by this package and the
+// program the archetype comes from.
+func CardPadH() float32 { return theme.TextSize() * 1.25 }
+
+// CardPadTop is the margin above a card's title. See CardPadH.
+func CardPadTop() float32 { return theme.TextSize() * 0.67 }
+
+// CardPadBottom is the margin under a card's last row. It is larger than the
+// top margin because the title's own ascent already reads as space. See
+// CardPadH.
+func CardPadBottom() float32 { return theme.TextSize() * 0.83 }
+
+// CardGap is the space between two cards in the stack. See CardPadH.
+func CardGap() float32 { return theme.TextSize() * 0.9 }
+
 // GoneMarker is what a card's header says when its source was answering and
 // has stopped. It is short because it shares the header with the title, and it
 // is a state rather than a mechanism: the reason belongs in the log.
@@ -44,6 +70,7 @@ type Card struct {
 	mark  *canvas.Text
 	rows  []*Row
 	body  *fyne.Container
+	inner *fyne.Container
 	face  *canvas.Rectangle
 	frame *fyne.Container
 
@@ -62,7 +89,7 @@ type Card struct {
 // flash an empty panel on the way up.
 func NewCard(title string) *Card {
 	c := &Card{
-		title:   canvas.NewText(title, theme.Color(theme.ColorNameForeground)),
+		title:   canvas.NewText(title, theme.Color(theme.ColorNamePlaceHolder)),
 		mark:    canvas.NewText(GoneMarker, theme.Color(theme.ColorNameDisabled)),
 		allowed: true,
 	}
@@ -85,7 +112,10 @@ func NewCard(title string) *Card {
 	c.face.StrokeWidth = 1
 	c.face.CornerRadius = CardRadius
 
-	c.frame = container.NewStack(c.face, container.NewPadded(container.NewVBox(header, c.body)))
+	c.inner = container.New(
+		layout.NewCustomPaddedLayout(CardPadTop(), CardPadBottom(), CardPadH(), CardPadH()),
+		container.NewVBox(header, c.body))
+	c.frame = container.NewStack(c.face, c.inner)
 	c.frame.Hide()
 	return c
 }
@@ -176,12 +206,19 @@ func (c *Card) apply() {
 // Restyle repaints the card and its rows in the current theme.
 func (c *Card) Restyle() {
 	c.title.TextSize = theme.TextSize()
-	c.title.Color = theme.Color(theme.ColorNameForeground)
+	c.title.Color = theme.Color(theme.ColorNamePlaceHolder)
 	c.mark.TextSize = theme.TextSize()
 	c.mark.Color = theme.Color(theme.ColorNameDisabled)
 	c.face.FillColor = theme.Color(theme.ColorNameButton)
 	c.face.StrokeColor = theme.Color(theme.ColorNameSeparator)
 	c.face.CornerRadius = CardRadius
+	// The inner margins are a factor of the text size, so a size change moves
+	// them. A layout is a value here, not a live object: replacing it and
+	// refreshing is what re-measures the card (a Refresh alone keeps the old
+	// one's numbers).
+	c.inner.Layout = layout.NewCustomPaddedLayout(
+		CardPadTop(), CardPadBottom(), CardPadH(), CardPadH())
+	c.inner.Refresh()
 	c.face.Refresh()
 	c.title.Refresh()
 	c.mark.Refresh()

@@ -4,6 +4,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 )
 
@@ -35,7 +36,7 @@ func NewPanel(minWidth float32) *Panel {
 		minWidth = MinWidth
 	}
 	p := &Panel{
-		stack:    container.NewVBox(),
+		stack:    container.New(layout.NewCustomPaddedVBoxLayout(CardGap())),
 		bg:       canvas.NewRectangle(theme.Color(theme.ColorNameBackground)),
 		minWidth: minWidth,
 	}
@@ -44,7 +45,12 @@ func NewPanel(minWidth float32) *Panel {
 	// the desktop is contrast, not alpha (quirk 32). A nil fill colour is
 	// invisible under the GL painter and a nil dereference under the software
 	// one (quirk 25), so it is always set.
-	p.root = container.NewStack(p.bg, container.NewPadded(p.stack))
+	// The stack is not padded away from the window's edge. In the monitor a
+	// card runs to the edge and the window *is* the cards; a ring of window
+	// background around them reads as a frame the panel does not have. The
+	// space between one card and the next is CardGap, which is the only place
+	// the background shows.
+	p.root = container.NewStack(p.bg, p.stack)
 	return p
 }
 
@@ -123,6 +129,9 @@ func (p *Panel) Resize() {
 func (p *Panel) Restyle() {
 	p.bg.FillColor = theme.Color(theme.ColorNameBackground)
 	p.bg.Refresh()
+	// The gap is a factor of the text size; see Card's margins for why the
+	// layout is replaced rather than refreshed.
+	p.stack.Layout = layout.NewCustomPaddedVBoxLayout(CardGap())
 	for _, c := range p.cards {
 		c.Restyle()
 	}

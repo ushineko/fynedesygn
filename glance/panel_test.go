@@ -268,3 +268,116 @@ func TestACardDrawsItsOwnSurface(t *testing.T) {
 	assert.Greater(t, face.CornerRadius, a.Settings().Theme().Size(theme.SizeNameInputRadius),
 		"a card should be rounder than an entry box")
 }
+
+// The margins are the largest single difference between a card drawn by this
+// package and a section of the monitor it comes from: with the scheme's
+// padding token (3 px in Breeze) a row sits against the card's own border.
+// The assertion is on the card's measured width rather than on the constants,
+// so it fails if the padding stops being applied as well as if it changes.
+func TestACardIsInsetFromItsOwnEdge(t *testing.T) {
+	c := glance.NewCard("Bandwidth")
+	row := glance.NewRow("eno2", glance.NoRate())
+	c.AddRow(row)
+
+	inner := row.Object().MinSize().Width
+	got := c.Object().MinSize().Width
+
+	assert.InDelta(t, inner+2*glance.CardPadH(), got, 0.5,
+		"a card's rows are not inset by the card's own margin")
+	assert.Greater(t, glance.CardPadH(), 2*theme.Padding(),
+		"a surface's margin has collapsed to the scheme's control padding")
+}
+
+// The gap is the only place the panel's background shows: the stack runs to
+// the window's edge, the way the monitor's sections do.
+func TestCardsAreSeparatedByTheCardGap(t *testing.T) {
+	w := newTestWindow(t, glance.Options{Title: "Sensors"})
+
+	first, second := glance.NewCard("Bandwidth"), glance.NewCard("AIO")
+	first.AddRow(glance.NewRow("eno2", glance.NoRate()))
+	second.AddRow(glance.NewRow("Coolant", glance.NoQuantity("°C", 2)))
+	w.Panel().Add(first, second)
+
+	first.SetAvailable(true)
+	one := w.Panel().Size().Height
+
+	second.SetAvailable(true)
+	two := w.Panel().Size().Height
+
+	added := two - one
+	assert.InDelta(t, second.Object().MinSize().Height+glance.CardGap(), added, 0.5,
+		"the second card arrived without the gap that separates it from the first")
+	assert.Greater(t, glance.CardGap(), 2*theme.Padding(),
+		"the gap between two cards has collapsed to the scheme's control padding")
+}
+
+// A card that runs to the window's edge is the shape; a ring of window
+// background around the stack reads as a frame the panel does not have.
+func TestTheCardStackRunsToTheWindowsEdge(t *testing.T) {
+	w := newTestWindow(t, glance.Options{Title: "Sensors", MinWidth: 1})
+
+	c := glance.NewCard("Bandwidth")
+	c.AddRow(glance.NewRow("eno2", glance.NoRate()))
+	w.Panel().Add(c)
+	c.SetAvailable(true)
+
+	assert.InDelta(t, c.Object().MinSize().Width, w.Panel().Size().Width, 0.5,
+		"the panel padded the card away from the window's edge")
+}
+
+// The title is the section's name and not a reading. The monitor draws it in
+// its inactive grey for that reason, and a title at full foreground competes
+// with the numbers under it.
+func TestACardsTitleIsMutedAgainstItsRows(t *testing.T) {
+	c := glance.NewCard("AIO")
+	c.SetAvailable(true)
+
+	title := findText(t, c.Object(), "AIO")
+	assert.Equal(t, theme.Color(theme.ColorNamePlaceHolder), title.Color,
+		"the card's title is drawn at full foreground")
+}
+
+// findText walks an object tree for the canvas.Text carrying s.
+func findText(t *testing.T, o fyne.CanvasObject, s string) *canvas.Text {
+	t.Helper()
+	var found *canvas.Text
+	var walk func(fyne.CanvasObject)
+	walk = func(o fyne.CanvasObject) {
+		switch v := o.(type) {
+		case *canvas.Text:
+			if v.Text == s {
+				found = v
+			}
+		case *fyne.Container:
+			for _, c := range v.Objects {
+				walk(c)
+			}
+		}
+	}
+	walk(o)
+	require.NotNil(t, found, "no text %q in the tree", s)
+	return found
+}
+
+// Translucency is a request, and the answer is not known until the window
+// exists. A program that reads it before then must get "no", because the
+// alternative — assuming yes — is a theme cleared to black on a desktop that
+// refused (see glance/translucent_glfw.go).
+func TestATranslucentWindowIsOpaqueUntilItIsGranted(t *testing.T) {
+	w := newTestWindow(t, glance.Options{Title: "Sensors", Translucent: true})
+
+	assert.False(t, w.Translucent(),
+		"the window reported a transparent framebuffer it has not been given yet")
+}
+
+// A window that cannot fade itself says so rather than failing quietly. The
+// test driver is not an X11 window, which is the same answer a Wayland window
+// gives: ask the compositor.
+func TestAWindowThatCannotFadeItselfSaysSo(t *testing.T) {
+	w := newTestWindow(t, glance.Options{Title: "Sensors"})
+
+	err := w.SetOpacity(0.7)
+
+	require.ErrorIs(t, err, glance.ErrOpacityNeedsCompositor,
+		"a window that cannot set its own opacity reported success")
+}

@@ -257,6 +257,14 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- `shell.NewIn(app, options)` builds a shell window over an app the caller
+  already has. `New` creates the app, which makes it the wrong way in for a
+  program that already has one — and Fyne allows a single app per process, so a
+  glance window or a tray-resident program could not open a shell window at
+  all. `New` is now `NewIn` over an app it creates (spec 038, #80).
+
 ### 0.1.47 (2026-09-26)
 
 - A glance window can be put somewhere. `kwin.PositionScript` moves a window

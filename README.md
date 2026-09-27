@@ -257,6 +257,16 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- A glance window can be put somewhere. `kwin.PositionScript` moves a window
+  that is already on screen and `kwin.ReportGeometryScript` reads its true
+  geometry back over the session bus, which is what "reopen where I left it"
+  needs. Measured on Plasma 6 on Wayland: `desktop.Window.RequestPosition`
+  moves a window by nothing at all, and `docs/glance.md` now says so, along
+  with the sentence it was missing — a person moves a frameless window with
+  Meta and drag (spec 037, #77).
+
 ### 0.1.46 (2026-09-26)
 
 - A glance window looks like the monitor it comes from. A card carries a

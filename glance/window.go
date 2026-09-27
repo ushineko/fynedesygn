@@ -1,13 +1,16 @@
 package glance
 
 import (
+	"errors"
 	"image/color"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/driver"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
 
+	fdtheme "github.com/ushineko/fynedesygn/theme"
 	"github.com/ushineko/fynedesygn/widgets"
 )
 
@@ -39,6 +42,19 @@ type Options struct {
 	// window configures is configured here.
 	Menu func() *fyne.Menu
 
+	// Translucent asks for a window the desktop shows through: the panel's
+	// background is drawn transparent and only the cards are painted, which
+	// is the shape the archetype comes from.
+	//
+	// It is a request. The window is created with GLFW's transparent
+	// framebuffer hint, and the hint is refused on some drivers, so the grant
+	// is probed for first and an opaque window is what a refusal gives. Ask
+	// Translucent() after ShowAndRun has started for the answer.
+	//
+	// The app's theme is wrapped by ShowAndRun when the grant comes, so the
+	// caller sets its theme as usual and does not have to know about this.
+	Translucent bool
+
 	// Secondary marks a glance window that belongs to a program with a main
 	// window of its own, such as an indicator. It is not the master window,
 	// so closing or hiding it does not end the program.
@@ -54,6 +70,10 @@ type Window struct {
 	win   fyne.Window
 	panel *Panel
 	menu  func() *fyne.Menu
+
+	app         fyne.App
+	wanted      bool
+	translucent bool
 }
 
 // NewWindow builds the window and its panel. The window is not shown; add
@@ -64,7 +84,7 @@ type Window struct {
 // above all — the window is an ordinary one and everything else behaves the
 // same, so a headless test exercises the real panel.
 func NewWindow(a fyne.App, o Options) *Window {
-	w := &Window{menu: o.Menu}
+	w := &Window{menu: o.Menu, app: a, wanted: o.Translucent}
 
 	drv, isDesktop := a.Driver().(desktop.Driver)
 	switch {
@@ -114,11 +134,90 @@ func (w *Window) Panel() *Panel { return w.panel }
 // the icon, the close intercept, a keyboard shortcut.
 func (w *Window) Window() fyne.Window { return w.win }
 
+// ErrOpacityNeedsCompositor is returned by SetOpacity on a window the program
+// cannot fade itself. Wayland has no protocol for a client's own opacity —
+// GLFW's Wayland backend answers GLFW_FEATURE_UNAVAILABLE for the same
+// request — so the compositor has to be asked. On Plasma that is
+// kwin.OpacityScript, run over the session bus; this package returns the
+// script as text rather than making the call, for the reason
+// kwin.ReconfigureCall gives.
+var ErrOpacityNeedsCompositor = errors.New(
+	"this window cannot set its own opacity; ask the compositor (see glance/kwin.OpacityScript)")
+
+// SetOpacity fades the whole window, after the toolkit has drawn it. It is a
+// different thing from Options.Translucent, and the two compose: translucency
+// decides which pixels are drawn at all, opacity decides how much of what was
+// drawn survives.
+//
+// On X11 the program sets its own, live, by writing the property a compositing
+// window manager reads. Everywhere else it returns
+// ErrOpacityNeedsCompositor, and the caller asks the compositor.
+//
+// opacity is 0..1 and is clamped. There is no reading it back: the property is
+// a request to the window manager and the window manager does not answer.
+func (w *Window) SetOpacity(opacity float32) error {
+	if opacity < 0 {
+		opacity = 0
+	}
+	if opacity > 1 {
+		opacity = 1
+	}
+
+	native, ok := w.win.(driver.NativeWindow)
+	if !ok {
+		return ErrOpacityNeedsCompositor
+	}
+
+	err := ErrOpacityNeedsCompositor
+	native.RunNative(func(ctx any) {
+		// By value, not by pointer. Fyne passes `f(context)` with a
+		// driver.X11WindowContext value (internal/driver/glfw/
+		// window_x11wayland.go); an assertion on the pointer type compiles,
+		// never matches, and looks exactly like a Wayland session.
+		x11, ok := ctx.(driver.X11WindowContext)
+		if !ok {
+			return
+		}
+		if setWindowOpacity(x11.WindowHandle, opacity) {
+			err = nil
+		}
+	})
+	return err
+}
+
+// Translucent reports whether the window actually got a transparent
+// framebuffer. It is false until ShowAndRun has shown the window, and false
+// afterwards on any desktop that refused the request.
+func (w *Window) Translucent() bool { return w.translucent }
+
 // ShowAndRun shows the window and runs the event loop. It returns when the
 // window closes.
+//
+// A translucent window is shown differently, and has to be. The hint that
+// makes a window see-through is set on GLFW, which is initialised by the event
+// loop, so a window shown before the loop starts is created before there is
+// anything to ask. Show is therefore queued from a goroutine — fyne.Do run
+// from the main goroutine before the loop is running executes immediately,
+// which would be the same problem — and the loop runs it as its first work.
 func (w *Window) ShowAndRun() {
 	w.panel.Resize()
-	w.win.ShowAndRun()
+	if !w.wanted {
+		w.win.ShowAndRun()
+		return
+	}
+
+	go fyne.Do(func() {
+		if grantTranslucent() {
+			w.translucent = true
+			// After the grant and before the window exists: the theme decides
+			// what the first frame is cleared with, and the first frame is
+			// already the real one.
+			w.app.Settings().SetTheme(fdtheme.WithTransparentBackground(w.app.Settings().Theme()))
+			w.panel.Restyle()
+		}
+		w.win.Show()
+	})
+	w.app.Run()
 }
 
 // ShowMenu opens the context menu at a position on the window's canvas. It is

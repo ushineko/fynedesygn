@@ -63,8 +63,10 @@ func TestInstallingIntoAFileThatDoesNotExistYetCreatesIt(t *testing.T) {
 	assert.Contains(t, got, "aboverule=2", "always on top is forced")
 	assert.Contains(t, got, "noborder=true")
 	assert.Contains(t, got, "opacityactive=95")
-	assert.Contains(t, got, "opacityactiverule=4", "opacity applies initially, so the user can override it")
+	assert.Contains(t, got, "opacityactiverule=2",
+		"opacity is forced: measured on Plasma 6, KWin applies it at no other rule type")
 	assert.Contains(t, got, "opacityinactive=95", "an unfocused glance window is the normal case")
+	assert.Contains(t, got, "opacityinactiverule=2")
 }
 
 // The file holds every window rule the user has. A rule installer that

@@ -67,11 +67,16 @@ type Rule struct {
 }
 
 // The rule-type vocabulary KWin uses for the "…rule" companion of each
-// property. Only the two this package sets are named.
-const (
-	ruleForce          = "2"
-	ruleApplyInitially = "4"
-)
+// property. Only the one this package sets is named.
+//
+// Opacity was written as "4" until it was measured. KWin's SetRule enum is
+// DontAffect 1, Force 2, Apply 3, Remember 4, so "4" asks KWin to *remember*
+// whatever opacity the window already has rather than to set one, and the
+// rule had no effect at any percentage. "3" (the GUI's "apply initially") was
+// measured too and does not apply it either. Only Force does: a window under
+// a rule at 100, 95, 80 and 50 % tracked the blend against the desktop behind
+// it exactly at "2" and was opaque at every percentage at "3" and "4".
+const ruleForce = "2"
 
 // generalSection holds the list of rules and their count.
 const generalSection = "General"
@@ -369,9 +374,9 @@ func write(sec *iniSection, r Rule) {
 	if r.Opacity > 0 {
 		v := strconv.Itoa(r.Opacity)
 		sec.set("opacityactive", v)
-		sec.set("opacityactiverule", ruleApplyInitially)
+		sec.set("opacityactiverule", ruleForce)
 		sec.set("opacityinactive", v)
-		sec.set("opacityinactiverule", ruleApplyInitially)
+		sec.set("opacityinactiverule", ruleForce)
 	} else {
 		for _, k := range []string{
 			"opacityactive", "opacityactiverule",

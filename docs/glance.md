@@ -30,7 +30,7 @@ The package is smaller than that program, by design. Where this page
 describes something that the package does not contain, the text says so at
 that point.
 
-![A small frameless panel on a desktop, four cards stacked, each a rounded surface a step lighter than the panel behind it. "Peripherals" shows a mouse at 87% in green. "Bandwidth" shows two interface rows with rates right-aligned in a monospace column. "AIO" shows CPU 74.5 °C in blue, Coolant 50.1 °C in amber and Fans 1368 rpm, over a sparkline whose two traces are drawn in the colours of the rows they came from. "Usage" shows two meters, each a label, a monospace caption and a bar: a green one at 48% of a five-hour window, an amber one at 82% of a monthly budget. No titlebar, no buttons, no scrollbar.](img/glance-monitor.png)
+![A small frameless panel on a desktop, four cards stacked, each a rounded surface a step lighter than the panel behind it, with its title in a grey a step below the rows under it. "Peripherals" shows a mouse at 87 % in green. "Bandwidth" shows two interface rows with rates right-aligned in a monospace column. "AIO" shows CPU 90.6 °C in blue, Coolant 49.6 °C in green and Fans 1352 rpm, over a sparkline whose two traces are drawn in the colours of the rows they came from. "Usage" shows two meters, each a label, a monospace caption and a bar: a green one at 42 % of a five-hour window, an orange one at 82 % of a monthly budget. No titlebar, no buttons, no scrollbar.](img/glance-monitor.png)
 
 This is `examples/glance-monitor` with the KDE window rule installed. Without
 the rule, KWin draws a titlebar on the window. `glance/kwin` exists to remove
@@ -43,7 +43,7 @@ decorates it anyway.
 - [What Fyne 2.8.1 gives and withholds](#what-fyne-281-gives-and-withholds)
 - [The window](#the-window)
 - [Desktop integration](#desktop-integration)
-- [Opacity without alpha](#opacity-without-alpha)
+- [Opacity, and alpha](#opacity-and-alpha)
 - [The card stack](#the-card-stack)
 - [Sizing](#sizing)
 - [Numbers that do not jitter](#numbers-that-do-not-jitter)
@@ -87,13 +87,16 @@ Verified against `fyne.io/fyne/v2 v2.8.1`, the module's pin.
 | Always on top | Yes: `desktop.Window.RequestAlwaysOnTop()`, **before `Show`**; sets the GLFW `Floating` hint | `driver/desktop/window.go` |
 | Position the window | Partly: `desktop.Window.RequestPosition(x, y)`. Its own doc says the request "may be ignored (for example Linux Wayland)". A KWin rule can place the window; see Desktop integration | `driver/desktop/window.go` |
 | Read the window's position back | **No.** GLFW's position callback is wired internally; nothing on `fyne.Window` exposes a position | quirk 33 |
-| A translucent window background | **No.** The desktop backend never requests `glfw.TransparentFramebuffer`, and asks for no alpha bits. Only the wasm backend requests `AlphaBits, 8` | quirk 32 |
+| A translucent window background | Not offered, but reachable: the painter already clears with the `Background` role's alpha, and the desktop backend never requests `glfw.TransparentFramebuffer`. Setting the hint ourselves between GLFW init and window creation works. `glance.Options.Translucent` | quirk 32 |
 | Size to content | Yes, in one direction only: a `SetFixedSize(true)` window grows to its content's minimum size on its own, and shrinks only when the program calls `Resize` explicitly | quirk 34 |
 | Know the window was resized | No — quirk 14, already recorded. It does not bite here: a glance window is fixed-size and the program is the only thing that resizes it |
 | Show the window without taking the focus | **No.** A splash window takes the focus when it is shown, on Plasma 6 (quirk 36). A KWin rule with `acceptfocus=false` stops it | `glance/kwin` |
 
 Two of these decide the design, and you cannot correct either one inside the
-process. They are why this page exists before the code does.
+process. They are why this page exists before the code does. A third —
+translucency — was in that list for the same reason until it was measured
+rather than read; see [Opacity, and alpha](#opacity-and-alpha) for what that
+cost.
 
 ## The window
 
@@ -168,15 +171,31 @@ because it holds every other rule that the user has.
 | `wmclass` / `wmclassmatch` | the app ID / `1` | exact match |
 | `above` / `aboverule` | `true` / `2` | keep above, forced |
 | `noborder` / `noborderrule` | `true` / `2` | no titlebar, forced |
-| `opacityactive` / `opacityactiverule` | 0–100 / `4` | **this is the translucency**, applied initially |
-| `opacityinactive` / `opacityinactiverule` | 0–100 / `4` | same when unfocused |
+| `opacityactive` / `opacityactiverule` | 0–100 / `2` | **this is the translucency**, forced |
+| `opacityinactive` / `opacityinactiverule` | 0–100 / `2` | same when unfocused |
 | `title` / `titlematch` | the window title / `1` | exact; for a second window of a program whose main window shares the app ID |
 | `skiptaskbar`, `skipswitcher`, `skippager` (each with `…rule`) | `true` / `2` | out of the taskbar, the switcher and the pager, forced |
 | `acceptfocus` / `acceptfocusrule` | `false` / `2` | never takes the focus, forced |
 
-In the KWin rule vocabulary, `2` is "Force" and `4` is "Apply Initially". Use
-"Apply Initially" for the opacity and not "Force", so that the user can still
-change it from the window menu.
+In the KWin rule vocabulary the `…rule` value is `SetRule`: `1` DontAffect,
+`2` Force, `3` Apply — the GUI's "apply initially" — and `4` Remember.
+
+**The opacity is forced, and this was measured rather than reasoned.** This
+page said to use "apply initially" so that the user could still change it from
+the window menu, and the package wrote `4`, which is Remember and not that.
+Neither value applies an opacity: a window under a rule at 100, 95, 80 and
+50 % was opaque at every one of them. At `2` the same window tracked the blend
+against the desktop behind it exactly, at every percentage. If a reader finds
+a rule type that applies the opacity *and* leaves the window menu free, it is
+worth having; `3` is not it.
+
+Note what the opacity is applied *to*. It is the whole window, after the
+toolkit has drawn it. On an opaque glance window the rule therefore fades the
+gaps between the cards as well: at 80 % the space between two cards is 80 % of
+the window's background over the wallpaper, not the wallpaper. Only
+`Translucent` gives the gaps themselves away. The two compose — a translucent
+window under an opacity rule fades its cards and keeps its gaps clear — and
+they answer different questions. See [Opacity, and alpha](#opacity-and-alpha).
 
 **`noborder` is necessary, not an additional precaution.** A splash window
 sets the GLFW `Decorated` hint to false, and KWin draws a titlebar on it
@@ -272,29 +291,67 @@ is.
   `Meter` for a level, a `Row` for a state. The program sets the value and
   calls `Show`; the window does not read anything itself.
 
-## Opacity without alpha
+## Opacity, and alpha
 
 The monitor sets `WA_TranslucentBackground` and offers 100, 95, 90, 80 and
-70 %, and the desktop is visible through the panel. **Fyne cannot draw this**
-(quirk 32), and a program that waits for it will wait without end.
+70 %, and the desktop is visible through the panel. This page said for a long
+time that Fyne could not draw it and that a program waiting for it would wait
+without end. That was wrong, and it was wrong in a way worth recording: the
+claim came from reading the driver, not from trying it.
 
-Fyne can ask the compositor instead. The compositor applies opacity to a
-window whose toolkit knows nothing about opacity. On Plasma this is two lines
-in a KWin rule, and the monitor already supplies them. See [Desktop
-integration](#desktop-integration).
+Fyne's GL painter clears each frame with `theme.Color(ColorNameBackground)`,
+*including that colour's alpha*. It has always done so. What is missing is the
+window: the desktop backends ask for no alpha bits and never set
+`glfw.TransparentFramebuffer`, so the alpha has nowhere to land. That hint is
+sticky global state and Fyne never calls `glfw.DefaultWindowHints`, so setting
+it on the main thread between GLFW's initialisation and the window's creation
+is enough, with no fork and no patch. Upstream has the same thing in draft
+(fyne#6338), stalled on whether it belongs on `fyne.Window` or on the
+`desktop.Window` interface 2.8 introduced.
 
-There are therefore two different things, and the design depends only on the
-first:
+`glance.Options.Translucent` does this, and `Window.Translucent()` reports
+whether it worked. Measured on Plasma 6 on Wayland: the gap between two cards
+comes back byte-identical to the desktop pixel behind it, and the cards stay
+opaque.
 
-- **The opacity of a whole window is a desktop setting.** It is available
-  where the desktop offers it and absent where the desktop does not. Offer it,
-  apply it by writing the rule of the desktop, and treat its absence as
-  normal.
-- **Alpha for each pixel is not available.** A card cannot be more opaque than
-  its window, a value cannot appear gradually, and a background cannot take a
-  colour from the wallpaper behind it.
+**The hint is a request, and a refusal is worse than not asking.** A window
+with an alpha-zero background and no alpha channel clears to *black*, not to
+the desktop — measured, not reasoned. Refusal is real: some AMD drivers on
+Windows (glfw#2731) and dedicated laptop GPUs (glfw#1288). So the grant is
+probed for with a one-pixel throwaway window before the theme commits, and an
+opaque window is what a refusal gives.
 
-Which yields the binding rule:
+**Only the `Background` role goes transparent**, through
+`theme.WithTransparentBackground`. `OverlayBackground` does not, because it is
+the fill of a popup menu, and a glance window whose context menu is invisible
+has no interface at all.
+
+There are therefore two separate mechanisms, and they compose:
+
+- **Per-pixel alpha** is the shape: the panel is not drawn and the cards are,
+  so the desktop shows between them, which is what the monitor looks like.
+- **The opacity of a whole window** is applied over whatever the toolkit drew,
+  and there are three ways to set it, which are not interchangeable:
+
+  | | when | where |
+  |---|---|---|
+  | A KWin rule's `opacityactive` | at the window's creation | Plasma; the rule file has to be written and KWin told to re-read it |
+  | `_NET_WM_WINDOW_OPACITY` on the window | live | X11 and XWayland, under any compositing window manager |
+  | KWin scripting, `w.opacity` | live | Plasma, on Wayland and on X11 |
+
+  `glance.Window.SetOpacity` writes the property, which is the whole of GLFW's
+  own X11 implementation. On Wayland it returns `ErrOpacityNeedsCompositor`,
+  because there is no protocol for a client's own opacity — GLFW's Wayland
+  backend answers `GLFW_FEATURE_UNAVAILABLE` to the same request — and
+  `kwin.OpacityScript` is what to ask the compositor with. Only the live kinds
+  can carry the opacity menu the monitor has; a rule cannot change a window
+  that is already on screen.
+
+  Measured on Plasma 6, translucency and opacity are independent. Opacity moves
+  the card and leaves the gap; translucency moves the gap and leaves the card;
+  with both, the gap is the desktop and the card is faded over it.
+
+The design still does not *depend* on either:
 
 - **Contrast separates the cards, not alpha.** The cards of the monitor are
   `rgba(43,43,43,α)` on the desktop, with a thin `rgba(255,255,255,20)` border.
@@ -313,14 +370,17 @@ Which yields the binding rule:
   and none of those desktops draws a square floating panel. `glance.CardRadius`
   is 8, between the 8 that the monitor uses for a section and the 12 it uses
   for the window around them.
-- **The panel behind the cards is square.** A round corner on the panel would
-  make a round corner on the window. The window cannot be translucent
-  (quirk 32), so the corner would be cut out of an opaque rectangle and would
-  not show the desktop.
+- **The panel behind the cards is square.** A round corner on the panel is a
+  corner cut out of the window. On an opaque window it shows the window's own
+  background and reads as a notch; on a translucent one it shows the desktop,
+  which is right, but the window is opaque wherever the hint was refused. A
+  square panel is correct in both.
 - **No rule may depend on a view through the window.** Do not position, size
   or colour anything on the assumption that the wallpaper is legible behind
-  it. The design is a glance window at 100 % opacity. A lower value is the
-  preference of the user, applied above the design.
+  it. This holds with translucency, not despite it: the panel is see-through
+  where the cards are not, so nothing may rely on what is behind them. The
+  design is a glance window, opaque, at 100 %. Translucency and a lower opacity
+  are both the preference of the user, applied above the design.
 
 ## The card stack
 
@@ -382,6 +442,26 @@ each change of font scale, and the first data of each card.
   minimum so that nothing becomes zero. design-system.md makes the same point
   about the `48` and `18` of the applications, which were set for size 12
   only.
+- **A card carries a surface's margin and not the scheme's control padding.**
+  `glance.CardPadH`, `CardPadTop` and `CardPadBottom` are the margins inside a
+  card, and `CardGap` is the space between one card and the next. Each is a
+  factor of the text size, for the reason in the bullet above. The factors give
+  15, 8, 10 and 11 px at a 12 px face, which are the monitor's own numbers at
+  its 11 px one.
+
+  The scheme's padding token is 3 px in Breeze, and a card padded with it sits
+  its rows against its own border. This was the single largest difference
+  between a panel drawn by this package and the program the archetype comes
+  from, found by screenshotting the two side by side; the radius, the fill and
+  the border were already right.
+- **The card stack runs to the window's edge.** In the monitor a section is
+  flush with the panel and `CardGap` is the only place the background shows. A
+  ring of window background around the stack reads as a frame the panel does
+  not have.
+- **The card's title is drawn in the inactive foreground** (`PlaceHolder`), not
+  the full one. It names the section; the readings under it are what the eye is
+  meant to land on, and a title at full brightness competes with them. The
+  monitor draws it `#aaaaaa` against `#cccccc` rows for the same reason.
 
 ## Numbers that do not jitter
 

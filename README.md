@@ -257,6 +257,31 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- A glance window looks like the monitor it comes from. A card carries a
+  surface's margins instead of the scheme's control padding, the stack runs to
+  the window's edge, and a card's title is drawn in the inactive foreground:
+  `glance.CardPadH`, `CardPadTop`, `CardPadBottom` and `CardGap`, each a factor
+  of the text size (spec 036, #73).
+- `glance.Options.Translucent` gives a window the desktop shows through.
+  `docs/glance.md` said Fyne could not draw this and that a program waiting for
+  it would wait without end; the painter has always cleared with the
+  `Background` role's alpha, and only the window creation hint was missing. The
+  grant is probed for first, because a window that asks and is refused clears
+  to black. `theme.WithTransparentBackground` wraps a theme for it, leaving
+  `OverlayBackground` opaque so the context menu survives.
+- **Fix**: a `kwin.Rule`'s opacity has never been applied. The package wrote
+  `opacityactiverule=4`, which is KWin's *Remember* and not the "apply
+  initially" the name claimed; measured at four percentages, only *Force* (`2`)
+  applies an opacity.
+- `glance.Window.SetOpacity` fades a window that is already on screen, which a
+  rule cannot: a rule applies at the window's creation. On X11 the window sets
+  its own; on Wayland it returns `ErrOpacityNeedsCompositor` and
+  `kwin.OpacityScript` with `LoadScriptCall`, `RunCall` and `UnloadScriptCall`
+  is what to ask KWin with.
+- `examples/glance-monitor` takes `-translucent`.
+
 ### 0.1.45 (2026-09-25)
 
 - `glance.Transient.ShowFor` is Show with a hold of its own, for a change

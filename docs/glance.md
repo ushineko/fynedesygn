@@ -85,7 +85,7 @@ Verified against `fyne.io/fyne/v2 v2.8.1`, the module's pin.
 |---|---|---|
 | A frameless window | Yes: `desktop.Driver.CreateSplashWindow()` — undecorated, `SetPadded(false)`, centred on screen | `internal/driver/glfw/window.go` |
 | Always on top | Yes: `desktop.Window.RequestAlwaysOnTop()`, **before `Show`**; sets the GLFW `Floating` hint | `driver/desktop/window.go` |
-| Position the window | Partly: `desktop.Window.RequestPosition(x, y)`. Its own doc says the request "may be ignored (for example Linux Wayland)". A KWin rule can place the window; see Desktop integration | `driver/desktop/window.go` |
+| Position the window | **No**, on Plasma 6 on Wayland: `desktop.Window.RequestPosition(x, y)` moved a window by nothing, measured. A KWin rule places it at creation, and `kwin.PositionScript` places it at any time; see Desktop integration | `driver/desktop/window.go` |
 | Read the window's position back | **No.** GLFW's position callback is wired internally; nothing on `fyne.Window` exposes a position | quirk 33 |
 | A translucent window background | Not offered, but reachable: the painter already clears with the `Background` role's alpha, and the desktop backend never requests `glfw.TransparentFramebuffer`. Setting the hint ourselves between GLFW init and window creation works. `glance.Options.Translucent` | quirk 32 |
 | Size to content | Yes, in one direction only: a `SetFixedSize(true)` window grows to its content's minimum size on its own, and shrinks only when the program calls `Resize` explicitly | quirk 34 |
@@ -103,18 +103,36 @@ cost.
 - One splash window, `SetFixedSize(true)`, `RequestAlwaysOnTop()` called before
   `Show`. `SetMaster()` as usual: closing it ends the program.
 - **The desktop moves the window, not the window itself.** Qt has
-  `startSystemMove()` and the monitor uses it. Fyne has no equivalent, and a
-  drag that calls `RequestPosition` from a mouse handler is a request that the
-  compositor can refuse at every frame. On Wayland the compositor places the
-  window, and a window rule is the supported way to fix its position. Write
-  the rule down, and do not compete for the pixel.
-- **A program cannot keep its window position.** Nothing can read the position
-  back (quirk 33), so there is nothing to save. The monitor found the same
-  result from the other direction, because `moveEvent` does not fire for a move
-  that the compositor made on Wayland. It therefore uses the KWin scripting
-  D-Bus API from outside Qt. A program that wants its glance window in one
-  place supplies a compositor rule, in the same way that it supplies a desktop
-  entry.
+  `startSystemMove()` and the monitor uses it, which is what makes its
+  frameless panel draggable anywhere on its surface. Fyne has no equivalent,
+  so a plain drag on a glance window does nothing.
+
+  **A person still moves it: Meta and drag**, which is the compositor's own
+  fallback and goes around the client entirely. It works on KDE and on GNOME,
+  and it is the answer to give a user who asks. `Options.Decorated` is for a
+  desktop that offers no such gesture, and not for these two.
+- **`RequestPosition` does nothing here.** Measured on Plasma 6 on Wayland:
+  `desktop.Window.RequestPosition(900, 400)` left the window at the pixel it
+  was already on. Fyne's doc comment hedges — the request "may be ignored (for
+  example Linux Wayland)" — and on this compositor it is not ignored
+  sometimes, it is ignored.
+- **A program positions its window by asking the compositor.**
+  `kwin.PositionScript` sets `frameGeometry` on a window that is already on
+  screen, which is the one route that works: measured, the same window that
+  `RequestPosition` could not move went to 900,400. Use it for the screen the
+  pointer is on, or for putting a window back where it was.
+
+  A rule's `position` also works and is a different tool: it is applied at the
+  window's creation and pins to one screen, so it says "always open here" and
+  nothing more.
+- **A program cannot read its window position without asking either.** Nothing
+  in Fyne exposes it (quirk 33), and on Wayland every move is the compositor's
+  — the user's own Meta-drag included — so no event fires that a toolkit can
+  see. The monitor found this from the Qt side, where `moveEvent` does not
+  fire, and answers it with the scripting API from outside Qt.
+  `kwin.ReportGeometryScript` is that round trip: the script reads
+  `frameGeometry` and `callDBus`es the four numbers back to a method the
+  program exports, which is what makes "reopen where I left it" possible.
 - **A splash window takes the focus when it is shown** (quirk 36). A panel that
   a person reads and never touches does not want it, and an indicator that
   took the focus from a game at every key press would be a defect. The KWin

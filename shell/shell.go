@@ -179,7 +179,29 @@ func New(o Options) *Shell {
 	// environment at init, and there is no second chance once the window is up.
 	fdtheme.ApplyCursorTheme()
 
-	a := app.NewWithID(o.AppID)
+	return NewIn(app.NewWithID(o.AppID), o)
+}
+
+/*
+NewIn builds a shell window over an app the caller already has.
+
+New is the usual way in and creates the app itself, which makes it the wrong
+way in for a program that already has one: Fyne allows a single app per
+process, so a glance window, a tray-resident program or anything calling
+app.New cannot open a shell window through New at all. Headless is the nearest
+thing and deliberately makes no window, because it exists for tests.
+
+This is the middle: everything New does except creating the app. It also does
+not apply the cursor theme, which has to happen before the toolkit starts and
+therefore belongs to whoever did create the app.
+
+**The app's theme is set from this shell's appearance.** Two shells in one
+process would fight over it; that is not a shape this supports, and a program
+wanting two should ask why the second is not a section of the first. A glance
+window and a shell window are different archetypes and do not conflict: the
+glance window is drawn from the same theme and follows it.
+*/
+func NewIn(a fyne.App, o Options) *Shell {
 	s := newShell(a, o)
 	fdtheme.ApplyScale(s.appearance.Scale)
 	a.Settings().SetTheme(s.theme())

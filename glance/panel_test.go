@@ -472,3 +472,124 @@ func texts(o fyne.CanvasObject) []string {
 	walk(o)
 	return out
 }
+
+/*
+A panel with a theme of its own draws its cards in it, and leaves the
+application's alone.
+
+This is the whole point of the option, and the opposite of what it used to do.
+The application's theme has to belong to the window that has overlays -- a
+dialog, a Select's dropdown, a context menu are added to the canvas's overlay
+stack rather than to any window's content, so nothing can override them. A
+panel has no overlays, so the panel is the one that takes a theme of its own.
+
+It was reported the other way round: a settings window whose font chooser
+opened in the panel's face and the panel's card opacity, because the panel
+owned the application's theme and a dialog is not in a window's content.
+*/
+func TestAPanelWithItsOwnThemeDrawsItsCardsInIt(t *testing.T) {
+	a := test.NewApp()
+	t.Cleanup(a.Quit)
+
+	const appSize, panelSize = 20, 9
+	a.Settings().SetTheme(fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: appSize}))
+
+	p := glance.NewPanel(0)
+	c := glance.NewCard("Cooler")
+	row := glance.NewRow("CPU", "-- °C")
+	c.AddRow(row)
+	p.Add(c)
+	c.SetAvailable(true)
+
+	require.Equal(t, float32(appSize), firstTextSize(t, c.Object()),
+		"a panel with no theme of its own follows the application")
+
+	p.SetTheme(fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: panelSize}))
+
+	assert.Equal(t, float32(panelSize), firstTextSize(t, c.Object()),
+		"the card did not take the panel's theme")
+	assert.Equal(t, float32(appSize),
+		a.Settings().Theme().Size(theme.SizeNameText),
+		"the panel changed the application's theme, which belongs to another window")
+}
+
+// A card added after the theme was set takes it too. Cards arrive after the
+// window is built in every consumer there is.
+func TestACardAddedAfterwardsTakesThePanelsTheme(t *testing.T) {
+	a := test.NewApp()
+	t.Cleanup(a.Quit)
+	a.Settings().SetTheme(fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: 20}))
+
+	p := glance.NewPanel(0)
+	p.SetTheme(fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: 9}))
+
+	c := glance.NewCard("Usage")
+	c.AddRow(glance.NewRow("5h", "-- %"))
+	p.Add(c)
+	c.SetAvailable(true)
+
+	assert.Equal(t, float32(9), firstTextSize(t, c.Object()))
+}
+
+// Everything a card is made of takes it, not only its rows: a meter and a
+// grid of cells go in through AddObject and would otherwise be the two pieces
+// still wearing the application's face.
+func TestAMeterAndCellsTakeThePanelsThemeToo(t *testing.T) {
+	a := test.NewApp()
+	t.Cleanup(a.Quit)
+	a.Settings().SetTheme(fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: 20}))
+
+	p := glance.NewPanel(0)
+	c := glance.NewCard("Usage")
+	meter := glance.NewMeter("max", 60)
+	grid := glance.NewCellGrid()
+	cell := glance.NewCell("G502", "-- %")
+	grid.Add(cell)
+	c.Add(meter, grid)
+	p.Add(c)
+	c.SetAvailable(true)
+
+	p.SetTheme(fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: 9}))
+
+	assert.Equal(t, float32(9), firstTextSize(t, meter.Object()), "the meter")
+	assert.Equal(t, float32(9), firstTextSize(t, cell.Object()), "the cell")
+}
+
+// nil gives the panel back to the application, which is what a panel that
+// never asked for a face of its own has always done.
+func TestANilThemeReturnsThePanelToTheApplication(t *testing.T) {
+	a := test.NewApp()
+	t.Cleanup(a.Quit)
+	a.Settings().SetTheme(fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: 20}))
+
+	p := glance.NewPanel(0)
+	c := glance.NewCard("Cooler")
+	c.AddRow(glance.NewRow("CPU", "-- °C"))
+	p.Add(c)
+	c.SetAvailable(true)
+
+	p.SetTheme(fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: 9}))
+	require.Equal(t, float32(9), firstTextSize(t, c.Object()))
+
+	p.SetTheme(nil)
+
+	assert.Equal(t, float32(20), firstTextSize(t, c.Object()))
+}
+
+// firstTextSize is the size of the first text an object draws, recovered from
+// the tree rather than from the theme: the question is what reached the canvas
+// objects, and the theme is only what was asked for.
+func firstTextSize(t *testing.T, o fyne.CanvasObject) float32 {
+	t.Helper()
+
+	var size float32
+	fynetest.WalkRendered(o, func(obj fyne.CanvasObject) bool {
+		if txt, ok := obj.(*canvas.Text); ok && txt.Text != "" {
+			size = txt.TextSize
+			return true
+		}
+		return false
+	})
+	require.NotZero(t, size, "no text drawn")
+	return size
+}

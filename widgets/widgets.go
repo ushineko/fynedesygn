@@ -288,14 +288,24 @@ func ImportanceFor(st fd.Status) widget.Importance {
 // background, a marker tint) use this rather than a literal so they follow
 // the scheme.
 func StatusColor(st fd.Status) color.Color {
+	return theme.Color(StatusColorName(st))
+}
+
+// StatusColorName is the theme role a status takes, for a caller that has to
+// resolve it in a theme of its own rather than the application's.
+//
+// A glance panel is the caller: it carries its own face so that the
+// application's is free for the window with the overlays, and it cannot go
+// through the package-level theme helpers to find a colour.
+func StatusColorName(st fd.Status) fyne.ThemeColorName {
 	switch st {
 	case fd.StatusGood:
-		return theme.Color(theme.ColorNameSuccess)
+		return theme.ColorNameSuccess
 	case fd.StatusWarn:
-		return theme.Color(theme.ColorNameWarning)
+		return theme.ColorNameWarning
 	case fd.StatusBad:
-		return theme.Color(theme.ColorNameError)
+		return theme.ColorNameError
 	case fd.StatusInfo:
 	}
-	return theme.Color(theme.ColorNamePrimary)
+	return theme.ColorNamePrimary
 }

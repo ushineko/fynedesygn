@@ -48,6 +48,14 @@ func CardPadBottom() float32 { return theme.TextSize() * 0.83 }
 // CardGap is the space between two cards in the stack. See CardPadH.
 func CardGap() float32 { return theme.TextSize() * 0.9 }
 
+// padH, padTop, padBottom and gap are the four above measured in whatever face
+// the object has been given, which is what every layout here uses. The
+// exported ones stay for a consumer doing arithmetic of its own.
+func (t *themed) padH() float32      { return t.textSize() * 1.25 }
+func (t *themed) padTop() float32    { return t.textSize() * 0.67 }
+func (t *themed) padBottom() float32 { return t.textSize() * 0.83 }
+func (t *themed) gap() float32       { return t.textSize() * 0.9 }
+
 // GoneMarker is what a card's header says when its source was answering and
 // has stopped. It is short because it shares the header with the title, and it
 // is a state rather than a mechanism: the reason belongs in the log.
@@ -66,13 +74,24 @@ const GoneMarker = "(unavailable)"
 // handed to OnDrawnChanged: a glance window on a machine without the sensor it
 // watches should be indistinguishable from one built without the card.
 type Card struct {
+	themed
+
 	title *canvas.Text
 	mark  *canvas.Text
 	rows  []*Row
 	body  *fyne.Container
-	inner *fyne.Container
-	face  *canvas.Rectangle
-	frame *fyne.Container
+
+	// objects are what AddObject was given, kept so a change of theme can
+	// reach them: the body holds them as plain canvas objects and a
+	// container cannot be asked which of its children have a theme.
+	objects []fyne.CanvasObject
+
+	// pieces are what Add was given: the things in the card that have a face
+	// of their own and can be told when it changes.
+	pieces []Piece
+	inner  *fyne.Container
+	face   *canvas.Rectangle
+	frame  *fyne.Container
 
 	allowed   bool
 	available bool
@@ -89,13 +108,15 @@ type Card struct {
 // flash an empty panel on the way up.
 func NewCard(title string) *Card {
 	c := &Card{
-		title:   canvas.NewText(title, theme.Color(theme.ColorNamePlaceHolder)),
-		mark:    canvas.NewText(GoneMarker, theme.Color(theme.ColorNameDisabled)),
+		title:   canvas.NewText(title, nil),
+		mark:    canvas.NewText(GoneMarker, nil),
 		allowed: true,
 	}
 	c.title.TextStyle = fyne.TextStyle{Bold: true}
-	c.title.TextSize = theme.TextSize()
-	c.mark.TextSize = theme.TextSize()
+	c.title.Color = c.colour(theme.ColorNamePlaceHolder)
+	c.mark.Color = c.colour(theme.ColorNameDisabled)
+	c.title.TextSize = c.textSize()
+	c.mark.TextSize = c.textSize()
 	c.mark.Hide()
 
 	header := container.NewHBox(c.title, layout.NewSpacer(), c.mark)
@@ -107,13 +128,13 @@ func NewCard(title string) *Card {
 	// fill one step from the window's own, and a hairline border one step
 	// again. Both are palette tokens, so a card stays a card in every scheme
 	// rather than being a grey that happens to work in one.
-	c.face = canvas.NewRectangle(theme.Color(theme.ColorNameButton))
-	c.face.StrokeColor = theme.Color(theme.ColorNameSeparator)
+	c.face = canvas.NewRectangle(c.colour(theme.ColorNameButton))
+	c.face.StrokeColor = c.colour(theme.ColorNameSeparator)
 	c.face.StrokeWidth = 1
 	c.face.CornerRadius = CardRadius
 
 	c.inner = container.New(
-		layout.NewCustomPaddedLayout(CardPadTop(), CardPadBottom(), CardPadH(), CardPadH()),
+		layout.NewCustomPaddedLayout(c.padTop(), c.padBottom(), c.padH(), c.padH()),
 		container.NewVBox(header, c.body))
 	c.frame = container.NewStack(c.face, c.inner)
 	c.frame.Hide()
@@ -123,6 +144,7 @@ func NewCard(title string) *Card {
 // AddRow appends rows in the order they will be drawn.
 func (c *Card) AddRow(rows ...*Row) {
 	for _, r := range rows {
+		r.SetTheme(c.th)
 		c.rows = append(c.rows, r)
 		c.body.Add(r.Object())
 	}
@@ -130,7 +152,73 @@ func (c *Card) AddRow(rows ...*Row) {
 
 // AddObject appends something that is not a row — a Sparkline, a progress bar
 // — under the rows added so far.
-func (c *Card) AddObject(o fyne.CanvasObject) { c.body.Add(o) }
+func (c *Card) AddObject(o fyne.CanvasObject) {
+	c.themeOne(o)
+	c.objects = append(c.objects, o)
+	c.body.Add(o)
+}
+
+/*
+Piece is something a card holds that has a face of its own to keep in step: a
+Meter, a CellGrid, a Row.
+
+It exists because AddObject is given an object and an object cannot be asked
+for its theme. A meter handed over as meter.Object() is a *fyne.Container by
+the time the card sees it, so the card has no way to tell it that the panel's
+face changed -- which left a meter and a grid of cells as the two pieces still
+wearing the application's.
+*/
+type Piece interface {
+	Object() fyne.CanvasObject
+	SetTheme(fyne.Theme)
+}
+
+// Add puts pieces in the card, in the order they will be drawn, and keeps them
+// in step with the card's face.
+//
+// Prefer it to AddObject for anything this package builds. AddObject stays for
+// a consumer's own object, which is its own to style.
+func (c *Card) Add(pieces ...Piece) {
+	for _, p := range pieces {
+		p.SetTheme(c.th)
+		c.pieces = append(c.pieces, p)
+		c.body.Add(p.Object())
+	}
+}
+
+/*
+SetTheme gives the card, its rows and whatever has been added to it a theme of
+its own, and repaints in it. Nil returns it to the application's.
+
+A panel calls this for every card in it; there is nothing for a consumer to do.
+It exists because the application's theme belongs to the window that has
+overlays -- see themed.
+*/
+func (c *Card) SetTheme(th fyne.Theme) {
+	c.themed.SetTheme(th)
+	for _, r := range c.rows {
+		r.SetTheme(th)
+	}
+	for _, o := range c.objects {
+		c.themeOne(o)
+	}
+	for _, p := range c.pieces {
+		p.SetTheme(th)
+	}
+	c.Restyle()
+}
+
+// themeOne hands the card's theme to something added to it, when it is
+// something that can take one.
+//
+// A meter, a sparkline and a grid of cells all can. A plain canvas object
+// cannot and is left alone: a consumer that adds its own object is responsible
+// for how it draws, which is the same bargain AddObject has always offered.
+func (c *Card) themeOne(o fyne.CanvasObject) {
+	if t, ok := o.(interface{ SetTheme(fyne.Theme) }); ok {
+		t.SetTheme(c.th)
+	}
+}
 
 // Rows are the card's rows, in order, for a caller that keeps no handles of
 // its own and for tests.
@@ -205,19 +293,19 @@ func (c *Card) apply() {
 
 // Restyle repaints the card and its rows in the current theme.
 func (c *Card) Restyle() {
-	c.title.TextSize = theme.TextSize()
-	c.title.Color = theme.Color(theme.ColorNamePlaceHolder)
-	c.mark.TextSize = theme.TextSize()
-	c.mark.Color = theme.Color(theme.ColorNameDisabled)
-	c.face.FillColor = theme.Color(theme.ColorNameButton)
-	c.face.StrokeColor = theme.Color(theme.ColorNameSeparator)
+	c.title.TextSize = c.textSize()
+	c.title.Color = c.colour(theme.ColorNamePlaceHolder)
+	c.mark.TextSize = c.textSize()
+	c.mark.Color = c.colour(theme.ColorNameDisabled)
+	c.face.FillColor = c.colour(theme.ColorNameButton)
+	c.face.StrokeColor = c.colour(theme.ColorNameSeparator)
 	c.face.CornerRadius = CardRadius
 	// The inner margins are a factor of the text size, so a size change moves
 	// them. A layout is a value here, not a live object: replacing it and
 	// refreshing is what re-measures the card (a Refresh alone keeps the old
 	// one's numbers).
 	c.inner.Layout = layout.NewCustomPaddedLayout(
-		CardPadTop(), CardPadBottom(), CardPadH(), CardPadH())
+		c.padTop(), c.padBottom(), c.padH(), c.padH())
 	c.inner.Refresh()
 	c.face.Refresh()
 	c.title.Refresh()

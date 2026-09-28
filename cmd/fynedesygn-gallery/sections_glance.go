@@ -162,7 +162,7 @@ func cellCard() *glance.Card {
 	phones.SetNote("Discharging")
 
 	grid.Add(mouse, board, buds, phones)
-	c.AddObject(grid.Object())
+	c.Add(grid)
 	c.SetAvailable(true)
 	return c
 }
@@ -221,7 +221,7 @@ func meterCard() *glance.Card {
 	} {
 		meter := glance.NewMeter(m.label, glanceMeterLabel)
 		meter.Set(m.frac, m.caption, m.st)
-		c.AddObject(meter.Object())
+		c.Add(meter)
 	}
 	c.SetAvailable(true)
 	return c

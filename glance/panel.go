@@ -23,6 +23,8 @@ const MinWidth float32 = 260
 // been hidden: a scrollbar is an instruction to interact, and nobody scrolls a
 // widget they are reading past.
 type Panel struct {
+	themed
+
 	cards []*Card
 	stack *fyne.Container
 	bg    *canvas.Rectangle
@@ -52,7 +54,7 @@ func NewPanel(minWidth float32) *Panel {
 	}
 	p := &Panel{
 		stack:    container.New(layout.NewCustomPaddedVBoxLayout(CardGap())),
-		bg:       canvas.NewRectangle(theme.Color(theme.ColorNameBackground)),
+		bg:       canvas.NewRectangle(nil),
 		minWidth: minWidth,
 	}
 	// The background is an explicit rectangle rather than the window's own
@@ -65,6 +67,7 @@ func NewPanel(minWidth float32) *Panel {
 	// background around them reads as a frame the panel does not have. The
 	// space between one card and the next is CardGap, which is the only place
 	// the background shows.
+	p.bg.FillColor = p.BackgroundColour()
 	p.root = container.NewStack(p.bg, p.stack)
 	return p
 }
@@ -73,6 +76,7 @@ func NewPanel(minWidth float32) *Panel {
 // is wired to resize the window when it appears or disappears.
 func (p *Panel) Add(cards ...*Card) {
 	for _, c := range cards {
+		c.SetTheme(p.th)
 		p.cards = append(p.cards, c)
 		p.stack.Add(c.Object())
 
@@ -128,28 +132,34 @@ func (p *Panel) content() fyne.CanvasObject {
 }
 
 /*
-SetTheme gives the panel a theme of its own, independent of the app's.
+SetTheme gives the panel a face of its own: its own scheme, its own family,
+its own size, independent of the application's.
 
-**This is not how to give a panel a text size of its own.** A subtree override
-reaches standard Fyne widgets, and a panel's cards, rows and meters are canvas
-objects that read the application's theme directly — so the padding around them
-changes and the text does not, which looks like it half worked. Use
-shell.Options.OwnAppearance on the *other* window instead: the panel takes the
-application's theme and the window whose widgets can be overridden takes its
-own.
+**This is how a program gives its panel and its settings window different
+faces, and it is the panel that takes the separate one.** The application's
+theme has to belong to the window that has *overlays* -- a dialog, a
+widget.Select's dropdown, a context menu -- because those are added to the
+canvas's overlay stack rather than to a window's content, so nothing can
+override them. A panel has no overlays. So the panel carries its own theme and
+the window keeps the application's, and everything in that window is right,
+dialogs included.
 
-What this is still good for is anything inside a panel that is a standard
-widget.
+This used to say the opposite, and the opposite did not work. It reached
+standard widgets through a subtree override and left the cards reading the
+application's theme, so the padding changed and the text did not. Both halves
+happen here now: every card is handed the theme, and the override stays for
+anything inside a panel that is a standard widget.
 
-nil takes the theme away again and the panel follows the app, which is what it
-does until this is called.
+nil takes the theme away again and the panel follows the application, which is
+what it does until this is called and what every panel that has not asked for
+anything else wants.
 
 **A panel with a theme of its own must be refreshed when cards are added**, and
-Add does that. Fyne's own documentation for the override says so: items added
-to the content after it was built keep the default theme until the override is
-refreshed, and every consumer adds its cards after the window is built.
+Add does that.
 */
 func (p *Panel) SetTheme(th fyne.Theme) {
+	p.themed.SetTheme(th)
+
 	switch {
 	case th == nil:
 		p.override = nil
@@ -160,10 +170,16 @@ func (p *Panel) SetTheme(th fyne.Theme) {
 		p.override.Refresh()
 	}
 
+	// The cards are the half the override cannot do: they are canvas objects
+	// and read the theme they are given rather than the application's.
+	for _, c := range p.cards {
+		c.SetTheme(th)
+	}
+
 	if p.win != nil {
 		p.win.SetContent(p.content())
-		p.Restyle()
 	}
+	p.Restyle()
 }
 
 // Size is the size the window should be: the content's minimum, widened to the
@@ -213,7 +229,7 @@ func (p *Panel) Restyle() {
 	p.bg.Refresh()
 	// The gap is a factor of the text size; see Card's margins for why the
 	// layout is replaced rather than refreshed.
-	p.stack.Layout = layout.NewCustomPaddedVBoxLayout(CardGap())
+	p.stack.Layout = layout.NewCustomPaddedVBoxLayout(p.gap())
 	for _, c := range p.cards {
 		c.Restyle()
 	}
@@ -247,7 +263,7 @@ func (p *Panel) BackgroundColour() color.Color {
 	if p.translucent {
 		return color.Transparent
 	}
-	return theme.Color(theme.ColorNameBackground)
+	return p.colour(theme.ColorNameBackground)
 }
 
 // SetTranslucent draws the panel's background clear. Window calls it when the

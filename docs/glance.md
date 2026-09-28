@@ -49,6 +49,7 @@ decorates it anyway.
 - [Numbers that do not jitter](#numbers-that-do-not-jitter)
 - [Meters](#meters)
 - [Cells](#cells)
+- [A panel's face is its own](#a-panels-face-is-its-own)
 - [Colour is the legend](#colour-is-the-legend)
 - [Trend plots](#trend-plots)
 - [The context menu is the whole interface](#the-context-menu-is-the-whole-interface)
@@ -605,6 +606,34 @@ that wrap to the width they are given.
   percentage and it is deliberately not carried: an icon per device type means
   this module knowing what a mouse is, which is an application concept. A
   consumer that wants one puts it in the name.
+
+## A panel's face is its own
+
+A program with a glance panel and a settings window usually wants them to look
+different: a panel is read from across a desk and a settings window at arm's
+length. `Panel.SetTheme` gives the panel its own scheme, family and size, and
+the application keeps the settings window's.
+
+**That way round, and not the other.** The deciding fact is overlays. A dialog,
+a dropdown and a context menu are added to the canvas's overlay stack rather
+than to a window's content, so `shell.Options.OwnAppearance`, which wraps
+content, cannot reach them — see quirk 38. They draw in the application's
+theme, whatever it is. A panel has no overlays at all. So the window that has
+them keeps the application's theme and everything in it is right, and the panel
+is the one that carries something of its own.
+
+- **The panel hands its theme to its cards**, each card to its rows, and to
+  every `Piece` it was given. Add a meter or a grid of cells with `Card.Add`
+  rather than `Card.AddObject`: an object cannot be asked for its theme, and a
+  meter handed over as `meter.Object()` is a plain container by the time the
+  card sees it.
+- **`AddObject` is still there** for a consumer's own object, which is its own
+  to style.
+- **A nil theme is the application's**, which is what a panel that has not
+  asked for anything else does and has always done.
+- **A card is a canvas object, so it repaints when it is told and not before.**
+  Every `SetTheme` here restyles, because a `canvas.Text` holds a literal size
+  and colour rather than asking the theme when it draws.
 
 ## Colour is the legend
 

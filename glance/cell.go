@@ -9,7 +9,6 @@ import (
 	"fyne.io/fyne/v2/theme"
 
 	fd "github.com/ushineko/fynedesygn"
-	"github.com/ushineko/fynedesygn/widgets"
 )
 
 // CellValueScale is how much larger a cell's reading is than its name.
@@ -24,10 +23,12 @@ import (
 // for one face is proportionally wrong at another.
 const CellValueScale float32 = 1.5
 
-// CellPad is the space between the three pieces of a cell.
+// CellPad is the space between the three pieces of a cell, in the
+// application's face. A cell with a face of its own measures its own.
 func CellPad() float32 { return theme.TextSize() * 0.2 }
 
-// CellGridGap is the space between two cells in a grid, across and down.
+// CellGridGap is the space between two cells in a grid, across and down, in
+// the application's face. A grid with a face of its own measures its own.
 func CellGridGap() float32 { return theme.TextSize() * 1.2 }
 
 /*
@@ -47,6 +48,13 @@ that two cells still fit a panel 260 px wide -- which is the archetype's own
 two-up.
 */
 func CellNameBudget() float32 { return theme.TextSize() * 8 }
+
+// pad, gridGap and nameBudget are the three above measured in whatever face
+// the object has been given, which is what every layout in this file uses. The
+// exported ones stay for a consumer that is doing arithmetic of its own.
+func (t *themed) pad() float32        { return t.textSize() * 0.2 }
+func (t *themed) gridGap() float32    { return t.textSize() * 1.2 }
+func (t *themed) nameBudget() float32 { return t.textSize() * 8 }
 
 /*
 Cell is one reading as a block: a name, a reading and a state, stacked and
@@ -75,6 +83,8 @@ it is deliberately not carried here: an icon per device type means this module
 knowing what a mouse is. A consumer that wants one puts it in the name.
 */
 type Cell struct {
+	themed
+
 	name  *canvas.Text
 	value *canvas.Text
 	note  *canvas.Text
@@ -98,9 +108,9 @@ type Cell struct {
 // the same contract NewRow has and for the same reason.
 func NewCell(name, blank string) *Cell {
 	c := &Cell{
-		name:  canvas.NewText(name, theme.Color(theme.ColorNameForeground)),
-		value: canvas.NewText(blank, theme.Color(theme.ColorNameForeground)),
-		note:  canvas.NewText("", theme.Color(theme.ColorNameDisabled)),
+		name:  canvas.NewText(name, nil),
+		value: canvas.NewText(blank, nil),
+		note:  canvas.NewText("", nil),
 		shown: true,
 	}
 	c.value.TextStyle = fyne.TextStyle{Monospace: true}
@@ -120,7 +130,7 @@ func NewCell(name, blank string) *Cell {
 func (c *Cell) Set(rd Reading) {
 	c.reading = rd
 	c.value.Text = rd.Text
-	c.value.Color = c.colour()
+	c.value.Color = c.readingColour()
 	c.value.Refresh()
 }
 
@@ -135,6 +145,14 @@ func (c *Cell) SetName(s string) {
 func (c *Cell) SetNote(s string) {
 	c.fullNote = s
 	c.redraw(c.note, s)
+}
+
+// SetTheme gives the cell a face of its own and repaints in it. A canvas.Text
+// holds a literal size and colour rather than asking the theme when it draws,
+// so being told is not enough.
+func (c *Cell) SetTheme(th fyne.Theme) {
+	c.themed.SetTheme(th)
+	c.Restyle()
 }
 
 // Reading is the value the cell currently holds, which is what a test asks for
@@ -173,17 +191,17 @@ func (c *Cell) Name() string { return c.fullName }
 // colour is the status colour, or the disabled colour when the value is stale.
 // Dimming wins over the verdict, as it does for a Row: a warning that is no
 // longer being refreshed should not keep shouting.
-func (c *Cell) colour() color.Color {
+func (c *Cell) readingColour() color.Color {
 	if c.reading.Stale {
-		return theme.Color(theme.ColorNameDisabled)
+		return c.colour(theme.ColorNameDisabled)
 	}
 	if c.reading.Colour != nil {
 		return c.reading.Colour
 	}
 	if c.reading.Status == fd.StatusInfo {
-		return theme.Color(theme.ColorNameForeground)
+		return c.colour(theme.ColorNameForeground)
 	}
-	return widgets.StatusColor(c.reading.Status)
+	return c.statusColour(c.reading.Status)
 }
 
 // Restyle repaints the cell in the current theme, after a scheme or text size
@@ -199,13 +217,13 @@ func (c *Cell) Restyle() {
 // restyleText applies the current theme's sizes and colours without
 // refreshing, for the constructor, which has nothing to refresh yet.
 func (c *Cell) restyleText() {
-	c.name.TextSize = theme.TextSize()
-	c.value.TextSize = theme.TextSize() * CellValueScale
-	c.note.TextSize = theme.TextSize()
+	c.name.TextSize = c.textSize()
+	c.value.TextSize = c.textSize() * CellValueScale
+	c.note.TextSize = c.textSize()
 
-	c.name.Color = theme.Color(theme.ColorNameForeground)
-	c.value.Color = c.colour()
-	c.note.Color = theme.Color(theme.ColorNameDisabled)
+	c.name.Color = c.colour(theme.ColorNameForeground)
+	c.value.Color = c.readingColour()
+	c.note.Color = c.colour(theme.ColorNameDisabled)
 }
 
 // SetShown draws or hides the cell. A device that has gone away hides its own
@@ -244,6 +262,14 @@ actually given, which is the grid's to decide and not the cell's.
 */
 type cellLayout struct{ cell *Cell }
 
+// padding is the gap between a cell's three pieces, in the cell's own face.
+func (l *cellLayout) padding() float32 {
+	if l.cell == nil {
+		return CellPad()
+	}
+	return l.cell.pad()
+}
+
 // MinSize is the width the reading needs, widened for the name and the state
 // up to their budget, and the three pieces' heights.
 func (l *cellLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
@@ -254,13 +280,13 @@ func (l *cellLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 
 	width := value.Width
 	if c := l.cell; c != nil {
-		budget := CellNameBudget()
+		budget := c.nameBudget()
 		width = max(width, min(textWidth(c.name, c.fullName), budget))
 		width = max(width, min(textWidth(c.note, c.fullNote), budget))
 	}
 
 	height := objects[0].MinSize().Height + value.Height + objects[2].MinSize().Height
-	return fyne.NewSize(width, height+2*CellPad())
+	return fyne.NewSize(width, height+2*l.padding())
 }
 
 // Layout centres each piece on its own line, eliding the two that may be
@@ -283,7 +309,7 @@ func (l *cellLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 		h := o.MinSize().Height
 		o.Move(fyne.NewPos(0, y))
 		o.Resize(fyne.NewSize(size.Width, h))
-		y += h + CellPad()
+		y += h + l.padding()
 	}
 }
 
@@ -353,6 +379,8 @@ it laying out at the old one -- and a glance panel's text size is a setting the
 user can move.
 */
 type CellGrid struct {
+	themed
+
 	cells  []*Cell
 	box    *fyne.Container
 	layout *cellGridLayout
@@ -360,13 +388,26 @@ type CellGrid struct {
 
 // NewCellGrid builds an empty grid. Cells are added with Add.
 func NewCellGrid() *CellGrid {
-	l := &cellGridLayout{}
-	return &CellGrid{box: container.New(l), layout: l}
+	g := &CellGrid{}
+	g.layout = &cellGridLayout{grid: g}
+	g.box = container.New(g.layout)
+	return g
+}
+
+// SetTheme gives the grid and every cell in it a theme of its own. A panel
+// calls it; there is nothing for a consumer to do.
+func (g *CellGrid) SetTheme(th fyne.Theme) {
+	g.themed.SetTheme(th)
+	for _, c := range g.cells {
+		c.SetTheme(th)
+	}
+	g.box.Refresh()
 }
 
 // Add puts cells in the grid, in the order they are to be drawn.
 func (g *CellGrid) Add(cells ...*Cell) {
 	for _, c := range cells {
+		c.SetTheme(g.th)
 		g.cells = append(g.cells, c)
 		g.box.Add(c.Object())
 	}
@@ -378,8 +419,9 @@ func (g *CellGrid) Add(cells ...*Cell) {
 func (g *CellGrid) Cells() []*Cell { return g.cells }
 
 // Restyle repaints every cell in the current theme and re-measures the grid,
-// which a card cannot do for it: a grid goes in through AddObject, which takes
-// a plain canvas object and cannot know it has a Restyle of its own.
+// which a card cannot do for it when the grid went in through AddObject: that
+// takes a plain canvas object and cannot know it has a Restyle of its own. A
+// grid added with Card.Add is kept in step by the card.
 func (g *CellGrid) Restyle() {
 	for _, c := range g.cells {
 		c.Restyle()
@@ -401,7 +443,18 @@ resize, so the remembered width is the one the grid is actually at by the time
 anybody sees it; before the first layout it is zero, which reports one column
 and is the honest answer for a grid nobody has given a size to yet.
 */
-type cellGridLayout struct{ width float32 }
+type cellGridLayout struct {
+	grid  *CellGrid
+	width float32
+}
+
+// gap is the space between two cells, in the grid's own face.
+func (l *cellGridLayout) gap() float32 {
+	if l.grid == nil {
+		return CellGridGap()
+	}
+	return l.grid.gridGap()
+}
 
 // MinSize is one cell wide and as many lines as the last width implies.
 //
@@ -414,8 +467,9 @@ func (l *cellGridLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	}
 	cell := cellSize(shown)
 
-	lines := lineCount(len(shown), perLine(l.width, cell.Width))
-	return fyne.NewSize(cell.Width, float32(lines)*cell.Height+float32(lines-1)*CellGridGap())
+	gap := l.gap()
+	lines := lineCount(len(shown), perLine(l.width, cell.Width, gap))
+	return fyne.NewSize(cell.Width, float32(lines)*cell.Height+float32(lines-1)*gap)
 }
 
 // Layout fills each line before starting the next.
@@ -427,9 +481,9 @@ func (l *cellGridLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	l.width = size.Width
 
 	cell := cellSize(shown)
-	across := perLine(size.Width, cell.Width)
+	gap := l.gap()
+	across := perLine(size.Width, cell.Width, gap)
 
-	gap := CellGridGap()
 	width := (size.Width - float32(across-1)*gap) / float32(across)
 	for i, o := range shown {
 		col, row := i%across, i/across
@@ -451,12 +505,12 @@ func lineCount(n, across int) int {
 // At least one, because a grid narrower than a cell still has to draw it: a
 // card clipped to nothing is worse than a card whose reading runs to its edge,
 // and the panel has a minimum width of its own that this is inside.
-func perLine(space, cell float32) int {
+func perLine(space, cell, gap float32) int {
 	if cell <= 0 {
 		return 1
 	}
 	n := 1
-	for (float32(n+1))*cell+float32(n)*CellGridGap() <= space {
+	for (float32(n+1))*cell+float32(n)*gap <= space {
 		n++
 	}
 	return n

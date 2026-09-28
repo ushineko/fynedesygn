@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.55
+**Version**: 0.1.56
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -257,7 +257,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.56 (2026-09-28)
 
 - **A reading can be a block instead of a line.** `glance.Cell` draws a name, a
   reading and a state stacked and centred, with the reading larger than the
@@ -634,7 +634,7 @@ describe -- see `.claude/CLAUDE.md`.
 
 - `readme_test.go` gains an eighth canary: a completed spec with no changelog
   entry. Three entries were lost in one afternoon because the edits that added
-  them looked for `### Unreleased`, which stopped existing the moment 0.1.30
+  them looked for `### 0.1.56 (2026-09-28)`, which stopped existing the moment 0.1.30
   was tagged — and a string replace that matches nothing says nothing (spec
   025, #24).
 

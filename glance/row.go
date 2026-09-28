@@ -10,7 +10,6 @@ import (
 	"fyne.io/fyne/v2/theme"
 
 	fd "github.com/ushineko/fynedesygn"
-	"github.com/ushineko/fynedesygn/widgets"
 )
 
 // Row is one label/value line in a card: the label on the left, the value on
@@ -25,6 +24,8 @@ import (
 // the card's own no-reflow rule; this is the one place a glance window departs
 // from the design system's "rebuild the section from state".
 type Row struct {
+	themed
+
 	label *canvas.Text
 	value *canvas.Text
 	box   *fyne.Container
@@ -38,12 +39,14 @@ type Row struct {
 // size when its first reading lands.
 func NewRow(label, blank string) *Row {
 	r := &Row{
-		label: canvas.NewText(label, theme.Color(theme.ColorNameForeground)),
-		value: canvas.NewText(blank, theme.Color(theme.ColorNameForeground)),
+		label: canvas.NewText(label, nil),
+		value: canvas.NewText(blank, nil),
 		shown: true,
 	}
-	r.label.TextSize = theme.TextSize()
-	r.value.TextSize = theme.TextSize()
+	r.label.Color = r.colour(theme.ColorNameForeground)
+	r.value.Color = r.colour(theme.ColorNameForeground)
+	r.label.TextSize = r.textSize()
+	r.value.TextSize = r.textSize()
 	r.value.TextStyle = fyne.TextStyle{Monospace: true}
 	r.box = container.NewHBox(r.label, layout.NewSpacer(), r.value)
 	r.reading = Measured(blank)
@@ -55,7 +58,7 @@ func NewRow(label, blank string) *Row {
 func (r *Row) Set(rd Reading) {
 	r.reading = rd
 	r.value.Text = rd.Text
-	r.value.Color = r.colour()
+	r.value.Color = r.readingColour()
 	r.value.Refresh()
 }
 
@@ -66,6 +69,14 @@ func (r *Row) SetLabel(s string) {
 	r.label.Refresh()
 }
 
+// SetTheme gives the row a face of its own and repaints in it. A canvas.Text
+// holds a literal size and colour rather than asking the theme when it draws,
+// so being told is not enough.
+func (r *Row) SetTheme(th fyne.Theme) {
+	r.themed.SetTheme(th)
+	r.Restyle()
+}
+
 // Reading is the value the row currently holds, which is what a test asks for
 // rather than walking the object tree.
 func (r *Row) Reading() Reading { return r.reading }
@@ -73,27 +84,27 @@ func (r *Row) Reading() Reading { return r.reading }
 // colour is the status colour, or the disabled colour when the value is stale.
 // Dimming wins over the verdict: a warning that is no longer being refreshed
 // should not keep shouting.
-func (r *Row) colour() color.Color {
+func (r *Row) readingColour() color.Color {
 	if r.reading.Stale {
-		return theme.Color(theme.ColorNameDisabled)
+		return r.colour(theme.ColorNameDisabled)
 	}
 	if r.reading.Colour != nil {
 		return r.reading.Colour
 	}
 	if r.reading.Status == fd.StatusInfo {
-		return theme.Color(theme.ColorNameForeground)
+		return r.colour(theme.ColorNameForeground)
 	}
-	return widgets.StatusColor(r.reading.Status)
+	return r.statusColour(r.reading.Status)
 }
 
 // Restyle repaints the row in the current theme, after a scheme or text size
 // change. A canvas.Text holds a literal colour and size rather than asking the
 // theme at paint time, so nothing else brings it up to date.
 func (r *Row) Restyle() {
-	r.label.TextSize = theme.TextSize()
-	r.value.TextSize = theme.TextSize()
-	r.label.Color = theme.Color(theme.ColorNameForeground)
-	r.value.Color = r.colour()
+	r.label.TextSize = r.textSize()
+	r.value.TextSize = r.textSize()
+	r.label.Color = r.colour(theme.ColorNameForeground)
+	r.value.Color = r.readingColour()
 	r.label.Refresh()
 	r.value.Refresh()
 }

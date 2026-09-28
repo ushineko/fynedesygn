@@ -41,6 +41,8 @@ const BarRadius float32 = 4
 // width with it. Format it through Percent, Quantity or Pad, the same as a
 // row's value.
 type Meter struct {
+	themed
+
 	label   *canvas.Text
 	caption *canvas.Text
 	bar     *bar
@@ -67,12 +69,14 @@ type Meter struct {
 // lets each label take its own width.
 func NewMeter(label string, labelWidth float32) *Meter {
 	m := &Meter{
-		label:   canvas.NewText(label, theme.Color(theme.ColorNameForeground)),
-		caption: canvas.NewText("", theme.Color(theme.ColorNameDisabled)),
+		label:   canvas.NewText(label, nil),
+		caption: canvas.NewText("", nil),
 		bar:     newBar(),
 	}
-	m.label.TextSize = theme.TextSize()
-	m.caption.TextSize = theme.Size(theme.SizeNameCaptionText)
+	m.label.Color = m.colour(theme.ColorNameForeground)
+	m.caption.Color = m.colour(theme.ColorNameDisabled)
+	m.label.TextSize = m.textSize()
+	m.caption.TextSize = m.size(theme.SizeNameCaptionText)
 	// Monospace, for the same reason a Row's value is. Padding a caption to a
 	// fixed character count only holds its width if the characters are the
 	// same width as each other: in a proportional face a space is narrower
@@ -84,9 +88,9 @@ func NewMeter(label string, labelWidth float32) *Meter {
 	// the reason the caption has them: they are changing values in a column,
 	// and in a proportional face a space is narrower than a digit, so a value
 	// that changes moves the one opposite it.
-	m.trailing = detailText()
-	m.statsLeft = detailText()
-	m.statsRight = detailText()
+	m.trailing = m.detailText()
+	m.statsLeft = m.detailText()
+	m.statsRight = m.detailText()
 
 	var head fyne.CanvasObject = m.label
 	if labelWidth > 0 {
@@ -109,9 +113,9 @@ func NewMeter(label string, labelWidth float32) *Meter {
 
 // detailText builds one of the quiet values: the trailing header value, or an
 // end of the stats row.
-func detailText() *canvas.Text {
-	t := canvas.NewText("", theme.Color(theme.ColorNameDisabled))
-	t.TextSize = theme.Size(theme.SizeNameCaptionText)
+func (m *Meter) detailText() *canvas.Text {
+	t := canvas.NewText("", m.colour(theme.ColorNameDisabled))
+	t.TextSize = m.size(theme.SizeNameCaptionText)
 	t.TextStyle = fyne.TextStyle{Monospace: true}
 	return t
 }
@@ -132,7 +136,7 @@ Empty removes it.
 */
 func (m *Meter) SetTrailing(s string) {
 	m.trailing.Text = s
-	m.trailing.Color = theme.Color(theme.ColorNameDisabled)
+	m.trailing.Color = m.colour(theme.ColorNameDisabled)
 	m.trailing.Refresh()
 }
 
@@ -148,8 +152,8 @@ Held to the no-jitter rule, for the reason SetTrailing gives.
 func (m *Meter) SetStats(left, right string) {
 	m.statsLeft.Text = left
 	m.statsRight.Text = right
-	m.statsLeft.Color = theme.Color(theme.ColorNameDisabled)
-	m.statsRight.Color = theme.Color(theme.ColorNameDisabled)
+	m.statsLeft.Color = m.colour(theme.ColorNameDisabled)
+	m.statsRight.Color = m.colour(theme.ColorNameDisabled)
 
 	if left == "" && right == "" {
 		m.stats.Hide()
@@ -176,7 +180,7 @@ func (m *Meter) Stats() (left, right string) { return m.statsLeft.Text, m.statsR
 func (m *Meter) Set(fraction float64, caption string, st fd.Status) {
 	m.status = st
 	m.caption.Text = caption
-	m.caption.Color = theme.Color(theme.ColorNameDisabled)
+	m.caption.Color = m.colour(theme.ColorNameDisabled)
 	m.bar.set(clamp01(fraction), m.fillColour())
 	m.caption.Refresh()
 }
@@ -214,17 +218,28 @@ func (m *Meter) fillColour() fyne.ThemeColorName {
 }
 
 // Restyle repaints the meter in the current theme.
+// SetTheme gives the meter and its bar a theme of their own. A panel calls it.
+func (m *Meter) SetTheme(th fyne.Theme) {
+	m.themed.SetTheme(th)
+	if m.bar != nil {
+		m.bar.SetTheme(th)
+	}
+	// And repaint in it. A canvas.Text holds a literal size and colour rather
+	// than asking the theme when it draws, so being told is not enough.
+	m.Restyle()
+}
+
 func (m *Meter) Restyle() {
-	m.label.TextSize = theme.TextSize()
-	m.label.Color = theme.Color(theme.ColorNameForeground)
-	m.caption.TextSize = theme.Size(theme.SizeNameCaptionText)
-	m.caption.Color = theme.Color(theme.ColorNameDisabled)
+	m.label.TextSize = m.textSize()
+	m.label.Color = m.colour(theme.ColorNameForeground)
+	m.caption.TextSize = m.size(theme.SizeNameCaptionText)
+	m.caption.Color = m.colour(theme.ColorNameDisabled)
 	m.caption.TextStyle = fyne.TextStyle{Monospace: true}
 	m.bar.set(m.bar.fraction, m.fillColour())
 
 	for _, t := range []*canvas.Text{m.trailing, m.statsLeft, m.statsRight} {
-		t.TextSize = theme.Size(theme.SizeNameCaptionText)
-		t.Color = theme.Color(theme.ColorNameDisabled)
+		t.TextSize = m.size(theme.SizeNameCaptionText)
+		t.Color = m.colour(theme.ColorNameDisabled)
 		t.TextStyle = fyne.TextStyle{Monospace: true}
 		t.Refresh()
 	}
@@ -253,6 +268,7 @@ func clamp01(v float64) float64 {
 // only the layout knows.
 type bar struct {
 	widget.BaseWidget
+	themed
 
 	fraction float64
 	fill     fyne.ThemeColorName
@@ -275,9 +291,9 @@ func (b *bar) MinSize() fyne.Size { return fyne.NewSize(0, BarHeight) }
 
 func (b *bar) CreateRenderer() fyne.WidgetRenderer {
 	r := &barRenderer{bar: b}
-	r.track = canvas.NewRectangle(theme.Color(theme.ColorNameDisabledButton))
+	r.track = canvas.NewRectangle(b.colour(theme.ColorNameDisabledButton))
 	r.track.CornerRadius = BarRadius
-	r.value = canvas.NewRectangle(theme.Color(b.fill))
+	r.value = canvas.NewRectangle(b.colour(b.fill))
 	r.value.CornerRadius = BarRadius
 	return r
 }
@@ -298,8 +314,8 @@ func (r *barRenderer) Layout(size fyne.Size) {
 func (r *barRenderer) MinSize() fyne.Size { return r.bar.MinSize() }
 
 func (r *barRenderer) Refresh() {
-	r.track.FillColor = theme.Color(theme.ColorNameDisabledButton)
-	r.value.FillColor = theme.Color(r.bar.fill)
+	r.track.FillColor = r.bar.colour(theme.ColorNameDisabledButton)
+	r.value.FillColor = r.bar.colour(r.bar.fill)
 	r.Layout(r.size)
 	r.track.Refresh()
 	r.value.Refresh()

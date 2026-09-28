@@ -257,6 +257,26 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **A glance panel carries its own theme.** `Panel.SetTheme` now hands a face
+  to every card, and each card to its rows, meters and cells, instead of
+  wrapping a subtree override that canvas objects never read. The application's
+  theme is left to the window that has **overlays** — a dialog, a
+  `widget.Select`'s dropdown, a context menu are added to the canvas's overlay
+  stack rather than to any window's content, so nothing can override them
+  (quirk 38). A panel has none, so the panel is the one that takes a face of
+  its own (spec 042, #110).
+- It was the other way round, and the hole showed: a consumer's settings window
+  opened its font chooser in the panel's face and the panel's card opacity,
+  because the panel owned the application's theme and a dialog is not in a
+  window's content.
+- **New**: `Card.Add` takes a `Piece` — a `Meter`, a `CellGrid`, a `Row` —
+  and keeps it in step with the card's face. `AddObject` stays for a
+  consumer's own object, which is its own to style.
+- **New**: `widgets.StatusColorName` gives the theme role a status takes, for a
+  caller resolving it in a theme other than the application's.
+
 ### 0.1.57 (2026-09-28)
 
 - **Fix**: a section reached after the window was built draws in the window's

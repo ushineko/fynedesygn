@@ -37,3 +37,20 @@ func grantTranslucent() bool {
 	}
 	return granted
 }
+
+// clearTranslucent puts the transparent-framebuffer hint back, once the window
+// it was set for has been created.
+//
+// The hint above is deliberately left set so Fyne's next window inherits it,
+// and a hint is sticky global state: left alone it is inherited by every
+// window created afterwards, for the life of the process. Those windows are
+// not this library's. A program with a second window had it drawn see-through
+// -- a preferences window, and the dialogs it opened, with the desktop legible
+// through them.
+//
+// The same fault as the one glance/window.go records for the theme, one layer
+// down: a window-shaped decision reaching past the window. Both come of the
+// mechanism being global and neither is the consumer's to fix.
+func clearTranslucent() {
+	glfw.WindowHint(glfw.TransparentFramebuffer, glfw.False)
+}

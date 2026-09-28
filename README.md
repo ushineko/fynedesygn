@@ -257,6 +257,16 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- `shell.Options.Secondary` marks a shell window that belongs to a program with
+  a main window of its own. It is not the application's master, so closing it
+  does not end the program. `NewIn` exists for exactly that second window and
+  was marking it as the one whose closing exits — reported as *"how do I
+  dismiss the preferences window without closing the whole app?"*, to which the
+  answer was that you could not. The name and the meaning are
+  `glance.Options.Secondary`'s (#94).
+
 ### 0.1.51 (2026-09-27)
 
 - `kwin.DecorationScript` sets `noBorder` and `keepAbove` on windows that are

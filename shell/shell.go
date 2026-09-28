@@ -88,6 +88,19 @@ type Options struct {
 	// that keeps a setting the theme needs outside the preference store (a
 	// console font in its own configuration file) supplies it here.
 	Theme func(a fdtheme.Appearance) fyne.Theme
+	// Secondary marks a shell window that belongs to a program with a main
+	// window of its own: a preferences window beside a panel, a settings
+	// window beside a tray icon. It is not the master window, so closing it
+	// does not end the program.
+	//
+	// The name and the meaning are glance.Options.Secondary's, because they
+	// are the same idea from the other side.
+	//
+	// It defaults to false, which is what every caller has had. A shell built
+	// with New creates the app and is its master; one built with NewIn over
+	// an app the caller already has usually is not, and should say so.
+	Secondary bool
+
 	// OnTypedKey receives every typed key the shell did not handle itself (it
 	// binds F5 to Invalidate). Sections with keyboard navigation use it.
 	OnTypedKey func(e *fyne.KeyEvent)
@@ -397,7 +410,11 @@ func (s *Shell) buildWindow() {
 		size = fyne.NewSize(DefaultWidth, DefaultHeight)
 	}
 	s.Window.Resize(size)
-	s.Window.SetMaster()
+	if !s.opts.Secondary {
+		// Closing the master window exits the application, so a window that
+		// belongs to a program with a main window of its own must not be one.
+		s.Window.SetMaster()
+	}
 	s.selectIndex(s.current)
 	if !s.usesList() {
 		s.swap(false) // the list's selection is what swaps in the other shapes

@@ -57,3 +57,47 @@ func TestTheScriptingCallsNameKWinsOwnInterface(t *testing.T) {
 	assert.Equal(t, "unloadScript", kwin.UnloadScriptCall().Method)
 	assert.Equal(t, "/Scripting", kwin.UnloadScriptCall().Path)
 }
+
+// The decoration script sets what the rule forces, on windows already open.
+//
+// A rule reaches only windows KWin creates after it reads it, so without this
+// a control that turns "frameless and on top" on and off changes a file and
+// nothing the user can see.
+func TestTheDecorationScriptSetsBothProperties(t *testing.T) {
+	script := kwin.DecorationScript("io.example.app", "panel", true, true)
+
+	assert.Contains(t, script, `"io.example.app"`)
+	assert.Contains(t, script, `"panel"`)
+	assert.Contains(t, script, "w.noBorder = true")
+	assert.Contains(t, script, "w.keepAbove = true")
+}
+
+// Turning it off says so, rather than leaving the property alone.
+func TestTheDecorationScriptPutsTheDecorationBack(t *testing.T) {
+	script := kwin.DecorationScript("io.example.app", "panel", false, false)
+
+	assert.Contains(t, script, "w.noBorder = false")
+	assert.Contains(t, script, "w.keepAbove = false")
+}
+
+// It matches the title as well as the app ID.
+//
+// Every window in a program carries the same Wayland app_id, so a script keyed
+// on that alone would strip the decoration off a program's other windows —
+// which is the bug Rule.Title exists to avoid.
+func TestTheDecorationScriptMatchesTheTitleToo(t *testing.T) {
+	script := kwin.DecorationScript("io.example.app", "panel", true, true)
+
+	assert.Contains(t, script, "w.resourceClass == target")
+	assert.Contains(t, script, "w.caption == caption")
+}
+
+// Neither string can escape its literal and run as code in the compositor.
+func TestTheDecorationScriptCannotBeEscaped(t *testing.T) {
+	script := kwin.DecorationScript(`a"; workspace.slotToggleShowDesktop(); //`,
+		`b"; workspace.slotToggleShowDesktop(); //`, true, true)
+
+	assert.NotContains(t, script, `slotToggleShowDesktop();
+`, "an unescaped quote let the payload out of its string")
+	assert.Contains(t, script, `\"`)
+}

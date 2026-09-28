@@ -79,3 +79,38 @@ func UnloadScriptCall() DBusCall {
 		Method:      "unloadScript",
 	}
 }
+
+/*
+DecorationScript sets what a glance window's rule forces, on the windows that
+are already open.
+
+A rule is what makes those properties survive a restart, and it is only ever
+applied to windows KWin creates *after* it is read. So a program that offers
+"frameless and on top" as something a person turns on and off has, without
+this, a control that changes a file and nothing they can see.
+
+It matches a title as well as an app ID, and both must be given. Every window
+in a program carries the same Wayland app_id, so a script keyed on that alone
+would strip the decoration from a program's other windows — which is the bug
+Rule.Title exists to avoid, and there is no reason to reintroduce it here.
+
+The two values are the ones a glance window's rule forces. Opacity is not
+among them: it has OpacityScript of its own, because a caller may want to fade
+a window it has no rule for.
+*/
+func DecorationScript(appID, title string, noBorder, keepAbove bool) string {
+	// Both strings are quoted into JavaScript with %q, which escapes the quote
+	// and the backslash exactly as a JavaScript string literal needs. They
+	// come from the program rather than from a user, but a rule that only
+	// holds while nobody is careless is not a rule: an unescaped quote here
+	// would run whatever followed it inside the compositor.
+	return fmt.Sprintf(`const target = %q;
+const caption = %q;
+for (const w of workspace.windowList()) {
+    if (w.resourceClass == target && w.caption == caption) {
+        w.noBorder = %t;
+        w.keepAbove = %t;
+    }
+}
+`, appID, title, noBorder, keepAbove)
+}

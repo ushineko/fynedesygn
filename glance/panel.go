@@ -130,10 +130,16 @@ func (p *Panel) content() fyne.CanvasObject {
 /*
 SetTheme gives the panel a theme of its own, independent of the app's.
 
-A Fyne theme is application-wide, so a program with a glance window and a
-settings window gets one text size for both — and they want different ones: a
-panel glanced at from across a desk is legible at nine points and a
-preferences window read at arm's length is not.
+**This is not how to give a panel a text size of its own.** A subtree override
+reaches standard Fyne widgets, and a panel's cards, rows and meters are canvas
+objects that read the application's theme directly — so the padding around them
+changes and the text does not, which looks like it half worked. Use
+shell.Options.OwnAppearance on the *other* window instead: the panel takes the
+application's theme and the window whose widgets can be overridden takes its
+own.
+
+What this is still good for is anything inside a panel that is a standard
+widget.
 
 nil takes the theme away again and the panel follows the app, which is what it
 does until this is called.

@@ -10,12 +10,13 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	fynetheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	fd "github.com/ushineko/fynedesygn"
 	"github.com/ushineko/fynedesygn/fynetest"
 	fdtheme "github.com/ushineko/fynedesygn/theme"
@@ -857,4 +858,57 @@ func TestTheRefreshButtonCanBeLeftOut(t *testing.T) {
 
 		a.Quit()
 	}
+}
+
+// A window that draws in its own appearance does not take the application's
+// theme with it.
+//
+// A Fyne theme is application-wide, and a program with more than one archetype
+// cannot give them different faces that way. The one that owns the app's theme
+// should be the one whose widgets cannot be overridden — a glance panel draws
+// with canvas objects that read the app's theme directly — so the shell, which
+// is standard widgets, takes its own.
+func TestAWindowWithItsOwnAppearanceLeavesTheAppsThemeAlone(t *testing.T) {
+	a := test.NewApp()
+	t.Cleanup(a.Quit)
+
+	panelTheme := fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: 8})
+	a.Settings().SetTheme(panelTheme)
+
+	s := NewIn(a, Options{
+		AppID: "io.example.app", Name: "shell",
+		Secondary: true, OwnAppearance: true,
+		Sections: []Section{NewSection("One", nil, func(*Shell) fyne.CanvasObject {
+			return widget.NewLabel("body")
+		})},
+	})
+
+	chosen := s.Appearance()
+	chosen.TextSize = 18
+	s.SetAppearance(chosen)
+
+	assert.Equal(t, panelTheme, a.Settings().Theme(),
+		"the shell replaced the application's theme, which belongs to the panel")
+
+	_, wrapped := s.Window.Content().(*container.ThemeOverride)
+	assert.True(t, wrapped, "the shell is not drawing in a theme of its own")
+}
+
+// Without it, the shell owns the application's theme as it always has.
+func TestAShellOwnsTheAppsThemeByDefault(t *testing.T) {
+	a := test.NewApp()
+	t.Cleanup(a.Quit)
+
+	s := NewIn(a, Options{
+		AppID: "io.example.app", Name: "shell",
+		Sections: []Section{NewSection("One", nil, func(*Shell) fyne.CanvasObject {
+			return widget.NewLabel("body")
+		})},
+	})
+
+	chosen := s.Appearance()
+	chosen.TextSize = 18
+	s.SetAppearance(chosen)
+
+	assert.InDelta(t, 18, a.Settings().Theme().Size(fynetheme.SizeNameText), 0.01)
 }

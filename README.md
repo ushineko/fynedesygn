@@ -257,6 +257,20 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- `shell.Options.OwnAppearance` draws a shell window in the appearance chosen
+  for it rather than in whatever theme the application carries. A Fyne theme is
+  application-wide, so a program with more than one archetype could not give
+  them different faces — and the one that should own the app's theme is the one
+  whose widgets cannot be overridden. A glance panel draws with canvas objects
+  that read the app's theme directly; a shell is standard widgets, which Fyne
+  can theme per subtree. So the panel takes the application's theme and the
+  shell takes its own (#97).
+- `glance.Panel.SetTheme` is **not** the way to do this and has been corrected
+  in its own documentation. A subtree override reaches standard widgets and
+  does not reach a panel's cards, which read the app's theme directly.
+
 ### 0.1.53 (2026-09-27)
 
 - `glance.Panel.SetTheme` gives a panel a theme of its own. A Fyne theme is

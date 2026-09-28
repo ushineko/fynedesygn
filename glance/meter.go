@@ -217,7 +217,6 @@ func (m *Meter) fillColour() fyne.ThemeColorName {
 	}
 }
 
-// Restyle repaints the meter in the current theme.
 // SetTheme gives the meter and its bar a theme of their own. A panel calls it.
 func (m *Meter) SetTheme(th fyne.Theme) {
 	m.themed.SetTheme(th)
@@ -229,6 +228,7 @@ func (m *Meter) SetTheme(th fyne.Theme) {
 	m.Restyle()
 }
 
+// Restyle repaints the meter in the current theme.
 func (m *Meter) Restyle() {
 	m.label.TextSize = m.textSize()
 	m.label.Color = m.colour(theme.ColorNameForeground)

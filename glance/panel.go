@@ -1,6 +1,8 @@
 package glance
 
 import (
+	"image/color"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
@@ -28,6 +30,10 @@ type Panel struct {
 
 	win      fyne.Window
 	minWidth float32
+
+	// translucent draws the panel's own background clear, for a window that
+	// got a transparent framebuffer.
+	translucent bool
 
 	// resizable is set from the window's Options. A resizable panel never
 	// pulls the window narrower than the user has made it; see Resize.
@@ -142,7 +148,7 @@ func (p *Panel) Resize() {
 // Restyle repaints the panel and every card in the current theme, after a
 // scheme or text size change, and resizes: a larger face is a larger window.
 func (p *Panel) Restyle() {
-	p.bg.FillColor = theme.Color(theme.ColorNameBackground)
+	p.bg.FillColor = p.BackgroundColour()
 	p.bg.Refresh()
 	// The gap is a factor of the text size; see Card's margins for why the
 	// layout is replaced rather than refreshed.
@@ -161,3 +167,32 @@ func (p *Panel) Overlay(o fyne.CanvasObject) { p.root.Add(o) }
 
 // Content is the panel's root object, for a caller building its own window.
 func (p *Panel) Content() fyne.CanvasObject { return p.root }
+
+/*
+BackgroundColour is what the panel paints behind its cards.
+
+Clear when the window got a transparent framebuffer, the scheme's colour
+otherwise.
+
+**This is deliberately the panel's own background and not the app's theme.** A
+Fyne theme is app-wide, so a program with a second window — a preferences
+window, an indicator's settings — had that window's background turned
+transparent too, and a window that is not translucent renders a transparent
+background as black. It also meant anything that legitimately set a theme
+afterwards dropped the transparency with it, and the glance window quietly
+stopped being see-through.
+*/
+func (p *Panel) BackgroundColour() color.Color {
+	if p.translucent {
+		return color.Transparent
+	}
+	return theme.Color(theme.ColorNameBackground)
+}
+
+// SetTranslucent draws the panel's background clear. Window calls it when the
+// framebuffer grant comes; there is nothing for a caller to do.
+func (p *Panel) SetTranslucent(on bool) {
+	p.translucent = on
+	p.bg.FillColor = p.BackgroundColour()
+	p.bg.Refresh()
+}

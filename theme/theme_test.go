@@ -7,6 +7,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
 	fynetheme "fyne.io/fyne/v2/theme"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -119,4 +120,24 @@ func TestATransparentBackgroundLeavesAPopupOpaque(t *testing.T) {
 		seethrough.Color(fynetheme.ColorNameForeground, fynetheme.VariantDark),
 		"the wrapper changed a role that is not the background")
 	require.Equal(t, base.Size(fynetheme.SizeNameText), seethrough.Size(fynetheme.SizeNameText))
+}
+
+// The text sizes go down to 8.
+//
+// A glance window is read from across a desk and its argument is that it takes
+// as little room as it can; ten points was the floor and on a dense display
+// that is still a large panel. Nothing in the theme needed one.
+func TestTheTextSizesGoDownToEight(t *testing.T) {
+	sizes := TextSizes()
+
+	require.NotEmpty(t, sizes)
+	assert.InDelta(t, 8, sizes[0], 0.01)
+
+	// Still in order, and the sizes that were there before are still there.
+	for i := 1; i < len(sizes); i++ {
+		assert.Greater(t, sizes[i], sizes[i-1], "the sizes are not ascending")
+	}
+	for _, want := range []float32{10, 12, 14, 18} {
+		assert.Contains(t, sizes, want)
+	}
 }

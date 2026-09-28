@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	fynetheme "fyne.io/fyne/v2/theme"
@@ -985,4 +986,73 @@ func TestProseInASectionWrapsRatherThanRunningOff(t *testing.T) {
 	unwrapped := widget.NewLabel(long)
 	assert.Less(t, label.Size().Width, unwrapped.MinSize().Width,
 		"the label is as wide as its text, so it did not wrap")
+}
+
+/*
+A section reached after the window was built draws in the window's own theme,
+not the application's.
+
+Fyne's behaviour, and the one glance.Panel.SetTheme documents for the same
+mechanism: a subtree installed after a ThemeOverride was built is not covered
+by it until the override is refreshed. A shell builds its sections lazily, so
+every section but the one it opens on is installed afterwards.
+
+That is not a neutral fallback. OwnAppearance exists for a program whose other
+window owns the application's theme precisely because its widgets cannot be
+overridden, so a section that escapes this override puts on that window's face
+instead of its own. Reported against a consumer as a settings window that
+looked right until a section was clicked, and then switched to the panel's font
+and the panel's transparency.
+*/
+func TestASectionReachedLaterStillDrawsInTheWindowsOwnTheme(t *testing.T) {
+	a := test.NewApp()
+	t.Cleanup(a.Quit)
+
+	const panelSize, windowSize = 8, 22
+	a.Settings().SetTheme(fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: panelSize}))
+
+	body := func(text string) func(*Shell) fyne.CanvasObject {
+		return func(*Shell) fyne.CanvasObject { return widget.NewLabel(text) }
+	}
+	s := NewIn(a, Options{
+		AppID: "io.example.app", Name: "shell",
+		Secondary: true, OwnAppearance: true,
+		Sections: []Section{
+			NewSection("One", nil, body("first")),
+			NewSection("Two", nil, body("second")),
+		},
+	})
+	chosen := s.Appearance()
+	chosen.TextSize = windowSize
+	s.SetAppearance(chosen)
+
+	// The section the window opened on was built inside the override, and has
+	// always been right. It is here so the assertion below is about *when* a
+	// section was built and not about the override working at all.
+	require.Equal(t, float32(windowSize), sectionTextSize(t, s),
+		"the section the window opened on")
+
+	s.Select("Two")
+
+	assert.Equal(t, float32(windowSize), sectionTextSize(t, s),
+		"a section reached later is drawing in the application's theme, which "+
+			"belongs to another window")
+}
+
+// sectionTextSize is the size the current section's text is actually drawn at,
+// recovered from the rendered tree rather than from the theme: the question is
+// what reached the widgets, and the theme is what was asked for.
+func sectionTextSize(t *testing.T, s *Shell) float32 {
+	t.Helper()
+
+	var size float32
+	fynetest.WalkRendered(s.content.Content, func(o fyne.CanvasObject) bool {
+		if txt, ok := o.(*canvas.Text); ok && txt.Text != "" {
+			size = txt.TextSize
+			return true
+		}
+		return false
+	})
+	require.NotZero(t, size, "no text found in the section")
+	return size
 }

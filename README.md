@@ -257,6 +257,18 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: a section reached after the window was built draws in the window's
+  own theme. `OwnAppearance` wraps a window's content in a theme override, a
+  shell builds its sections lazily, and a subtree installed after an override
+  was built is not covered by it until the override is refreshed — Fyne's own
+  behaviour, now quirk 37. So every section but the one the window opened on
+  drew in the *application's* theme, which under `OwnAppearance` is
+  deliberately another window's: a settings window looked right until a section
+  was clicked and then put on the panel's font and the panel's transparency
+  (spec 041, #108).
+
 ### 0.1.56 (2026-09-28)
 
 - **A reading can be a block instead of a line.** `glance.Cell` draws a name, a

@@ -257,6 +257,16 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- `kwin.DecorationScript` sets `noBorder` and `keepAbove` on windows that are
+  already open. A rule is only ever applied to windows KWin creates after it
+  reads one, so a program offering "frameless and on top" as something the user
+  can turn on and off had a control that changed a file and nothing they could
+  see. The rule is still what survives a restart; this is what makes the
+  control honest in the moment. It matches a title as well as an app ID, for
+  the reason `Rule.Title` exists (#91).
+
 ### 0.1.50 (2026-09-27)
 
 - **Fix**: a translucent glance window no longer makes every other window in

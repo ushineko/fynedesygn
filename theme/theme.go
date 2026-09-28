@@ -14,7 +14,11 @@ import (
 const DefaultTextSize float32 = 12
 
 // TextSizes are the text sizes the Appearance picker offers.
-func TextSizes() []float32 { return []float32{10, 11, 12, 13, 14, 16, 18} }
+//
+// It starts at 8. A glance window is read from across a desk and its whole
+// argument is that it takes as little room as it can; on a dense display ten
+// points is still a large panel, and nothing in the theme needs a floor.
+func TextSizes() []float32 { return []float32{8, 9, 10, 11, 12, 13, 14, 16, 18} }
 
 // Options are the user's choices layered over a Palette.
 type Options struct {

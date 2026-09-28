@@ -257,6 +257,18 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: a translucent glance window no longer makes every other window in
+  the program transparent. It was done by swapping the *app's* theme, and a
+  Fyne theme is app-wide — so a program with a second window had that window's
+  background turned transparent too, and a window that is not translucent
+  draws a transparent background as **black**. It is the panel's own
+  background now, which is what it was always painting anyway (#87).
+- The text sizes go down to 8. A glance window is read from across a desk and
+  its whole argument is that it takes as little room as it can; ten points was
+  the floor and nothing in the theme needed one (#88).
+
 ### 0.1.49 (2026-09-27)
 
 - `glance.Meter` can spread its figures instead of lengthening its caption.

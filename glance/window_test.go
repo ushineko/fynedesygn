@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/theme"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/ushineko/fynedesygn/fynetest"
@@ -56,4 +57,44 @@ func TestAResizablePanelKeepsTheWidthTheUserChose(t *testing.T) {
 
 	assert.GreaterOrEqual(t, w.Window().Canvas().Size().Width, wide,
 		"the panel pulled the window back to its content and lost the user's width")
+}
+
+// Translucency is the glance window's own and does not reach the app.
+//
+// It used to be done by swapping the app's theme, and a Fyne theme is
+// app-wide: a program with a second window — which shell.NewIn exists for —
+// had that window's background turned transparent too, and a window that is
+// not translucent draws a transparent background as black.
+func TestTranslucencyDoesNotReachTheAppsTheme(t *testing.T) {
+	a := fynetest.App(t)
+	before := a.Settings().Theme()
+
+	w := glance.NewWindow(a, glance.Options{Title: "glance", Translucent: true})
+	w.Panel().SetTranslucent(true)
+
+	assert.Same(t, before, a.Settings().Theme(),
+		"the app's theme was replaced, which turns every other window transparent")
+}
+
+// A panel that is not translucent paints the scheme's background, so a glance
+// window on a desktop that refused the grant looks as it always did.
+func TestAnOpaquePanelPaintsTheSchemesBackground(t *testing.T) {
+	a := fynetest.App(t)
+
+	w := glance.NewWindow(a, glance.Options{Title: "glance"})
+	w.Panel().SetTranslucent(false)
+
+	assert.Equal(t, theme.Color(theme.ColorNameBackground), w.Panel().BackgroundColour())
+}
+
+// And a translucent one paints nothing at all, which is what lets the desktop
+// through the space between cards.
+func TestATranslucentPanelPaintsNothing(t *testing.T) {
+	a := fynetest.App(t)
+
+	w := glance.NewWindow(a, glance.Options{Title: "glance", Translucent: true})
+	w.Panel().SetTranslucent(true)
+
+	_, _, _, alpha := w.Panel().BackgroundColour().RGBA()
+	assert.Zero(t, alpha)
 }

@@ -10,7 +10,6 @@ import (
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
 
-	fdtheme "github.com/ushineko/fynedesygn/theme"
 	"github.com/ushineko/fynedesygn/widgets"
 )
 
@@ -228,10 +227,14 @@ func (w *Window) ShowAndRun() {
 	go fyne.Do(func() {
 		if grantTranslucent() {
 			w.translucent = true
-			// After the grant and before the window exists: the theme decides
-			// what the first frame is cleared with, and the first frame is
-			// already the real one.
-			w.app.Settings().SetTheme(fdtheme.WithTransparentBackground(w.app.Settings().Theme()))
+			// Before the window exists: the first frame is already the real
+			// one, and what it is cleared with is decided here.
+			//
+			// The panel's own background, not the app's theme. A theme is
+			// app-wide, so a program with a second window had that window
+			// turned transparent too -- and a window that is not translucent
+			// draws a transparent background as black.
+			w.panel.SetTranslucent(true)
 			w.panel.Restyle()
 		}
 		w.win.Show()

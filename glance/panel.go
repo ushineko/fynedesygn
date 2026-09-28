@@ -28,6 +28,10 @@ type Panel struct {
 
 	win      fyne.Window
 	minWidth float32
+
+	// resizable is set from the window's Options. A resizable panel never
+	// pulls the window narrower than the user has made it; see Resize.
+	resizable bool
 }
 
 // NewPanel builds an empty panel. minWidth of 0 means MinWidth.
@@ -121,7 +125,18 @@ func (p *Panel) Resize() {
 		return
 	}
 	p.stack.Refresh()
-	p.win.Resize(p.Size())
+
+	want := p.Size()
+	if p.resizable {
+		// The user's width is theirs. The height still follows the content,
+		// because that is what quirk 34 is about: a card that hides leaves a
+		// band of empty window behind it unless something lowers the
+		// requested size, and nobody chose that band.
+		if current := p.win.Canvas().Size().Width; current > want.Width {
+			want.Width = current
+		}
+	}
+	p.win.Resize(want)
 }
 
 // Restyle repaints the panel and every card in the current theme, after a

@@ -46,6 +46,19 @@ type Meter struct {
 	bar     *bar
 	box     *fyne.Container
 
+	// trailing is the header's right-hand value, against the meter's own
+	// width. Empty for a meter that does not use one, and its row lays out
+	// exactly as it did before this existed.
+	trailing *canvas.Text
+
+	// statsLeft and statsRight are the row under the bar. The container is
+	// kept so the row can be taken away entirely when both are empty: an
+	// empty row is a gap, and a gap under one meter in a stack of them is
+	// read as a missing reading.
+	statsLeft  *canvas.Text
+	statsRight *canvas.Text
+	stats      *fyne.Container
+
 	status fd.Status
 }
 
@@ -67,14 +80,91 @@ func NewMeter(label string, labelWidth float32) *Meter {
 	// the meter's minimum width — and the window's — moves with the value.
 	m.caption.TextStyle = fyne.TextStyle{Monospace: true}
 
-	var head fyne.CanvasObject = container.NewHBox(m.label, m.caption, layout.NewSpacer())
+	// The trailing value and the stats share the caption's face and size for
+	// the reason the caption has them: they are changing values in a column,
+	// and in a proportional face a space is narrower than a digit, so a value
+	// that changes moves the one opposite it.
+	m.trailing = detailText()
+	m.statsLeft = detailText()
+	m.statsRight = detailText()
+
+	var head fyne.CanvasObject = m.label
 	if labelWidth > 0 {
-		head = container.NewHBox(
-			widgets.FixedWidth(m.label, labelWidth), m.caption, layout.NewSpacer())
+		head = widgets.FixedWidth(m.label, labelWidth)
 	}
-	m.box = container.NewVBox(head, m.bar)
+
+	// The spacer between the caption and the trailing value is what makes the
+	// meter as wide as its widest *pair* rather than as wide as everything in
+	// it laid end to end. That is the whole of this spec: the archetype's own
+	// rows are a widget, a stretch and a widget, and three figures laid out
+	// that way cost the width of the longest two.
+	top := container.NewHBox(head, m.caption, layout.NewSpacer(), m.trailing)
+
+	m.stats = container.NewHBox(m.statsLeft, layout.NewSpacer(), m.statsRight)
+	m.stats.Hide()
+
+	m.box = container.NewVBox(top, m.bar, m.stats)
 	return m
 }
+
+// detailText builds one of the quiet values: the trailing header value, or an
+// end of the stats row.
+func detailText() *canvas.Text {
+	t := canvas.NewText("", theme.Color(theme.ColorNameDisabled))
+	t.TextSize = theme.Size(theme.SizeNameCaptionText)
+	t.TextStyle = fyne.TextStyle{Monospace: true}
+	return t
+}
+
+/*
+SetTrailing puts a value at the right-hand end of the meter's header.
+
+It is where the archetype puts the reset — the one figure a reader looks for in
+the same place on every line, which is exactly what a column is for and what a
+sentence is not.
+
+It is **held to the no-jitter rule**, like the caption: format it through
+Percent, Quantity or Pad. A trailing value that changes width does not merely
+move itself, it drags the caption opposite it, which is worse than a wide
+meter because it moves while being read.
+
+Empty removes it.
+*/
+func (m *Meter) SetTrailing(s string) {
+	m.trailing.Text = s
+	m.trailing.Color = theme.Color(theme.ColorNameDisabled)
+	m.trailing.Refresh()
+}
+
+/*
+SetStats puts a value at each end of a row under the bar.
+
+The figures that would otherwise lengthen the caption go here. Both empty
+takes the row away rather than leaving it blank: a gap under one meter in a
+stack of them reads as a reading that failed.
+
+Held to the no-jitter rule, for the reason SetTrailing gives.
+*/
+func (m *Meter) SetStats(left, right string) {
+	m.statsLeft.Text = left
+	m.statsRight.Text = right
+	m.statsLeft.Color = theme.Color(theme.ColorNameDisabled)
+	m.statsRight.Color = theme.Color(theme.ColorNameDisabled)
+
+	if left == "" && right == "" {
+		m.stats.Hide()
+	} else {
+		m.stats.Show()
+	}
+	m.statsLeft.Refresh()
+	m.statsRight.Refresh()
+}
+
+// Trailing is the header's right-hand value, for a test that would rather ask.
+func (m *Meter) Trailing() string { return m.trailing.Text }
+
+// Stats are the two ends of the row under the bar.
+func (m *Meter) Stats() (left, right string) { return m.statsLeft.Text, m.statsRight.Text }
 
 // Set fills the meter. fraction is 0..1 and is clamped, because a bar wider
 // than its track is a bar that has left the layout. caption is the detail line
@@ -131,6 +221,14 @@ func (m *Meter) Restyle() {
 	m.caption.Color = theme.Color(theme.ColorNameDisabled)
 	m.caption.TextStyle = fyne.TextStyle{Monospace: true}
 	m.bar.set(m.bar.fraction, m.fillColour())
+
+	for _, t := range []*canvas.Text{m.trailing, m.statsLeft, m.statsRight} {
+		t.TextSize = theme.Size(theme.SizeNameCaptionText)
+		t.Color = theme.Color(theme.ColorNameDisabled)
+		t.TextStyle = fyne.TextStyle{Monospace: true}
+		t.Refresh()
+	}
+
 	m.label.Refresh()
 	m.caption.Refresh()
 }

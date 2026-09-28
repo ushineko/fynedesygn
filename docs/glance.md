@@ -541,6 +541,24 @@ limit.
   panel takes its width. Keep it to the shape that the monitor uses,
   `4 % · resets in 4h 32m`, and do not write a sentence. A caption that
   explains itself in prose makes every other card in the window wider.
+- **When there is more to say than fits that shape, spread it rather than
+  lengthening it.** `SetTrailing` puts a value at the right-hand end of the
+  header and `SetStats` puts one at each end of a row under the bar, and a row
+  with a stretch in the middle is as wide as its two ends rather than as wide
+  as everything in it laid end to end. That is how the monitor's own Codex
+  section fits three figures and a reset into the width of the longest pair:
+
+  ```
+  Codex                      in  4h 59m
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  limit: 34 %       403.51 / 1200.00
+  ```
+
+  A consumer that put the same figures in one caption measured 655 px against
+  268 px for the rest of its panel — one meter setting the width of a whole
+  window. Both slots are empty by default and both obey the width rule above:
+  a trailing value that changes width does not merely move itself, it drags
+  the caption opposite it.
 
 ## Colour is the legend
 

@@ -59,6 +59,24 @@ type Options struct {
 	// window of its own, such as an indicator. It is not the master window,
 	// so closing or hiding it does not end the program.
 	Secondary bool
+
+	// Resizable lets the window manager resize the window.
+	//
+	// A glance window is its content by default, and that is the right
+	// default: the window is whatever its readings measure and nothing has to
+	// be dragged to fit. What it costs is that the compositor's own resize is
+	// greyed out — a frameless window still has its window menu, and Resize in
+	// it does nothing, because a fixed-size window tells the window manager it
+	// will not take one.
+	//
+	// Set this and the window takes a size from the user and keeps it. It can
+	// still never be *narrower* than its content: Fyne clamps to the minimum
+	// size, which is the right floor and is not this package's to override.
+	//
+	// The shrink-back that quirk 34 needs still happens when a card hides —
+	// otherwise the empty band it describes comes back — but it shrinks only
+	// as far as the user's own width, never past it.
+	Resizable bool
 }
 
 // Window is a glance window: a frameless, fixed-size, always-on-top panel
@@ -102,7 +120,7 @@ func NewWindow(a fyne.App, o Options) *Window {
 	// Fixed size, because nothing here is resizable by hand: the window is
 	// whatever its content measures. It still has to be resized explicitly
 	// when a card goes away (quirk 34), which Panel does.
-	w.win.SetFixedSize(true)
+	w.win.SetFixedSize(!o.Resizable)
 	if !o.Secondary {
 		w.win.SetMaster()
 	}
@@ -116,6 +134,7 @@ func NewWindow(a fyne.App, o Options) *Window {
 	}
 
 	w.panel = NewPanel(o.MinWidth)
+	w.panel.resizable = o.Resizable
 	w.panel.Attach(w.win)
 
 	if o.Menu != nil {

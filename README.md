@@ -257,6 +257,24 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- `glance.Meter` can spread its figures instead of lengthening its caption.
+  `SetTrailing` puts a value at the right-hand end of the header and
+  `SetStats` puts one at each end of a row under the bar, each row a widget, a
+  stretch and a widget — so a meter is as wide as its widest *pair* rather than
+  as wide as everything it carries laid end to end. It is the archetype's own
+  layout, and the case that found it measured 655 px against 268 px for the
+  rest of the panel, one meter setting the width of a whole window. Both slots
+  are empty by default and a meter built without them is unchanged
+  (spec 039, #83).
+- `glance.Options.Resizable` hands the window's size back to the window
+  manager. A fixed-size window tells it the window will not take a resize, so
+  the compositor's own Resize — the one in the window menu a frameless window
+  still has — is greyed out, and a user who wanted their panel wider had no
+  way to say so. The default is unchanged: a glance window is its content
+  (#84).
+
 ### 0.1.48 (2026-09-27)
 
 - `shell.NewIn(app, options)` builds a shell window over an app the caller

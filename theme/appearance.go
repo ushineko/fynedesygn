@@ -126,7 +126,7 @@ func (a Appearance) Theme() Theme {
 // created, so a changed scale takes effect when the window next opens.
 func (a Appearance) Apply(app fyne.App) {
 	a.Save(app.Preferences())
-	app.Settings().SetTheme(a.Theme())
+	app.Settings().SetTheme(KeepTransparentBackground(app, a.Theme()))
 }
 
 // ScaleEnv is Fyne's scale override, read when a window is created.

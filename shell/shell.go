@@ -88,6 +88,22 @@ type Options struct {
 	// that keeps a setting the theme needs outside the preference store (a
 	// console font in its own configuration file) supplies it here.
 	Theme func(a fdtheme.Appearance) fyne.Theme
+	// OwnAppearance draws this window in the appearance the user chose for
+	// it, rather than in whatever theme the application happens to carry.
+	//
+	// A Fyne theme is application-wide, and a program with more than one
+	// archetype in it cannot give them different faces that way: a glance
+	// panel read from across a desk and a settings window read at arm's
+	// length want different sizes, and only one of them can own the app's
+	// theme.
+	//
+	// The one that owns it should be the one whose widgets cannot be
+	// overridden. A glance panel draws with canvas objects that take their
+	// size from the app's theme directly; a shell is standard widgets, which
+	// Fyne can theme per subtree. So the panel takes the app's theme and the
+	// shell takes its own, which is what this asks for.
+	OwnAppearance bool
+
 	// NoRefresh leaves the Refresh button out of the header.
 	//
 	// Refresh calls Invalidate, which runs OnInvalidate and rebuilds the
@@ -229,7 +245,12 @@ glance window is drawn from the same theme and follows it.
 func NewIn(a fyne.App, o Options) *Shell {
 	s := newShell(a, o)
 	fdtheme.ApplyScale(s.appearance.Scale)
-	a.Settings().SetTheme(s.theme())
+	if !o.OwnAppearance {
+		// The application's theme belongs to this window unless it has said
+		// otherwise; a window drawing in its own appearance must leave it for
+		// whichever part of the program cannot be overridden.
+		a.Settings().SetTheme(s.theme())
+	}
 	if o.Icon != nil {
 		a.SetIcon(o.Icon)
 	}
@@ -454,11 +475,17 @@ func (s *Shell) layout() {
 	if s.floats == nil {
 		s.floats = container.New(flashLayout{}, s.flashes)
 	}
-	s.Window.SetContent(container.NewStack(
+	content := fyne.CanvasObject(container.NewStack(
 		container.NewBorder(s.header(), s.frame, nil, nil, s.body()),
 		s.floats,
 		s.tips,
 	))
+	if s.opts.OwnAppearance {
+		// Its own theme over its own subtree, so the application's is free
+		// for a window whose widgets cannot be overridden.
+		content = container.NewThemeOverride(content, s.theme())
+	}
+	s.Window.SetContent(content)
 }
 
 // header is the window's title strip: the program name, then Refresh and the
@@ -598,7 +625,14 @@ func (s *Shell) Appearance() fdtheme.Appearance { return s.appearance }
 // same appearance when that something changes.
 func (s *Shell) SetAppearance(a fdtheme.Appearance) {
 	s.appearance = a
-	s.App.Settings().SetTheme(s.theme())
+	if s.opts.OwnAppearance {
+		// The application's theme is not this window's to set: it belongs to
+		// whichever part of the program cannot be overridden. This window
+		// redraws itself in the new appearance instead.
+		s.layout()
+	} else {
+		s.App.Settings().SetTheme(s.theme())
+	}
 	saved := a
 	if s.oneRun {
 		saved.Scheme = fdtheme.LoadAppearanceFrom(s.store, s.App.Preferences()).Scheme

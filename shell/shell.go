@@ -186,6 +186,14 @@ type Shell struct {
 	nav     *widget.List
 	content *container.Scroll
 
+	// override is the theme this window draws itself in, for a window that
+	// owns its appearance. Nil for one that does not.
+	//
+	// It is held rather than built and forgotten because it has to be
+	// refreshed whenever the content under it changes: a subtree installed
+	// after the override was built is not covered by it. See reapply.
+	override *container.ThemeOverride
+
 	// The navigation list's rows, which are the sections plus a heading per
 	// group and minus the members of a closed one, the groups the user has
 	// closed, and the flag that restores a selection without swapping the
@@ -480,12 +488,38 @@ func (s *Shell) layout() {
 		s.floats,
 		s.tips,
 	))
+	s.override = nil
 	if s.opts.OwnAppearance {
 		// Its own theme over its own subtree, so the application's is free
 		// for a window whose widgets cannot be overridden.
-		content = container.NewThemeOverride(content, s.theme())
+		s.override = container.NewThemeOverride(content, s.theme())
+		content = s.override
 	}
 	s.Window.SetContent(content)
+}
+
+/*
+reapply puts this window's theme back over content that has just changed.
+
+**A subtree installed after an override was built is not covered by it** --
+Fyne's own behaviour, and the same one glance.Panel.SetTheme documents for the
+same reason. A shell builds its sections lazily, so every section but the one
+the window opened on is installed after the override exists, and without this
+it draws in the *application's* theme.
+
+That is not a neutral fallback. OwnAppearance is for a program with two
+archetypes in it, where the other one owns the application's theme precisely
+because its widgets cannot be overridden -- so a section that escapes this
+override does not lose its styling, it puts on the other window's. It was
+reported as a settings window that looked right until a section was clicked
+and then switched to the panel's font and the panel's transparency.
+
+A no-op for a window that does not own its appearance, which is most of them.
+*/
+func (s *Shell) reapply() {
+	if s.override != nil {
+		s.override.Refresh()
+	}
 }
 
 // header is the window's title strip: the program name, then Refresh and the
@@ -725,6 +759,11 @@ func (s *Shell) swap(keepScroll bool) {
 
 	s.content.Content = sec.Build(s)
 	s.content.Refresh()
+
+	// The section was built after the override, so it is not covered by it
+	// until this. See reapply.
+	s.reapply()
+
 	if !keepScroll {
 		s.content.ScrollToTop()
 		return

@@ -212,6 +212,8 @@ func (c *Cell) Restyle() {
 	c.name.Refresh()
 	c.value.Refresh()
 	c.note.Refresh()
+	refit(c.name, c.value, c.note)
+	c.box.Refresh()
 }
 
 // restyleText applies the current theme's sizes and colours without
@@ -468,7 +470,7 @@ func (l *cellGridLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	cell := cellSize(shown)
 
 	gap := l.gap()
-	lines := lineCount(len(shown), perLine(l.width, cell.Width, gap))
+	lines := lineCount(len(shown), min(perLine(l.width, cell.Width, gap), len(shown)))
 	return fyne.NewSize(cell.Width, float32(lines)*cell.Height+float32(lines-1)*gap)
 }
 
@@ -482,7 +484,13 @@ func (l *cellGridLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 
 	cell := cellSize(shown)
 	gap := l.gap()
-	across := perLine(size.Width, cell.Width, gap)
+
+	// Never more columns than there are cells. A grid with room for three and
+	// two devices in it used to lay them out in the first two thirds and
+	// leave the last third empty, which reads as a panel that does not fit
+	// its own window -- and on a card whose other rows stretch to the edge it
+	// is the one thing that looks unfinished.
+	across := min(perLine(size.Width, cell.Width, gap), len(shown))
 
 	width := (size.Width - float32(across-1)*gap) / float32(across)
 	for i, o := range shown {

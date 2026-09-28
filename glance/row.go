@@ -107,6 +107,8 @@ func (r *Row) Restyle() {
 	r.value.Color = r.readingColour()
 	r.label.Refresh()
 	r.value.Refresh()
+	refit(r.label, r.value)
+	r.box.Refresh()
 }
 
 // SetShown draws or hides the row. A metric its source cannot read hides its

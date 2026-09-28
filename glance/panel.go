@@ -16,6 +16,21 @@ import (
 // names.
 const MinWidth float32 = 260
 
+/*
+NoMinWidth asks for no floor at all: the panel is exactly as wide as the widest
+thing in it.
+
+The default floor is a guard against a panel of one short reading looking like
+a chip, and it costs nothing while the content is wider than it. A panel whose
+cards have been made narrow pays for it in dead space -- a consumer measured
+its widest card at 218 and got a 260-pixel window, forty-two pixels of panel
+with nothing in it down the right-hand side.
+
+A consumer that has looked at what its own cards measure, and would rather the
+window fitted them, asks for this.
+*/
+const NoMinWidth float32 = -1
+
 // Panel is the stack of cards that makes up a glance window's content, and the
 // thing that keeps the window the size of what it is drawing.
 //
@@ -45,11 +60,21 @@ type Panel struct {
 	// resizable is set from the window's Options. A resizable panel never
 	// pulls the window narrower than the user has made it; see Resize.
 	resizable bool
+
+	// asked is the width this panel last requested, and sized says whether it
+	// has ever requested one. Together they are how Resize tells a width the
+	// user chose from a width nobody chose; see Resize.
+	asked float32
+	sized bool
 }
 
 // NewPanel builds an empty panel. minWidth of 0 means MinWidth.
 func NewPanel(minWidth float32) *Panel {
-	if minWidth <= 0 {
+	switch {
+	case minWidth < 0:
+		// NoMinWidth: the content decides, and Size clamps nothing.
+		minWidth = 0
+	case minWidth == 0:
 		minWidth = MinWidth
 	}
 	p := &Panel{
@@ -210,15 +235,34 @@ func (p *Panel) Resize() {
 	p.stack.Refresh()
 
 	want := p.Size()
-	if p.resizable {
-		// The user's width is theirs. The height still follows the content,
-		// because that is what quirk 34 is about: a card that hides leaves a
-		// band of empty window behind it unless something lowers the
-		// requested size, and nobody chose that band.
-		if current := p.win.Canvas().Size().Width; current > want.Width {
+
+	/*
+		The user's width is theirs, and the trick is telling it from a width
+		nobody chose.
+
+		Comparing against the window's *current* width alone cannot: before
+		the first Resize the window is whatever Fyne made it, which is not a
+		choice and is usually wider than the content. Honouring it locked that
+		first guess in for the life of the program -- a consumer whose widest
+		card measured 218 opened at 298 and stayed there, and the only way to
+		get the window it wanted was to drag it narrower by hand every time.
+
+		So the first Resize always takes the content, and afterwards a width
+		that is not the one this panel last asked for is a width something
+		else set: the user, or the compositor on their behalf.
+
+		The height follows the content either way, which is what quirk 34 is
+		about: a card that hides leaves a band of empty window behind it
+		unless something lowers the requested size, and nobody chose that
+		band.
+	*/
+	if p.resizable && p.sized {
+		if current := p.win.Canvas().Size().Width; current > want.Width && current != p.asked {
 			want.Width = current
 		}
 	}
+	p.asked, p.sized = want.Width, true
+
 	p.win.Resize(want)
 }
 

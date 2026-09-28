@@ -405,3 +405,24 @@ func (t bigTheme) Size(n fyne.ThemeSizeName) float32 {
 	}
 	return t.Theme.Size(n)
 }
+
+// A grid never lays out more columns than it has cells. Room for three and two
+// devices in it used to put them in the first two thirds and leave the last
+// third empty, which reads as a panel that does not fit its own window.
+func TestAGridNeverUsesMoreColumnsThanItHasCells(t *testing.T) {
+	_ = fynetest.App(t)
+	g := glance.NewCellGrid()
+	g.Add(battery(t, "A", "67 %", "Discharging"), battery(t, "B", "20 %", "Discharging"))
+
+	o := g.Object()
+	wide := o.MinSize().Width*4 + 3*glance.CellGridGap()
+	o.Resize(fyne.NewSize(wide, o.MinSize().Height))
+
+	cells := g.Cells()
+	require.Len(t, cells, 2)
+	assert.Equal(t, 1, linesIn(g), "two cells in a width of four should be one line")
+
+	right := cells[1].Object().Position().X + cells[1].Object().Size().Width
+	assert.InDelta(t, wide, right, 0.5,
+		"the cells did not reach the right-hand edge: %v", right)
+}

@@ -22,7 +22,9 @@ type Options struct {
 	// fyne.App.UniqueID (see docs/glance.md, Desktop integration).
 	Title string
 
-	// MinWidth is the floor for the window's width. Zero means MinWidth.
+	// MinWidth is the floor for the window's width. Zero means the package's
+	// MinWidth; NoMinWidth means no floor, and the window is as wide as the
+	// widest card in it.
 	MinWidth float32
 
 	// Decorated leaves the window its titlebar and border. The default is a

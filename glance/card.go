@@ -76,10 +76,11 @@ const GoneMarker = "(unavailable)"
 type Card struct {
 	themed
 
-	title *canvas.Text
-	mark  *canvas.Text
-	rows  []*Row
-	body  *fyne.Container
+	title  *canvas.Text
+	mark   *canvas.Text
+	header *fyne.Container
+	rows   []*Row
+	body   *fyne.Container
 
 	// objects are what AddObject was given, kept so a change of theme can
 	// reach them: the body holds them as plain canvas objects and a
@@ -119,7 +120,7 @@ func NewCard(title string) *Card {
 	c.mark.TextSize = c.textSize()
 	c.mark.Hide()
 
-	header := container.NewHBox(c.title, layout.NewSpacer(), c.mark)
+	c.header = container.NewHBox(c.title, layout.NewSpacer(), c.mark)
 	c.body = container.NewVBox()
 
 	// A card is a surface of its own, not a run of rows. Fyne cannot draw a
@@ -135,7 +136,7 @@ func NewCard(title string) *Card {
 
 	c.inner = container.New(
 		layout.NewCustomPaddedLayout(c.padTop(), c.padBottom(), c.padH(), c.padH()),
-		container.NewVBox(header, c.body))
+		container.NewVBox(c.header, c.body))
 	c.frame = container.NewStack(c.face, c.inner)
 	c.frame.Hide()
 	return c
@@ -310,6 +311,8 @@ func (c *Card) Restyle() {
 	c.face.Refresh()
 	c.title.Refresh()
 	c.mark.Refresh()
+	refit(c.title, c.mark)
+	c.header.Refresh()
 	for _, r := range c.rows {
 		r.Restyle()
 	}

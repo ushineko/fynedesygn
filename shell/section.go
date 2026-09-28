@@ -44,6 +44,24 @@ type Arriver interface {
 	Arrive()
 }
 
+/*
+Wide is implemented by a section whose content is wider than the window and
+should scroll sideways rather than fit.
+
+A section scrolls up and down and not across by default, and that default is
+what makes prose wrap: a label with TextWrapWord wraps to the width it is
+given, and inside a scroller that can grow sideways it is given as much as it
+asks for — so it never wraps and is clipped at the edge of the viewport
+instead. Every explanatory line in a settings screen was losing its ending
+that way.
+
+A section holding something genuinely wide — a table, a log pane, a diagram —
+says so and gets the sideways room back.
+*/
+type Wide interface {
+	Wide() bool
+}
+
 // FuncSection is a Section made of closures, for programs that do not want a
 // type per section.
 type FuncSection struct {
@@ -52,7 +70,18 @@ type FuncSection struct {
 	build  func(*Shell) fyne.CanvasObject
 	detach func()
 	arrive func()
+	wide   bool
 }
+
+// WideContent marks the section as one that needs sideways room, and returns
+// the section for chaining. See Wide.
+func (f *FuncSection) WideContent() *FuncSection {
+	f.wide = true
+	return f
+}
+
+// Wide reports whether this section asked for sideways room.
+func (f *FuncSection) Wide() bool { return f.wide }
 
 // NewSection builds a section from a title, a deferred icon and a builder.
 // icon may be nil for a section without one.

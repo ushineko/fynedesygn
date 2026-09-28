@@ -257,6 +257,16 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: prose in a shell section wraps instead of running off the edge. A
+  section's content scrolled in both directions, and a label with
+  `TextWrapWord` wraps to the width it is given — inside a scroller that can
+  grow sideways it is given as much as it asks for, so it never wrapped and was
+  clipped at the viewport. Every explanatory line in a settings screen was
+  losing its ending. Sections scroll up and down now, and one holding something
+  genuinely wide says `WideContent()` and gets the room back (#102).
+
 ### 0.1.54 (2026-09-27)
 
 - `shell.Options.OwnAppearance` draws a shell window in the appearance chosen

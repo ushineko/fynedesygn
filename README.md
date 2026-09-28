@@ -257,6 +257,19 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- `glance.Panel.SetTheme` gives a panel a theme of its own. A Fyne theme is
+  application-wide, so a program with a glance window and a settings window got
+  one text size for both — and they want different ones: a panel read from
+  across a desk is legible at nine points and a preferences window is not. It
+  is a `container.ThemeOverride` over the panel's subtree, refreshed when cards
+  are added, which Fyne's own documentation for the override requires (#97).
+- `shell.Options.NoRefresh` leaves the Refresh button out of the header, for a
+  program whose screens hold settings rather than a view of something that
+  changes elsewhere. Refresh rebuilds the current section, so on those screens
+  it is a control that visibly does nothing. F5 and Ctrl+R are unaffected.
+
 ### 0.1.52 (2026-09-27)
 
 - `shell.Options.Secondary` marks a shell window that belongs to a program with

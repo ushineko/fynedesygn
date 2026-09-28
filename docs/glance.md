@@ -48,6 +48,7 @@ decorates it anyway.
 - [Sizing](#sizing)
 - [Numbers that do not jitter](#numbers-that-do-not-jitter)
 - [Meters](#meters)
+- [Cells](#cells)
 - [Colour is the legend](#colour-is-the-legend)
 - [Trend plots](#trend-plots)
 - [The context menu is the whole interface](#the-context-menu-is-the-whole-interface)
@@ -559,6 +560,51 @@ limit.
   window. Both slots are empty by default and both obey the width rule above:
   a trailing value that changes width does not merely move itself, it drags
   the caption opposite it.
+
+## Cells
+
+A **cell** is a reading drawn as a block rather than as a line: the name
+centred, the reading large and centred beneath it, the state quiet beneath
+that. `glance.Cell` is one and `glance.CellGrid` lays several out in columns
+that wrap to the width they are given.
+
+- **A reading whose name is worth less than its number is a cell; everything
+  else is a row.** A rate, a temperature and a fan speed are two facts of equal
+  weight, and a row reads down a column properly. A battery is not: the
+  percentage is the reading and the device name is only which battery it
+  belongs to.
+- **The emphasis is the whole of the difference.** Drawn as a row the figure is
+  a small number at the right margin in the same weight as the name, so the eye
+  reads the name and then hunts for the figure. Drawn as a cell the figure is
+  what it lands on. `CellValueScale` is how much larger it is, and it is a
+  factor of the text size rather than a pixel count for the reason the card
+  margins are.
+- **The state is the third of the block and is not optional.** A panel that
+  said what the battery was doing only when it was charging left the ordinary
+  case looking exactly like a device nobody had heard from, and a blank third
+  of a cell reads as one that has not finished loading. Say "Discharging" as
+  readily as "Charging".
+- **A cell sizes to its reading and truncates its name into it.** A device name
+  is as transient as the device — a mouse waking up, a headset changing what it
+  calls itself — and the width rule applies to it as much as to a number. A
+  cell that sized to its name would reflow the panel when a peripheral
+  connected.
+- **Every cell in a grid is the same width**, which is the widest one's. A
+  column that fitted its own contents would put the readings at a different
+  place on every line, and a column of figures that do not line up is what the
+  formatters in [Numbers that do not jitter](#numbers-that-do-not-jitter) exist
+  to prevent.
+- **How many fit on a line follows the width.** The monitor draws two because
+  its panel is 260 px wide and it has four fixed slots; a grid fits what it
+  can, which is the same answer at that width and a better one at any other.
+- **A grid goes into a card through `AddObject`**, like a sparkline — and like
+  a sparkline the card cannot restyle it, because `AddObject` takes a plain
+  canvas object. Call `CellGrid.Restyle` when the scheme or the text size
+  changes.
+- **There is no icon.** The monitor draws a battery glyph beside the
+  percentage and it is deliberately not carried: an icon per device type means
+  this module knowing what a mouse is, which is an application concept. A
+  consumer that wants one puts it in the name.
 
 ## Colour is the legend
 

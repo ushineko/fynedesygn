@@ -73,6 +73,8 @@ func buildGlance(_ *shell.Shell) fyne.CanvasObject {
 
 		demo("Card + Meter", meterCard().Object()),
 
+		demo("Card + CellGrid", cellCard().Object()),
+
 		demo("Row", container.NewVBox(
 			glanceRow("Coolant", glance.Known(glance.Quantity(46.6, "°C", glanceUnit), fd.StatusGood)),
 			glanceRow("CPU", glance.Measured(glance.Quantity(78.4, "°C", glanceUnit))),
@@ -127,6 +129,41 @@ func liveCard() *glance.Card {
 	c.SetAvailable(true)
 	mouse.Set(glance.Known(glance.Percent(87), fd.StatusGood))
 	phones.Set(glance.Missing(glance.NoPercent()))
+	return c
+}
+
+/*
+cellCard is the other shape a reading takes: a block rather than a line.
+
+A battery is the case. In a row the percentage is a small number at the right
+margin in the same weight as the device name, so the eye reads the name and
+then hunts for the figure; in a cell the figure is what it lands on and the
+name is only which device it belongs to. The card above this one is the same
+peripherals section drawn as rows, which is the comparison worth making.
+*/
+func cellCard() *glance.Card {
+	c := glance.NewCard("Peripherals")
+	grid := glance.NewCellGrid()
+
+	mouse := glance.NewCell("G502 X PLUS", glance.NoPercent())
+	mouse.Set(glance.Known(glance.Percent(67), fd.StatusGood))
+	mouse.SetNote("Discharging")
+
+	board := glance.NewCell("Keychron K4 HE", glance.NoPercent())
+	board.Set(glance.Missing(glance.NoPercent()))
+	board.SetNote("No reading")
+
+	buds := glance.NewCell("AirPods Pro", glance.NoPercent())
+	buds.Set(glance.Known(glance.Percent(80), fd.StatusGood))
+	buds.SetNote("L 80  R 90")
+
+	phones := glance.NewCell("Arctis Nova Pro", glance.NoPercent())
+	phones.Set(glance.Known(glance.Percent(15), fd.StatusBad))
+	phones.SetNote("Discharging")
+
+	grid.Add(mouse, board, buds, phones)
+	c.AddObject(grid.Object())
+	c.SetAvailable(true)
 	return c
 }
 

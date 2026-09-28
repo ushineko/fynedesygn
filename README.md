@@ -257,6 +257,22 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **A reading can be a block instead of a line.** `glance.Cell` draws a name, a
+  reading and a state stacked and centred, with the reading larger than the
+  other two, and `glance.CellGrid` lays cells out in columns that wrap to the
+  width. A battery is the case it exists for: drawn as a row the percentage is
+  a small number at the right margin in the same weight as the device name, so
+  the eye reads the name and then hunts for the figure; drawn as a cell the
+  figure is what it lands on and the name is only which device it belongs to
+  (spec 040, #106).
+- The width rule holds: a cell sizes to its reading and truncates its name into
+  it, because a device name is as transient as the device and a panel that
+  resized itself when a mouse woke up would be the one thing a glance window
+  must not do. There is no icon — an icon per device type means this module
+  knowing what a mouse is.
+
 ### 0.1.55 (2026-09-27)
 
 - **Fix**: prose in a shell section wraps instead of running off the edge. A

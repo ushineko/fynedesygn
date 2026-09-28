@@ -257,6 +257,20 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: the transparent framebuffer hint no longer outlives the window it
+  was set for. GLFW hints are sticky global state and `grantTranslucent`
+  depends on it -- it leaves the hint set so the window Fyne creates next, the
+  panel, inherits it -- but nothing ended the handover: the hint was put back
+  only when the probe was *refused*, so on every desktop the feature is for it
+  stayed set for the life of the process and every later window was born
+  transparent, including the ones this library never made. A consumer with a
+  second window had it and its dialogs drawn see-through, the desktop legible
+  through a font chooser. Cleared after `Show`, which is where Fyne creates the
+  window; clearing any earlier would cost the panel its own translucency
+  (spec 044, #114).
+
 ### 0.1.59 (2026-09-28)
 
 - **Fix**: a resizable panel opens at the size of its content. `Resize` never

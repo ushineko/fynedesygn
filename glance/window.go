@@ -240,6 +240,15 @@ func (w *Window) ShowAndRun() {
 			w.panel.Restyle()
 		}
 		w.win.Show()
+
+		// The hint has been taken up, so it is put back. Fyne creates the
+		// GLFW window inside Show -- this body is already on the main
+		// goroutine, so Fyne's EnsureMain runs inline rather than queueing --
+		// and a hint left set is inherited by every window created afterwards,
+		// including the ones this library did not make. Clearing it any
+		// earlier costs the panel its own translucency, silently and only on
+		// the desktops that would have granted it.
+		clearTranslucent()
 	})
 	w.app.Run()
 }

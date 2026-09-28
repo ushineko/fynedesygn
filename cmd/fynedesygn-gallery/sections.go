@@ -37,11 +37,11 @@ func sectionsWith(demo *jobDemo) []shell.Section {
 	return []shell.Section{
 		shell.AppearanceSection("2026-09-17 16:20:01 INFO  rendered 44 blocks in 3.1ms"),
 		shell.NewSection("Widgets", fynetheme.ListIcon, buildWidgets),
-		shell.NewSection("Table", fynetheme.StorageIcon, buildTable),
+		shell.NewSection("Table", fynetheme.StorageIcon, buildTable).WideContent(),
 		shell.NewSection("Fonts", fynetheme.DocumentIcon, buildFonts),
 		shell.NewSection("Shell", fynetheme.MediaPlayIcon, demo.build).OnArrive(demo.arrive),
 		shell.NewSection("Dialogs", fynetheme.QuestionIcon, buildDialogs),
-		shell.NewSection("Log", fynetheme.ListIcon, logs.build).OnDetach(logs.detach),
+		shell.NewSection("Log", fynetheme.ListIcon, logs.build).OnDetach(logs.detach).WideContent(),
 		shell.NewSection("Forms", fynetheme.SettingsIcon, form.build),
 		shell.NewSection("Glance", fynetheme.VisibilityIcon, buildGlance),
 		markdown.Section("Documents", fynetheme.DocumentCreateIcon, mustDoc("markdown.md"), docOptions(), func(*shell.Shell) fyne.CanvasObject {

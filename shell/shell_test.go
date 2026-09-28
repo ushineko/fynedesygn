@@ -912,3 +912,77 @@ func TestAShellOwnsTheAppsThemeByDefault(t *testing.T) {
 
 	assert.InDelta(t, 18, a.Settings().Theme().Size(fynetheme.SizeNameText), 0.01)
 }
+
+// A section scrolls up and down and not across, which is what makes prose
+// wrap.
+//
+// A label with TextWrapWord wraps to the width it is given, and a scroller
+// that can grow sideways gives it as much as it asks for — so it never wraps
+// and is clipped at the viewport's edge instead. Every explanatory line in a
+// settings screen was losing its ending that way.
+func TestASectionScrollsUpAndDownOnly(t *testing.T) {
+	a := test.NewApp()
+	t.Cleanup(a.Quit)
+
+	s := NewIn(a, Options{
+		AppID: "io.example.app", Name: "shell", Secondary: true,
+		Sections: []Section{NewSection("Prose", nil, func(*Shell) fyne.CanvasObject {
+			return widget.NewLabel("a sentence long enough to need wrapping")
+		})},
+	})
+
+	assert.Equal(t, container.ScrollVerticalOnly, s.Scroller().Direction)
+}
+
+// A section holding something genuinely wide says so and gets it back.
+func TestAWideSectionKeepsItsSidewaysRoom(t *testing.T) {
+	a := test.NewApp()
+	t.Cleanup(a.Quit)
+
+	s := NewIn(a, Options{
+		AppID: "io.example.app", Name: "shell", Secondary: true,
+		Sections: []Section{
+			NewSection("Prose", nil, func(*Shell) fyne.CanvasObject {
+				return widget.NewLabel("prose")
+			}),
+			NewSection("Table", nil, func(*Shell) fyne.CanvasObject {
+				return widget.NewLabel("something wide")
+			}).WideContent(),
+		},
+	})
+
+	s.Select("Table")
+	assert.Equal(t, container.ScrollBoth, s.Scroller().Direction)
+
+	// And back again: the direction follows the section, not the last one to
+	// have asked.
+	s.Select("Prose")
+	assert.Equal(t, container.ScrollVerticalOnly, s.Scroller().Direction)
+}
+
+// A wrapping label inside a section is narrower than its unwrapped text, which
+// is the whole point: it wrapped instead of running off the edge.
+func TestProseInASectionWrapsRatherThanRunningOff(t *testing.T) {
+	a := test.NewApp()
+	t.Cleanup(a.Quit)
+
+	long := "The panel's own faces and size. This window keeps the ones on its " +
+		"Appearance screen: the two are read at different distances."
+
+	label := widget.NewLabel(long)
+	label.Wrapping = fyne.TextWrapWord
+
+	s := NewIn(a, Options{
+		AppID: "io.example.app", Name: "shell", Secondary: true,
+		Sections: []Section{NewSection("Prose", nil, func(*Shell) fyne.CanvasObject {
+			return label
+		})},
+	})
+	s.Window.Resize(fyne.NewSize(400, 300))
+	s.Scroller().Resize(fyne.NewSize(400, 300))
+	label.Resize(fyne.NewSize(400, label.MinSize().Height))
+
+	unwrapped := widget.NewLabel(long)
+	assert.Less(t, label.Size().Width, unwrapped.MinSize().Width,
+		"the label is as wide as its text, so it did not wrap")
+}

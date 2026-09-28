@@ -387,7 +387,7 @@ func (s *Shell) theme() fyne.Theme {
 // bottom, the section list and the content scroller in a split between.
 func (s *Shell) buildWindow() {
 	o := s.opts
-	s.content = container.NewScroll(widget.NewLabel(""))
+	s.content = container.NewVScroll(widget.NewLabel(""))
 
 	s.buildRows()
 	s.nav = s.newNavList()
@@ -714,6 +714,15 @@ func (s *Shell) swap(keepScroll bool) {
 	// The last moment the outgoing section's dividers exist.
 	s.rememberSplits()
 	offset := s.content.Offset
+
+	// Up and down only, unless this section asked for sideways room. It is
+	// what makes prose wrap: a wrapping label wraps to the width it is given,
+	// and a scroller that can grow sideways gives it as much as it asks for.
+	s.content.Direction = container.ScrollVerticalOnly
+	if w, ok := sec.(Wide); ok && w.Wide() {
+		s.content.Direction = container.ScrollBoth
+	}
+
 	s.content.Content = sec.Build(s)
 	s.content.Refresh()
 	if !keepScroll {

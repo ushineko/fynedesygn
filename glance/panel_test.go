@@ -6,14 +6,16 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/theme"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	fd "github.com/ushineko/fynedesygn"
 	"github.com/ushineko/fynedesygn/fynetest"
 	"github.com/ushineko/fynedesygn/glance"
+	fdtheme "github.com/ushineko/fynedesygn/theme"
 )
 
 // newTestWindow builds a window on the test driver. NewWindow falls back to an
@@ -380,4 +382,93 @@ func TestAWindowThatCannotFadeItselfSaysSo(t *testing.T) {
 
 	require.ErrorIs(t, err, glance.ErrOpacityNeedsCompositor,
 		"a window that cannot set its own opacity reported success")
+}
+
+// A panel can carry a theme of its own, so a program with a glance window and
+// a settings window can give them different text sizes.
+//
+// A Fyne theme is application-wide, which is why this needs a subtree
+// override rather than a second SetTheme.
+func TestAPanelCanHaveAThemeOfItsOwn(t *testing.T) {
+	_ = fynetest.App(t)
+
+	p := glance.NewPanel(260)
+	w := test.NewWindow(nil)
+	p.Attach(w)
+
+	small := fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: 8})
+	p.SetTheme(small)
+
+	assert.Equal(t, small, themeOf(t, w.Content()),
+		"the panel's content is not wrapped in its own theme")
+}
+
+// Taking it away puts the panel back on the app's theme.
+func TestAPanelsThemeCanBeTakenAway(t *testing.T) {
+	_ = fynetest.App(t)
+
+	p := glance.NewPanel(260)
+	w := test.NewWindow(nil)
+	p.Attach(w)
+
+	p.SetTheme(fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: 8}))
+	p.SetTheme(nil)
+
+	_, wrapped := w.Content().(*container.ThemeOverride)
+	assert.False(t, wrapped, "the panel kept an override after it was taken away")
+}
+
+// A card added after the theme was set is drawn in it.
+//
+// Fyne's own documentation for the override says items added to the content
+// afterwards keep the default theme until it is refreshed — and every consumer
+// adds its cards after the window is built, so this is the ordinary path.
+func TestACardAddedAfterTheThemeIsDrawnInIt(t *testing.T) {
+	_ = fynetest.App(t)
+
+	p := glance.NewPanel(260)
+	w := test.NewWindow(nil)
+	p.Attach(w)
+
+	small := fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: 8})
+	p.SetTheme(small)
+
+	c := glance.NewCard("Added Later")
+	c.AddRow(glance.NewRow("label", "--"))
+	c.SetAllowed(true)
+	c.SetAvailable(true)
+	p.Add(c)
+
+	// The override still wraps the content, and the card is inside it.
+	assert.Equal(t, small, themeOf(t, w.Content()))
+	assert.Contains(t, texts(w.Content()), "Added Later")
+}
+
+// themeOf reads the theme a content override carries.
+func themeOf(t *testing.T, o fyne.CanvasObject) fyne.Theme {
+	t.Helper()
+	over, ok := o.(*container.ThemeOverride)
+	require.True(t, ok, "the content is not a theme override")
+	return over.Theme
+}
+
+// texts collects every canvas.Text in a tree, for a test that asks what is
+// drawn rather than where.
+func texts(o fyne.CanvasObject) []string {
+	var out []string
+	var walk func(fyne.CanvasObject)
+	walk = func(o fyne.CanvasObject) {
+		switch v := o.(type) {
+		case *canvas.Text:
+			out = append(out, v.Text)
+		case *fyne.Container:
+			for _, c := range v.Objects {
+				walk(c)
+			}
+		case *container.ThemeOverride:
+			walk(v.Content)
+		}
+	}
+	walk(o)
+	return out
 }

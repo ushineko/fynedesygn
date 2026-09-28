@@ -35,6 +35,11 @@ type Panel struct {
 	// got a transparent framebuffer.
 	translucent bool
 
+	// override is the panel's own theme, when it has been given one. Nil
+	// until SetTheme is called, so a panel that never asks carries no extra
+	// widget and behaves exactly as it always did.
+	override *container.ThemeOverride
+
 	// resizable is set from the window's Options. A resizable panel never
 	// pulls the window narrower than the user has made it; see Resize.
 	resizable bool
@@ -79,6 +84,14 @@ func (p *Panel) Add(cards ...*Card) {
 			p.Resize()
 		}
 	}
+
+	// A card added after the override was built keeps the default theme until
+	// the override is refreshed. Fyne's own documentation for it says so, and
+	// every consumer adds its cards after the window exists, so this is the
+	// ordinary path rather than an edge of it.
+	if p.override != nil {
+		p.override.Refresh()
+	}
 }
 
 // Cards are the panel's cards in order, for tests and for a context menu
@@ -101,8 +114,50 @@ func (p *Panel) Drawn() int {
 // a headless test has.
 func (p *Panel) Attach(w fyne.Window) {
 	p.win = w
-	w.SetContent(p.root)
+	w.SetContent(p.content())
 	p.Resize()
+}
+
+// content is what the window is given: the panel, inside its own theme when it
+// has one.
+func (p *Panel) content() fyne.CanvasObject {
+	if p.override != nil {
+		return p.override
+	}
+	return p.root
+}
+
+/*
+SetTheme gives the panel a theme of its own, independent of the app's.
+
+A Fyne theme is application-wide, so a program with a glance window and a
+settings window gets one text size for both — and they want different ones: a
+panel glanced at from across a desk is legible at nine points and a
+preferences window read at arm's length is not.
+
+nil takes the theme away again and the panel follows the app, which is what it
+does until this is called.
+
+**A panel with a theme of its own must be refreshed when cards are added**, and
+Add does that. Fyne's own documentation for the override says so: items added
+to the content after it was built keep the default theme until the override is
+refreshed, and every consumer adds its cards after the window is built.
+*/
+func (p *Panel) SetTheme(th fyne.Theme) {
+	switch {
+	case th == nil:
+		p.override = nil
+	case p.override == nil:
+		p.override = container.NewThemeOverride(p.root, th)
+	default:
+		p.override.Theme = th
+		p.override.Refresh()
+	}
+
+	if p.win != nil {
+		p.win.SetContent(p.content())
+		p.Restyle()
+	}
 }
 
 // Size is the size the window should be: the content's minimum, widened to the

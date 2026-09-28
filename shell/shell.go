@@ -88,6 +88,18 @@ type Options struct {
 	// that keeps a setting the theme needs outside the preference store (a
 	// console font in its own configuration file) supplies it here.
 	Theme func(a fdtheme.Appearance) fyne.Theme
+	// NoRefresh leaves the Refresh button out of the header.
+	//
+	// Refresh calls Invalidate, which runs OnInvalidate and rebuilds the
+	// current section. A program whose screens hold settings rather than a
+	// view of something elsewhere has nothing to re-fetch, so the button
+	// rebuilds a screen that cannot have changed — a control that visibly
+	// does nothing, which is worse than one that is absent.
+	//
+	// F5 and Ctrl+R still work: this is about the header, not about
+	// invalidation.
+	NoRefresh bool
+
 	// Secondary marks a shell window that belongs to a program with a main
 	// window of its own: a preferences window beside a panel, a settings
 	// window beside a tray icon. It is not the master window, so closing it
@@ -456,8 +468,10 @@ func (s *Shell) header() fyne.CanvasObject {
 	if c := s.navControl(); c != nil {
 		actions = append(actions, c)
 	}
-	actions = append(actions,
-		widget.NewButtonWithIcon("Refresh", fynetheme.ViewRefreshIcon(), func() { s.Invalidate() }))
+	if !s.opts.NoRefresh {
+		actions = append(actions,
+			widget.NewButtonWithIcon("Refresh", fynetheme.ViewRefreshIcon(), func() { s.Invalidate() }))
+	}
 	if s.opts.Header != nil {
 		actions = append(actions, s.opts.Header(s)...)
 	}

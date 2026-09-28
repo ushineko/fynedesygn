@@ -828,3 +828,33 @@ func TestAShellBuildsAsMasterOrSecondary(t *testing.T) {
 		a.Quit()
 	}
 }
+
+// The Refresh button can be left out.
+//
+// Refresh rebuilds the current section, which is worth having when a screen is
+// a view of something that changes elsewhere. A program whose screens hold
+// settings has nothing to re-fetch, and a control that visibly does nothing is
+// worse than one that is not there.
+func TestTheRefreshButtonCanBeLeftOut(t *testing.T) {
+	for _, without := range []bool{false, true} {
+		a := test.NewApp()
+
+		s := NewIn(a, Options{
+			AppID: "io.example.app", Name: "shell",
+			Secondary: true, NoRefresh: without,
+			Sections: []Section{NewSection("One", nil, func(*Shell) fyne.CanvasObject {
+				return widget.NewLabel("body")
+			})},
+		})
+
+		found := false
+		for _, o := range test.LaidOutObjects(s.Window.Content()) {
+			if b, ok := o.(*widget.Button); ok && b.Text == "Refresh" {
+				found = true
+			}
+		}
+		assert.Equal(t, !without, found, "NoRefresh=%v", without)
+
+		a.Quit()
+	}
+}

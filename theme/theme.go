@@ -14,7 +14,6 @@ import (
 const DefaultTextSize float32 = 12
 
 // TextSizes are the text sizes the Appearance picker offers.
-// TextSizes are the interface sizes a program may offer.
 //
 // It starts at 8. A glance window is read from across a desk and its whole
 // argument is that it takes as little room as it can; on a dense display ten

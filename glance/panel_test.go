@@ -593,3 +593,25 @@ func firstTextSize(t *testing.T, o fyne.CanvasObject) float32 {
 	require.NotZero(t, size, "no text drawn")
 	return size
 }
+
+// A panel asked for no floor is as wide as its widest card, and not a pixel
+// more. A consumer measured its widest card at 218 and got a 260-pixel window
+// from the default floor: forty-two pixels of panel with nothing in it.
+func TestAPanelWithNoFloorIsAsWideAsItsContent(t *testing.T) {
+	a := test.NewApp()
+	t.Cleanup(a.Quit)
+
+	build := func(minWidth float32) float32 {
+		p := glance.NewPanel(minWidth)
+		c := glance.NewCard("Cooler")
+		c.AddRow(glance.NewRow("CPU", "-- °C"))
+		p.Add(c)
+		c.SetAvailable(true)
+		return p.Size().Width
+	}
+
+	content := build(glance.NoMinWidth)
+	assert.Less(t, content, glance.MinWidth, "a short card should not reach the floor")
+	assert.Equal(t, glance.MinWidth, build(0), "zero still means the default floor")
+	assert.Equal(t, float32(400), build(400), "a floor that is asked for is kept")
+}

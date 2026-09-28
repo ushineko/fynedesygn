@@ -257,6 +257,28 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: a resizable panel opens at the size of its content. `Resize` never
+  pulled the window narrower than its current width, which is right for a width
+  the user chose and wrong for the one Fyne made before the first layout — so
+  that first guess was locked in for the life of the program. A consumer whose
+  widest card measured 218 opened at 298 every time. The first resize now takes
+  the content, and afterwards a width that is not the one the panel last asked
+  for is one something else set (spec 043, #112).
+- **Fix**: a card re-measures its text when the size changes. A `canvas.Text`
+  draws inside its Size and clips what does not fit, and a `Refresh` does not
+  re-run a parent's layout, so a title that grew from 8 pt to 9 kept the width
+  it was measured at and lost its last letter — card titles reading
+  "Peripheral" and "Bandwidtl", which looks like a font fault and is not
+  (quirk 39).
+- **Fix**: a grid of cells never lays out more columns than it has cells. Room
+  for three and two devices in it put them in the first two thirds and left the
+  last third empty.
+- **New**: `glance.NoMinWidth` asks for no width floor at all, for a consumer
+  that has looked at what its cards measure and would rather the window fitted
+  them. The default floor is unchanged.
+
 ### 0.1.58 (2026-09-28)
 
 - **A glance panel carries its own theme.** `Panel.SetTheme` now hands a face

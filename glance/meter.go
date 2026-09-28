@@ -246,6 +246,8 @@ func (m *Meter) Restyle() {
 
 	m.label.Refresh()
 	m.caption.Refresh()
+	refit(m.label, m.caption, m.trailing, m.statsLeft, m.statsRight)
+	m.box.Refresh()
 }
 
 // Object is the meter's content.

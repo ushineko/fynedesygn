@@ -4,6 +4,7 @@ import (
 	"image/color"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/theme"
 
 	fd "github.com/ushineko/fynedesygn"
@@ -91,4 +92,24 @@ func (t *themed) textSize() float32 { return t.size(theme.SizeNameText) }
 // would be a second place to be wrong.
 func (t *themed) statusColour(st fd.Status) color.Color {
 	return t.colour(widgets.StatusColorName(st))
+}
+
+/*
+refit resizes texts to what they now measure, after their size or face changed.
+
+**A canvas.Text draws inside its Size and clips what does not fit.** A
+container gives it that size from its MinSize when the container is laid out,
+and a Refresh does not re-run a parent's layout -- so a text that grew from
+eight points to nine kept the width it was measured at and lost its last
+letter. It showed as card titles reading "Peripheral" and "Bandwidtl", which is
+the kind of fault that looks like a font problem and is not.
+
+Every Restyle here ends with this, because every Restyle can change a size.
+*/
+func refit(texts ...*canvas.Text) {
+	for _, t := range texts {
+		if t != nil {
+			t.Resize(t.MinSize())
+		}
+	}
 }

@@ -125,6 +125,39 @@ func TestANameTooLongForItsCellIsElided(t *testing.T) {
 		"the elided name is not a prefix of the real one: %q", drawn)
 }
 
+/*
+A name set *after* the cell has a size is elided too.
+
+A poll sets a name and a poll does not re-lay-out -- the container measures
+when it is resized, not when a canvas.Text inside it changes -- so a cell whose
+device was renamed drew the new name in full, straight over its neighbour.
+That is what the panel showed the first time a real device went into one, and
+no test above catches it because they all set the name before the resize.
+*/
+func TestANameSetAfterTheCellHasASizeIsElidedToo(t *testing.T) {
+	_ = fynetest.App(t)
+	c := battery(t, "G502", "67 %", "Discharging")
+	o := c.Object()
+	o.Resize(o.MinSize())
+
+	c.SetName("Arctis Nova Pro Wireless Base Station")
+
+	assert.Contains(t, drawnName(o), glance.Ellipsis,
+		"a name set on a poll was drawn in full, over its neighbour")
+}
+
+// And so is a state, for the same reason.
+func TestANoteSetAfterTheCellHasASizeIsElidedToo(t *testing.T) {
+	_ = fynetest.App(t)
+	c := battery(t, "G502", "67 %", "Discharging")
+	o := c.Object()
+	o.Resize(o.MinSize())
+
+	c.SetNote("L 80  R 90  case 50  Charging from the case")
+
+	assert.Contains(t, canvasTexts(o)[2].Text, glance.Ellipsis)
+}
+
 // A name that fits is left alone, ellipsis and all.
 func TestANameThatFitsIsNotElided(t *testing.T) {
 	_ = fynetest.App(t)

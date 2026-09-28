@@ -128,20 +128,40 @@ func (c *Cell) Set(rd Reading) {
 // change -- a slot showing whichever device is connected.
 func (c *Cell) SetName(s string) {
 	c.fullName = s
-	c.name.Text = s
-	c.name.Refresh()
+	c.redraw(c.name, s)
 }
 
 // SetNote replaces the state under the reading.
 func (c *Cell) SetNote(s string) {
 	c.fullNote = s
-	c.note.Text = s
-	c.note.Refresh()
+	c.redraw(c.note, s)
 }
 
 // Reading is the value the cell currently holds, which is what a test asks for
 // rather than walking the object tree.
 func (c *Cell) Reading() Reading { return c.reading }
+
+/*
+redraw puts a string on one of the cell's texts, elided to the width the cell
+currently has.
+
+Eliding here and not only in Layout, because a name is set on a poll and a poll
+does not re-lay-out: the container measures when it is resized, not when a
+canvas.Text inside it changes. A cell whose device was renamed therefore drew
+the new name in full, straight over its neighbour -- which is what the panel
+showed the first time a real device went into one.
+
+Before the first layout the cell has no width and the string is kept whole;
+Layout elides it when the size arrives.
+*/
+func (c *Cell) redraw(t *canvas.Text, s string) {
+	if w := c.box.Size().Width; w > 0 {
+		elide(t, s, w)
+		return
+	}
+	t.Text = s
+	t.Refresh()
+}
 
 // Note is the state under the reading, as it was set rather than as it is
 // drawn: a cell narrower than the words draws them elided.

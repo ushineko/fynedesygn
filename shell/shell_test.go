@@ -13,6 +13,7 @@ import (
 	"fyne.io/fyne/v2/test"
 	fynetheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	fd "github.com/ushineko/fynedesygn"
@@ -800,4 +801,30 @@ func TestOpeningOnASectionThatIsNotThereOpensTheFirst(t *testing.T) {
 	o := testOptions(a, b)
 	o.Section = "Nowhere"
 	require.Equal(t, a, headless(t, o).Current())
+}
+
+/*
+Options.Secondary decides whether the window is the application's master, and
+that is as far as a test here can go.
+
+Closing a master window exits the application. Fyne's test driver does not
+implement SetMaster and its window has no accessor for it, so the behaviour
+this option selects cannot be observed headlessly — only in a real driver,
+with a real window, by closing it and seeing whether the program is still
+running.
+
+So this asserts that both shapes build, which is worth having against a change
+that moved the call inside a condition, and the behaviour is verified in the
+program that reported it.
+*/
+func TestAShellBuildsAsMasterOrSecondary(t *testing.T) {
+	for _, secondary := range []bool{false, true} {
+		a := test.NewApp()
+
+		s := NewIn(a, Options{AppID: "io.example.app", Name: "shell", Secondary: secondary})
+		require.NotNil(t, s.Window)
+		assert.Equal(t, secondary, s.opts.Secondary)
+
+		a.Quit()
+	}
 }

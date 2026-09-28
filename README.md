@@ -257,6 +257,28 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: a translucent panel's gaps are clear again. They had been filled
+  colour since 0.1.57: Fyne clears every window's framebuffer from the
+  *application* theme's background, and `6922478` replaced the app-wide
+  transparent theme with a rectangle inside the panel's content -- which is
+  painted after the clear and can only paint over it. The alpha channel was
+  being granted and then immediately filled in. `WithTransparentBackground` is
+  called again, behind the grant as before (spec 045, #118).
+- **Fix**: a window's background is its own. `shell` paints one rather than
+  inheriting the application's clear, and every place the library sets the app
+  theme keeps a clear background clear -- without which merely opening a second
+  window refilled the panel's gaps.
+
+  **Migration**, for a program with a translucent `glance` window *and* a
+  window it builds itself rather than through `shell`: that window now clears
+  transparent and must paint its own background, a `canvas.Rectangle` filled
+  from its theme's `ColorNameBackground` under its content. A program that sets
+  the app theme itself should wrap with `theme.KeepTransparentBackground`.
+  Nothing to do for `shell` windows, for dialogs and popup menus, or for any
+  program without a translucent window.
+
 ### 0.1.60 (2026-09-28)
 
 - **Fix**: the transparent framebuffer hint no longer outlives the window it

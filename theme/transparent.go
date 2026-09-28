@@ -37,3 +37,39 @@ func (t transparentBackground) Color(n fyne.ThemeColorName, v fyne.ThemeVariant)
 	}
 	return t.Theme.Color(n, v)
 }
+
+/*
+KeepTransparentBackground returns next, wrapped when the application's current
+background is already clear.
+
+A transparent application background is what makes a glance panel's gaps alpha
+0 -- Fyne clears every window's framebuffer from that one role -- and anything
+that sets the app's theme afterwards would put an opaque background back and
+fill the panel in. That is not hypothetical: opening a second window is enough,
+because a window that does not draw in its own appearance sets the
+application's theme as it is built.
+
+So every place in this library that sets the app theme goes through here, and
+the wrap survives. Detected rather than remembered: the window that asked for
+it is a different one and may not exist yet, so an alpha of zero on the current
+background is the whole of the signal. A program that never had a translucent
+window is unaffected, because its background was never clear.
+
+**A consumer that sets the app's theme itself has the same problem** and the
+same answer: wrap with this, or let shell.SetAppearance do it.
+*/
+func KeepTransparentBackground(app fyne.App, next fyne.Theme) fyne.Theme {
+	if app == nil {
+		return next
+	}
+	current := app.Settings().Theme()
+	if current == nil {
+		return next
+	}
+	_, _, _, alpha := current.Color(
+		fynetheme.ColorNameBackground, app.Settings().ThemeVariant()).RGBA()
+	if alpha == 0 {
+		return WithTransparentBackground(next)
+	}
+	return next
+}

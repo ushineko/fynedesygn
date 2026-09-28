@@ -1,11 +1,13 @@
 package shell
 
 import (
+	"image/color"
 	"strings"
 	"sync"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
@@ -153,6 +155,10 @@ type Shell struct {
 	App    fyne.App
 	Window fyne.Window
 
+	// bg is the window's own background, painted under everything else
+	// because the application's clear is no longer opaque. See setContent.
+	bg *canvas.Rectangle
+
 	opts       Options
 	appearance fdtheme.Appearance
 	oneRun     bool // Scheme was forced for this run
@@ -257,7 +263,7 @@ func NewIn(a fyne.App, o Options) *Shell {
 		// The application's theme belongs to this window unless it has said
 		// otherwise; a window drawing in its own appearance must leave it for
 		// whichever part of the program cannot be overridden.
-		a.Settings().SetTheme(s.theme())
+		a.Settings().SetTheme(fdtheme.KeepTransparentBackground(a, s.theme()))
 	}
 	if o.Icon != nil {
 		a.SetIcon(o.Icon)
@@ -314,7 +320,7 @@ func Run(o Options) {
 // OnStart is not called: a test decides what is loaded.
 func Headless(a fyne.App, o Options) *Shell {
 	s := newShell(a, o)
-	a.Settings().SetTheme(s.theme())
+	a.Settings().SetTheme(fdtheme.KeepTransparentBackground(a, s.theme()))
 	return s
 }
 
@@ -389,6 +395,26 @@ func (s *Shell) theme() fyne.Theme {
 		return s.opts.Theme(s.appearance)
 	}
 	return s.appearance.Theme()
+}
+
+// backgroundColour is the window's own background, from its own theme.
+//
+// Its own and not the application's: the application's is transparent
+// whenever a translucent glance window shares the process, which is the whole
+// reason this window paints one at all.
+func (s *Shell) backgroundColour() color.Color {
+	return s.theme().Color(fynetheme.ColorNameBackground, fyne.CurrentApp().Settings().ThemeVariant())
+}
+
+// repaintBackground puts the window's background back in the current theme,
+// for a scheme change. A canvas.Rectangle holds a literal colour rather than
+// asking the theme when it draws, so being re-themed is not enough.
+func (s *Shell) repaintBackground() {
+	if s.bg == nil {
+		return
+	}
+	s.bg.FillColor = s.backgroundColour()
+	s.bg.Refresh()
 }
 
 // buildWindow assembles the skeleton: header on top, status bar at the
@@ -483,7 +509,22 @@ func (s *Shell) layout() {
 	if s.floats == nil {
 		s.floats = container.New(flashLayout{}, s.flashes)
 	}
+	// The window paints its own background, underneath everything else.
+	//
+	// It used to inherit one: Fyne clears each framebuffer from the
+	// application theme's background, and that was opaque. It is not any
+	// more -- a translucent glance window in the same process sets it clear,
+	// because the clear is the only thing that can make a panel's gaps alpha
+	// 0 and Fyne has exactly one of them for the whole application. A window
+	// that wants a background therefore declares it, which is what spec 045
+	// is about and what the archetype does per widget.
+	//
+	// Inside the override below where there is one, so a shell with its own
+	// appearance paints its own scheme rather than the application's.
+	s.bg = canvas.NewRectangle(s.backgroundColour())
+
 	content := fyne.CanvasObject(container.NewStack(
+		s.bg,
 		container.NewBorder(s.header(), s.frame, nil, nil, s.body()),
 		s.floats,
 		s.tips,
@@ -665,8 +706,9 @@ func (s *Shell) SetAppearance(a fdtheme.Appearance) {
 		// redraws itself in the new appearance instead.
 		s.layout()
 	} else {
-		s.App.Settings().SetTheme(s.theme())
+		s.App.Settings().SetTheme(fdtheme.KeepTransparentBackground(s.App, s.theme()))
 	}
+	s.repaintBackground()
 	saved := a
 	if s.oneRun {
 		saved.Scheme = fdtheme.LoadAppearanceFrom(s.store, s.App.Preferences()).Scheme

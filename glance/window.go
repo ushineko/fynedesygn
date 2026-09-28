@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
 
+	fdtheme "github.com/ushineko/fynedesygn/theme"
 	"github.com/ushineko/fynedesygn/widgets"
 )
 
@@ -52,8 +53,28 @@ type Options struct {
 	// is probed for first and an opaque window is what a refusal gives. Ask
 	// Translucent() after ShowAndRun has started for the answer.
 	//
-	// The app's theme is wrapped by ShowAndRun when the grant comes, so the
-	// caller sets its theme as usual and does not have to know about this.
+	// The app's theme is wrapped by ShowAndRun when the grant comes, and that
+	// wrap is what the panel's clear gaps depend on: Fyne clears every
+	// window's framebuffer from the application theme's background, so it is
+	// the only role that can make them alpha 0, and it is app-wide because
+	// Fyne has exactly one clear (#119 is the upstream change that would make
+	// it per-window).
+	//
+	// **Two consequences for a program with a second window**, both of them
+	// handled already if that window comes from shell:
+	//
+	//   - A window built by hand -- App.NewWindow and SetContent -- clears
+	//     transparent too, and draws see-through. It has to paint its own
+	//     background: a canvas.Rectangle filled from its theme's
+	//     ColorNameBackground, under its content, as Panel does with bg.
+	//   - Anything setting the app's theme afterwards puts an opaque
+	//     background back and fills the panel in. Wrap with
+	//     theme.KeepTransparentBackground, or set the appearance through
+	//     shell, which does it at every site.
+	//
+	// A program with no translucent window is unaffected by either: the wrap
+	// only happens behind the grant, and the guard only fires on a background
+	// that is already clear.
 	Translucent bool
 
 	// Secondary marks a glance window that belongs to a program with a main
@@ -238,6 +259,26 @@ func (w *Window) ShowAndRun() {
 			// draws a transparent background as black.
 			w.panel.SetTranslucent(true)
 			w.panel.Restyle()
+
+			// And the application's theme, which is the only thing that
+			// reaches the clear. Fyne clears every window's framebuffer from
+			// the app theme's background (internal/painter/gl/painter.go), so
+			// a rectangle inside the content -- which is what bg above is --
+			// is painted after the clear and can only paint over it. That is
+			// why the gaps were filled colour: the alpha channel was granted
+			// and then immediately filled in.
+			//
+			// Behind the grant, never outside it: a window whose framebuffer
+			// has no alpha clears a transparent background to *black*, which
+			// is worse than an opaque panel. Only ColorNameBackground
+			// changes, so popup menus and dialogs stay opaque.
+			//
+			// App-wide is not a choice. It is Fyne's one global clear, and it
+			// is why every other window now paints its own background; see
+			// spec 045, and #119 for the upstream change that would make this
+			// unnecessary.
+			w.app.Settings().SetTheme(
+				fdtheme.WithTransparentBackground(w.app.Settings().Theme()))
 		}
 		w.win.Show()
 

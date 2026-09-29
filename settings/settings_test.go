@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -425,4 +426,74 @@ func TestConcurrentFlushesDoNotCollide(t *testing.T) {
 	for err := range errs {
 		t.Errorf("a flush lost a race with another: %v", err)
 	}
+}
+
+/*
+A closed store stops writing on its own.
+
+The fault this encodes: every Set left a goroutine asleep for the quiet period
+and nothing could call one off, so a window that had closed -- or a test that
+had finished -- still had a write landing a second later, into a directory the
+test framework was in the middle of removing. On Windows that is an error
+rather than a curiosity, because a rename over a file another handle has open
+fails outright.
+*/
+func TestAClosedStoreStopsWritingOnItsOwn(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	st, err := settings.Open(path)
+	require.NoError(t, err)
+	st.SetDelay(20 * time.Millisecond)
+
+	require.NoError(t, st.Set("jobs", jobs{Parallel: 2}))
+	require.NoError(t, st.Close())
+	require.FileExists(t, path, "Close did not write what was outstanding")
+
+	// The file is taken away, as a temporary directory is. Nothing may put it
+	// back: the store's owner has gone.
+	require.NoError(t, os.Remove(path))
+	require.NoError(t, st.Set("jobs", jobs{Parallel: 3}), "a closed store refused a change")
+
+	time.Sleep(200 * time.Millisecond)
+
+	_, err = os.Stat(path)
+	assert.True(t, os.IsNotExist(err), "a closed store wrote on its own")
+}
+
+// Close runs once however many times it is called, which a program with both
+// a window-closed path and a restart path needs.
+func TestClosingTwiceIsNotAnError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	st, err := settings.Open(path)
+	require.NoError(t, err)
+
+	require.NoError(t, st.Set("jobs", jobs{Parallel: 1}))
+	require.NoError(t, st.Close())
+	require.NoError(t, st.Close())
+}
+
+/*
+A store has one write in flight, not one per change.
+
+Every Set used to start a goroutine that slept out the quiet period. Twenty
+changes were twenty sleeping goroutines, nineteen of which would wake only to
+find the sequence had moved and stand down -- and none of which could be called
+off in the meantime, which is what made Close impossible and left writes
+landing after their owner had gone.
+*/
+func TestAStoreKeepsOneWriteInFlightNotOnePerChange(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	st, err := settings.Open(path)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+
+	// Long enough that nothing scheduled here runs before the count is taken.
+	st.SetDelay(10 * time.Second)
+
+	before := runtime.NumGoroutine()
+	for i := range 20 {
+		require.NoError(t, st.Set("jobs", jobs{Parallel: i + 1}))
+	}
+
+	assert.Less(t, runtime.NumGoroutine()-before, 5,
+		"a store started a goroutine per change, and none of them can be stopped")
 }

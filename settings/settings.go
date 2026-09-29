@@ -79,6 +79,18 @@ type Store struct {
 	// is one write a second after the last of them rather than one write each.
 	seq   int
 	onErr func(error)
+
+	// timer is the one pending write. One timer rather than a goroutine per
+	// Set: a goroutine that is already sleeping cannot be called off, so a
+	// store had as many writes in flight as it had had changes and no way to
+	// stop any of them. A timer can be reset and it can be stopped, which is
+	// what makes Close possible.
+	timer *time.Timer
+
+	// closed stops a store scheduling anything more. A store whose owner has
+	// gone still answers reads and still writes when it is told to; it just
+	// does not write on its own any more.
+	closed bool
 }
 
 /*
@@ -279,10 +291,8 @@ func (s *Store) Set(key string, v any) error {
 		s.doc[key] = raw
 		s.dirty = true
 		s.seq++
-		seq := s.seq
-		delay := s.delay
+		s.schedule(s.delay)
 		s.mu.Unlock()
-		go s.writeAfter(delay, seq)
 		return nil
 	}
 	s.mu.Unlock()
@@ -311,19 +321,68 @@ func (s *Store) Pending() bool {
 	return s.dirty
 }
 
-// writeAfter is one scheduled save. A later change bumps the sequence and this
-// one stands down.
-func (s *Store) writeAfter(delay time.Duration, seq int) {
-	time.Sleep(delay)
-	s.mu.Lock()
-	if s.seq != seq || !s.dirty {
-		s.mu.Unlock()
+/*
+schedule moves the pending write to delay from now. Called with the lock held.
+
+One timer for the store rather than one per change, so a run of changes is one
+write after the last of them -- which is what the sequence number used to buy
+with a goroutine each, none of which could be called off once it was asleep.
+
+A timer that has already fired may run its function once more after a Reset;
+writeNow rechecks under the lock, so an extra run either writes a store that is
+genuinely dirty or does nothing.
+*/
+func (s *Store) schedule(delay time.Duration) {
+	if s.closed {
 		return
 	}
+	if s.timer == nil {
+		s.timer = time.AfterFunc(delay, s.writeNow)
+		return
+	}
+	s.timer.Reset(delay)
+}
+
+// writeNow is the scheduled save. A store that has been closed, or that has
+// nothing outstanding, stands down.
+func (s *Store) writeNow() {
+	s.mu.Lock()
+	stand := s.closed || !s.dirty
 	s.mu.Unlock()
+	if stand {
+		return
+	}
 	if err := s.Flush(); err != nil {
 		s.report(err)
 	}
+}
+
+/*
+Close writes anything outstanding and stops the store writing on its own.
+
+**A store with no owner still had writes in flight.** Every Set left a
+goroutine asleep for the quiet period, and nothing could call one off -- so a
+window that had closed, or a test that had finished, still had a write landing
+a second later, into a directory the test framework was in the middle of
+removing. On Windows that is an error rather than a curiosity, because a
+rename over a file another handle has open fails outright.
+
+It runs once however many times it is called, and a store that has been closed
+still serves reads and still writes when it is told to with Flush. It just
+does not decide to on its own any more.
+*/
+func (s *Store) Close() error {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return nil
+	}
+	s.closed = true
+	if s.timer != nil {
+		s.timer.Stop()
+	}
+	s.mu.Unlock()
+	return s.Flush()
 }
 
 // report hands a failed write to whoever asked to hear about them.

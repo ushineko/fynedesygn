@@ -304,7 +304,11 @@ func (s *Shell) Stop() {
 		if s.opts.OnStop != nil {
 			s.opts.OnStop(s)
 		}
-		if err := s.store.Flush(); err != nil {
+		// Close rather than Flush: a Set in the last moments of the program
+		// leaves a write scheduled, and a scheduled write with nobody left to
+		// run it for lands after the window has gone. Close writes what is
+		// outstanding and stops the store writing on its own.
+		if err := s.store.Close(); err != nil {
 			s.Report("Saving settings", err)
 		}
 	})

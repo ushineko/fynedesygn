@@ -42,10 +42,34 @@ func paneInScroll(t *testing.T, w, h float32) (*Pane, *container.Scroll) {
 	return p, sc
 }
 
-// scrollBy moves the scroll the way a wheel notch does, so that OnScrolled
-// fires: assigning Offset does not.
+/*
+scrollBy moves the scroll a wheel notch's worth and tells the pane, without
+going through Scroll.Scrolled.
+
+Quirk 41. Where the scrollbars auto-hide -- macOS -- Scrolled starts a 500 ms
+timer that refreshes the bars through fyne.Do, and the test driver runs
+fyne.Do inline, on that timer's goroutine. A notch over this document takes
+longer than the delay on a CI runner, so the refresh lands in the middle of
+the next notch and measures text while the test is measuring it. Linux and
+Windows never see it: scrollBarAlwaysVisible is a constant true there and the
+timer is never started.
+
+Waiting the timer out afterwards does not help, because the collision is
+inside the loop. What these tests are about is the pane's reaction to the
+scroll position and not Fyne's scrollbar fade, so they move the offset and
+call the hook, which is what updateOffset does either way.
+*/
 func scrollBy(sc *container.Scroll, dy float32) {
-	sc.Scrolled(&fyne.ScrollEvent{Scrolled: fyne.NewDelta(0, dy)})
+	limit := max(sc.Content.MinSize().Height-sc.Size().Height, 0)
+	y := min(max(sc.Offset.Y-dy, 0), limit)
+	if y == sc.Offset.Y {
+		return
+	}
+	sc.Offset.Y = y
+	if sc.OnScrolled != nil {
+		sc.OnScrolled(sc.Offset)
+	}
+	sc.Refresh()
 }
 
 // Canary #7 (docs/fyne-quirks.md): one RichText over a long document repaints
@@ -293,6 +317,10 @@ func TestAFreshPaneIsTheSameHeightAsOneThatHasBeenResized(t *testing.T) {
 	sc.Refresh()
 	fresh.Follow(sc)
 
+	// The numbers are in the message because this has failed on CI and the
+	// message alone said only that it had: a height mismatch is diagnosable
+	// from how far apart the two are and not at all from "they differ".
 	require.Equal(t, was, fresh.MinSize().Height,
-		"a rebuilt document is a different height, so everything in it moved")
+		"a rebuilt document is a different height, so everything in it moved: settled %v, fresh %v",
+		was, fresh.MinSize().Height)
 }

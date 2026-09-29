@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.62
+**Version**: 0.1.63
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -263,11 +263,21 @@ MIT. See [LICENSE](LICENSE).
   `Flush` cleared the pending flag on the way *in*, so for the length of a
   marshal and a rename the store claimed the file held settings it did not,
   and a program that flushed on exit and quit as soon as `Pending` went false
-  could lose the change it had just made. It also let a caller'"'"'s flush and the
-  timer'"'"'s reach the write together: two renames onto one path, harmless on
+  could lose the change it had just made. It also let a caller's flush and the
+  timer's reach the write together: two renames onto one path, harmless on
   Linux and an error on Windows, where a rename over a file another handle
   has open fails. The write is serialised and the flag is cleared after it,
   and only if nothing changed meanwhile (#121).
+
+### 0.1.63 (2026-09-29)
+
+- **Add**: `Panel.SetArrangement` lays the cards out in columns. `Grid`
+  reflows them into as many as the width fits and `Stack` is one above
+  another, which is the default and what every existing caller keeps. A width
+  that fits one column *is* a stack, so a panel nobody widens never looks any
+  different and no caller has to decide which it wants at each size.
+  Column-major, matching the reading order a terminal panel already uses for
+  the same setting (#124).
 
 ### 0.1.62 (2026-09-28)
 

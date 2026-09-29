@@ -48,6 +48,13 @@ type Panel struct {
 	win      fyne.Window
 	minWidth float32
 
+	// arrangement is how the cards are laid out: one column or several.
+	arrangement Arrangement
+
+	// layout is the cards' layout, kept so the arrangement can change while
+	// the panel is on screen.
+	layout *cardsLayout
+
 	// translucent draws the panel's own background clear, for a window that
 	// got a transparent framebuffer.
 	translucent bool
@@ -78,10 +85,15 @@ func NewPanel(minWidth float32) *Panel {
 		minWidth = MinWidth
 	}
 	p := &Panel{
-		stack:    container.New(layout.NewCustomPaddedVBoxLayout(CardGap())),
 		bg:       canvas.NewRectangle(nil),
 		minWidth: minWidth,
 	}
+	// One layout for both arrangements rather than two containers swapped
+	// under the window: the arrangement is a setting and can change while the
+	// panel is on screen, and a container swapped mid-run loses the objects'
+	// sizes and makes the panel jump.
+	p.layout = &cardsLayout{panel: p}
+	p.stack = container.New(p.layout)
 	// The background is an explicit rectangle rather than the window's own
 	// fill because a glance window is designed opaque and its separation from
 	// the desktop is contrast, not alpha (quirk 32). A nil fill colour is
@@ -122,6 +134,27 @@ func (p *Panel) Add(cards ...*Card) {
 		p.override.Refresh()
 	}
 }
+
+/*
+SetArrangement chooses one column or several.
+
+Grid reflows the cards into as many columns as the width fits, and a width
+that fits one is Stack -- so a panel nobody widens never looks any different,
+and a caller does not have to decide which it wants at each size.
+*/
+func (p *Panel) SetArrangement(a Arrangement) {
+	if p.arrangement == a {
+		return
+	}
+	p.arrangement = a
+	p.stack.Refresh()
+	if p.win != nil {
+		p.Resize()
+	}
+}
+
+// Arrangement is how the cards are currently laid out.
+func (p *Panel) Arrangement() Arrangement { return p.arrangement }
 
 // Cards are the panel's cards in order, for tests and for a context menu
 // building a toggle per card.

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ushineko/fynedesygn/settings"
@@ -330,4 +331,98 @@ func TestAFailedWriteIsReported(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	require.True(t, strings.Contains(said[0], "settings.json"), "the message names the file")
+}
+
+// Pending stays true until the write has actually happened.
+//
+// It used to be cleared on the way *into* Flush, so a caller that waited for
+// it to go false and then read the file could find the previous one -- and a
+// program that flushed on exit and quit as soon as it went false could lose
+// the change it had just made. It is also what made
+// TestChangesInOneMomentAreOneWrite fail intermittently on macOS: the wait
+// ended before the write was counted.
+func TestPendingIsTrueUntilTheWriteHasHappened(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	c := &counting{Codec: settings.JSON}
+	st, err := settings.OpenWith(path, c)
+	require.NoError(t, err)
+	st.SetDelay(time.Hour) // no timer: this test drives the write itself
+
+	require.NoError(t, st.Set("jobs", jobs{Parallel: 1}))
+	require.True(t, st.Pending())
+
+	require.NoError(t, st.Flush())
+	require.False(t, st.Pending(), "still pending after a flush that returned")
+	require.Equal(t, int64(1), c.writes.Load())
+}
+
+// blocking is a codec that holds a write open until it is let go, so a test
+// can look at the store while the write is in flight.
+type blocking struct {
+	settings.Codec
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (b *blocking) Marshal(v any) ([]byte, error) {
+	close(b.entered)
+	<-b.release
+	return b.Codec.Marshal(v)
+}
+
+// Pending is true *during* the write, not only before it.
+//
+// This is the case the store got wrong: dirty was cleared on the way into
+// Flush, so for the length of the write -- a marshal and a rename, unbounded
+// on a slow disk -- the store claimed to be clean while the file still held
+// the previous settings. A program that flushed on exit and quit as soon as
+// Pending went false could lose the change it had just made.
+func TestPendingIsTrueWhileTheWriteIsHappening(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	b := &blocking{Codec: settings.JSON, entered: make(chan struct{}), release: make(chan struct{})}
+	st, err := settings.OpenWith(path, b)
+	require.NoError(t, err)
+	st.SetDelay(time.Hour)
+
+	require.NoError(t, st.Set("jobs", jobs{Parallel: 1}))
+
+	done := make(chan error, 1)
+	go func() { done <- st.Flush() }()
+
+	<-b.entered
+	pendingDuringWrite := st.Pending()
+	close(b.release)
+	require.NoError(t, <-done)
+
+	assert.True(t, pendingDuringWrite,
+		"the store called itself clean while the write was still in flight")
+	assert.False(t, st.Pending(), "still pending once the write finished")
+}
+
+// Two flushes at once are two writes one after another, not two renames onto
+// one path. On Windows a rename over a file another handle has open fails, so
+// the loser used to return an error to its caller.
+func TestConcurrentFlushesDoNotCollide(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	st, err := settings.Open(path)
+	require.NoError(t, err)
+	st.SetDelay(time.Millisecond) // a timer write racing the one below
+
+	var wg sync.WaitGroup
+	errs := make(chan error, 32)
+	for i := range 16 {
+		require.NoError(t, st.Set("jobs", jobs{Parallel: i}))
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := st.Flush(); err != nil {
+				errs <- err
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Errorf("a flush lost a race with another: %v", err)
+	}
 }

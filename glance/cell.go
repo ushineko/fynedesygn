@@ -212,7 +212,7 @@ func (c *Cell) Restyle() {
 	c.name.Refresh()
 	c.value.Refresh()
 	c.note.Refresh()
-	refit(c.name, c.value, c.note)
+	c.refit(c.name, c.value, c.note)
 	c.box.Refresh()
 }
 
@@ -358,8 +358,18 @@ func elide(t *canvas.Text, s string, width float32) {
 }
 
 // textWidth measures a string in a canvas.Text's own face and size.
+//
+// Its own, which fyne.MeasureText cannot give: that passes a nil font source
+// and so answers in the application's font whatever this text is drawn in.
+// The source set by refit is the face the glyphs will actually have, and
+// measuring in anything else is how a label loses its last letter.
 func textWidth(t *canvas.Text, s string) float32 {
-	return fyne.MeasureText(s, t.TextSize, t.TextStyle).Width
+	a := fyne.CurrentApp()
+	if a == nil || a.Driver() == nil {
+		return 0
+	}
+	out, _ := a.Driver().RenderedTextSize(s, t.TextSize, t.TextStyle, t.FontSource)
+	return out.Width
 }
 
 /*

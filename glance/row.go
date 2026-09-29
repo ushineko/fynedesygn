@@ -107,7 +107,7 @@ func (r *Row) Restyle() {
 	r.value.Color = r.readingColour()
 	r.label.Refresh()
 	r.value.Refresh()
-	refit(r.label, r.value)
+	r.refit(r.label, r.value)
 	r.box.Refresh()
 }
 

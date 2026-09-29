@@ -95,21 +95,38 @@ func (t *themed) statusColour(st fd.Status) color.Color {
 }
 
 /*
-refit resizes texts to what they now measure, after their size or face changed.
+refit gives texts this object's face and resizes them to what they then
+measure.
 
 **A canvas.Text draws inside its Size and clips what does not fit.** A
 container gives it that size from its MinSize when the container is laid out,
 and a Refresh does not re-run a parent's layout -- so a text that grew from
 eight points to nine kept the width it was measured at and lost its last
-letter. It showed as card titles reading "Peripheral" and "Bandwidtl", which is
-the kind of fault that looks like a font problem and is not.
+letter. It showed as card titles reading "Peripheral" and "Bandwidtl".
 
-Every Restyle here ends with this, because every Restyle can change a size.
+**And a text measures in the application's font unless it is told otherwise,
+whatever face it is drawn in.** That is Fyne's arrangement and it is not
+obvious: canvas.Text.MinSize passes the text's own FontSource, which is nil
+until somebody sets it, and a nil source means the application's theme. The
+painter, meanwhile, draws the text in whatever theme covers it. A panel with a
+face of its own therefore measured every label in one family and drew it in
+another, and where the drawn family was the wider of the two the last glyph
+fell off the end -- "CPU" as "CPL", "tailscale0" as "tailscale". The size was
+never the problem; it was the width of an "0" in one font against another.
+
+So the face is set on the text, not merely on the theme above it. Then
+MinSize measures what will actually be drawn, and the resize below reserves
+the right width.
+
+Every Restyle here ends with this, because every Restyle can change either.
 */
-func refit(texts ...*canvas.Text) {
-	for _, t := range texts {
-		if t != nil {
-			t.Resize(t.MinSize())
+func (t *themed) refit(texts ...*canvas.Text) {
+	th := t.Theme()
+	for _, x := range texts {
+		if x == nil {
+			continue
 		}
+		x.FontSource = th.Font(x.TextStyle)
+		x.Resize(x.MinSize())
 	}
 }

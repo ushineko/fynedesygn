@@ -381,7 +381,7 @@ func (c *Card) Restyle() {
 	c.face.Refresh()
 	c.title.Refresh()
 	c.mark.Refresh()
-	refit(c.title, c.mark)
+	c.refit(c.title, c.mark)
 	c.header.Refresh()
 	for _, r := range c.rows {
 		r.Restyle()

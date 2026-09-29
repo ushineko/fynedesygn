@@ -257,6 +257,18 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Add**: `Card.SetLastKnown` dims a card's rows without marking its header.
+  `SetStale` does both, which is right for a source that was answering and has
+  stopped, and wrong for values that are simply the last ones heard -- a panel
+  showing what it knew when it was last running, before this run's first
+  reading lands. Those are as provisional and are dimmed for the same reason,
+  but `GoneMarker` would be a lie: nothing is unavailable, nothing has been
+  asked yet. A card that said "(unavailable)" two seconds after the program
+  started was reporting a fault where there was only a device that had not
+  woken up (#122).
+
 ### 0.1.61 (2026-09-28)
 
 - **Fix**: a translucent panel's gaps are clear again. They had been filled

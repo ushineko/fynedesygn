@@ -1,9 +1,12 @@
 package glance_test
 
 import (
+	"image/color"
 	"testing"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -119,4 +122,27 @@ func TestAGridSurvivesARestyle(t *testing.T) {
 	p.Content().Resize(fyne.NewSize(1500, 2000))
 
 	assert.Greater(t, columnsOf(p), 1, "a restyle flattened the grid into a stack")
+}
+
+// counting is a layout that records how many times it was asked to lay out.
+type counting struct{ runs int }
+
+func (c *counting) Layout([]fyne.CanvasObject, fyne.Size) { c.runs++ }
+func (c *counting) MinSize([]fyne.CanvasObject) fyne.Size { return fyne.NewSize(10, 10) }
+
+// Canary for quirk 40. A container resized to the size it already has does not
+// lay out again, which is why a test that changes a layout has to resize to a
+// different size afterwards to see the change.
+func TestFyneStillSkipsALayoutWhenTheSizeDidNotChange(t *testing.T) {
+	test.NewTempApp(t)
+	l := &counting{}
+	c := container.New(l, canvas.NewRectangle(color.Transparent))
+
+	c.Resize(fyne.NewSize(400, 400))
+	after := l.runs
+	c.Resize(fyne.NewSize(400, 400))
+	assert.Equal(t, after, l.runs, "a resize to the same size ran the layout")
+
+	c.Resize(fyne.NewSize(401, 400))
+	assert.Greater(t, l.runs, after, "a resize to a different size did not run the layout")
 }

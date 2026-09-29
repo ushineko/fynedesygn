@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.65
+**Version**: 0.1.66
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -257,7 +257,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.66 (2026-09-29)
 
 - **Fix**: a panel measures its text in its own face. A `canvas.Text`
   measures in the *application's* font unless it carries a font source --

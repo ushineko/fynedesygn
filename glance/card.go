@@ -56,6 +56,14 @@ func (t *themed) padTop() float32    { return t.textSize() * 0.67 }
 func (t *themed) padBottom() float32 { return t.textSize() * 0.83 }
 func (t *themed) gap() float32       { return t.textSize() * 0.9 }
 
+// IconScale is a card icon's edge, in text sizes.
+//
+// A little over the cap height, so the glyph reads as the title's equal
+// rather than as a bullet before it. A factor rather than a pixel count, for
+// the reason CardPadH gives: a size set for one face is wrong at another, and
+// a glance panel's text size is a setting.
+const IconScale float32 = 1.15
+
 // GoneMarker is what a card's header says when its source was answering and
 // has stopped. It is short because it shares the header with the title, and it
 // is a state rather than a mechanism: the reason belongs in the log.
@@ -77,6 +85,7 @@ type Card struct {
 	themed
 
 	title  *canvas.Text
+	icon   *canvas.Image
 	mark   *canvas.Text
 	header *fyne.Container
 	rows   []*Row
@@ -120,7 +129,12 @@ func NewCard(title string) *Card {
 	c.mark.TextSize = c.textSize()
 	c.mark.Hide()
 
-	c.header = container.NewHBox(c.title, layout.NewSpacer(), c.mark)
+	c.icon = canvas.NewImageFromResource(nil)
+	c.icon.FillMode = canvas.ImageFillContain
+	c.icon.Hide()
+	c.sizeIcon()
+
+	c.header = container.NewHBox(c.icon, c.title, layout.NewSpacer(), c.mark)
 	c.body = container.NewVBox()
 
 	// A card is a surface of its own, not a run of rows. Fyne cannot draw a
@@ -247,6 +261,38 @@ func (c *Card) SetAvailable(available bool) {
 // Available reports whether the source has anything to say.
 func (c *Card) Available() bool { return c.available }
 
+/*
+SetIcon puts a glyph before the card's title. A nil resource takes it away.
+
+Before the title and not after it, because the icon is what the eye finds
+first when it is scanning a stack of cards for one of them -- which is the
+whole reason a card has an icon rather than making do with its name.
+
+It is sized from the text, not in pixels: an icon set for one face is
+proportionally wrong at another, and a glance panel's text size is a setting
+the user moves. IconScale is the factor.
+*/
+func (c *Card) SetIcon(res fyne.Resource) {
+	c.icon.Resource = res
+	if res == nil {
+		c.icon.Hide()
+		return
+	}
+	c.sizeIcon()
+	c.icon.Show()
+	c.icon.Refresh()
+}
+
+// Icon is the card's glyph, or nil.
+func (c *Card) Icon() fyne.Resource { return c.icon.Resource }
+
+// sizeIcon measures the icon against the card's own face.
+func (c *Card) sizeIcon() {
+	edge := c.textSize() * IconScale
+	c.icon.SetMinSize(fyne.NewSize(edge, edge))
+	c.icon.Resize(fyne.NewSize(edge, edge))
+}
+
 // SetStale dims every row and marks the header, for a source that was
 // answering and has stopped. The card keeps its last values: a reader's
 // question is whether they are still true, and a dim number answers it without
@@ -316,6 +362,8 @@ func (c *Card) apply() {
 
 // Restyle repaints the card and its rows in the current theme.
 func (c *Card) Restyle() {
+	// The icon is measured from the text, so a change of face moves it too.
+	c.sizeIcon()
 	c.title.TextSize = c.textSize()
 	c.title.Color = c.colour(theme.ColorNamePlaceHolder)
 	c.mark.TextSize = c.textSize()

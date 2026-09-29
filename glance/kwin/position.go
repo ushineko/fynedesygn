@@ -60,3 +60,53 @@ for (const w of workspace.windowList()) {
 }
 `, appID, service, path, iface, method)
 }
+
+/*
+WatchGeometryScript is a KWin script that stays loaded and reports a window's
+geometry whenever it changes.
+
+ReportGeometryScript answers "where is it now" once. This answers "tell me
+when it moves", which is what a program that wants to reopen where the user
+left its window actually needs: on Wayland the move is the compositor's, no
+event reaches the toolkit, and polling for an answer that changes twice a day
+is a round trip a second spent on nothing.
+
+**A loaded script keeps its signal handlers.** The load runs the body once --
+which is what "a script runs once" means, and it is worth being exact because
+the natural reading is that the script is then gone. It is not: the handlers
+connected by that body keep firing until the script is unloaded. Verified on
+Plasma 6 by loading a script that printed on frameGeometryChanged, moving the
+window, and reading the print out of the journal.
+
+Two signals, because they answer different halves. interactiveMoveResizeFinished
+fires once when the user lets go of a drag, which is the case this exists for
+and the one that should not report a hundred times on the way. frameGeometryChanged
+catches everything else -- a compositor move, another script, a screen
+change -- and fires freely, so the program on the other end saves only when
+the value it holds has actually changed.
+
+Windows that appear later are watched too: a panel restarted while the script
+is loaded is still a window this wants to hear about.
+
+The call carries four ints: x, y, width, height, like ReportGeometryScript.
+*/
+func WatchGeometryScript(appID, service, path, iface, method string) string {
+	return fmt.Sprintf(`const target = %q;
+function report(w) {
+    const g = w.frameGeometry;
+    callDBus(%q, %q, %q, %q, Math.round(g.x), Math.round(g.y),
+             Math.round(g.width), Math.round(g.height));
+}
+function watch(w) {
+    if (w.resourceClass != target) { return; }
+    if (w.interactiveMoveResizeFinished) {
+        w.interactiveMoveResizeFinished.connect(function() { report(w); });
+    }
+    if (w.frameGeometryChanged) {
+        w.frameGeometryChanged.connect(function() { report(w); });
+    }
+}
+for (const w of workspace.windowList()) { watch(w); }
+workspace.windowAdded.connect(watch);
+`, appID, service, path, iface, method)
+}

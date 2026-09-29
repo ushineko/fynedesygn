@@ -61,3 +61,25 @@ var jsString = regexp.MustCompile(`"(?:\\.|[^"\\])*"`)
 func withoutStringLiterals(s string) string {
 	return jsString.ReplaceAllString(s, `""`)
 }
+
+// AC. The watch script connects handlers rather than reporting once, which
+// is what lets it stay loaded and answer when the window actually moves.
+func TestTheWatchScriptConnectsRatherThanReporting(t *testing.T) {
+	js := kwin.WatchGeometryScript("io.ushineko.hayami",
+		"io.ushineko.hayami", "/Geometry", "io.ushineko.hayami.Geometry", "Report")
+
+	assert.Contains(t, js, "interactiveMoveResizeFinished.connect",
+		"a drag has to report once when it ends, not throughout")
+	assert.Contains(t, js, "frameGeometryChanged.connect",
+		"a move the compositor makes has to be caught too")
+	assert.Contains(t, js, "workspace.windowAdded.connect",
+		"a window that appears later is still one to watch")
+	assert.Contains(t, js, `callDBus("io.ushineko.hayami", "/Geometry"`)
+}
+
+// AC. It matches on the app id, as every other script here does.
+func TestTheWatchScriptMatchesTheAppID(t *testing.T) {
+	js := kwin.WatchGeometryScript("io.example.thing", "s", "/p", "i", "m")
+	assert.Contains(t, js, `const target = "io.example.thing"`)
+	assert.Contains(t, js, "w.resourceClass != target")
+}

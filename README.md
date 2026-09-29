@@ -257,6 +257,21 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Add**: `Card.SetIcon` puts a glyph before a card's title. Before it
+  rather than after, because the icon is what the eye finds first when it is
+  scanning a stack of cards for one of them. Sized from the text rather than
+  in pixels -- `IconScale` -- so it follows a panel whose face the user
+  changes (#127).
+- **Add**: `kwin.WatchGeometryScript` stays loaded and reports a window's
+  geometry when it changes, rather than answering once. A loaded KWin script
+  keeps its signal handlers -- "a script runs once" is about the body, not
+  the script's life, which is worth being exact about -- so a program that
+  wants to reopen where the user left its window can be told instead of
+  polling for an answer that changes twice a day. Verified on Plasma 6 by
+  printing from a handler and reading it out of the journal (#128).
+
 ### 0.1.64 (2026-09-29)
 
 - **Fix**: a settings store is not clean until its write has finished.

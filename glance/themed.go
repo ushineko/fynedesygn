@@ -130,19 +130,3 @@ func (t *themed) refit(texts ...*canvas.Text) {
 		x.Resize(x.MinSize())
 	}
 }
-
-/*
-measure is the width of a string in this object's face.
-
-fyne.MeasureText cannot answer it: it passes a nil font source, so it measures
-in the application's font however the caller is drawn. This asks the driver
-the same question with the face the text will actually use.
-*/
-func (t *themed) measure(s string, size float32, style fyne.TextStyle) float32 {
-	a := fyne.CurrentApp()
-	if a == nil || a.Driver() == nil {
-		return 0
-	}
-	out, _ := a.Driver().RenderedTextSize(s, size, style, t.Theme().Font(style))
-	return out.Width
-}

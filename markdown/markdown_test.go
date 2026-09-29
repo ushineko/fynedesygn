@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -43,27 +42,35 @@ func paneInScroll(t *testing.T, w, h float32) (*Pane, *container.Scroll) {
 	return p, sc
 }
 
-// scrollBy moves the scroll the way a wheel notch does, so that OnScrolled
-// fires: assigning Offset does not.
-func scrollBy(sc *container.Scroll, dy float32) {
-	sc.Scrolled(&fyne.ScrollEvent{Scrolled: fyne.NewDelta(0, dy)})
-}
-
 /*
-scrollEnded waits out the timer Fyne starts on every wheel notch.
+scrollBy moves the scroll a wheel notch's worth and tells the pane, without
+going through Scroll.Scrolled.
 
-Quirk 41. Scroll.Scrolled schedules its bar refresh 500 ms later through a
-time.AfterFunc, and under the test driver fyne.Do runs inline -- so that
-refresh measures text on the *timer's* goroutine while the test goes on
-measuring on its own. Two goroutines in Fyne's font metrics cache, which is
-not synchronised, and the race detector says so.
+Quirk 41. Where the scrollbars auto-hide -- macOS -- Scrolled starts a 500 ms
+timer that refreshes the bars through fyne.Do, and the test driver runs
+fyne.Do inline, on that timer's goroutine. A notch over this document takes
+longer than the delay on a CI runner, so the refresh lands in the middle of
+the next notch and measures text while the test is measuring it. Linux and
+Windows never see it: scrollBarAlwaysVisible is a constant true there and the
+timer is never started.
 
-It is only a test's problem: a real program's fyne.Do queues to the UI thread.
-A test that scrolls and then measures has to let the timer land first, which
-is what this is, and 500 ms is the upstream constant rather than a number
-picked to make a failure go away.
+Waiting the timer out afterwards does not help, because the collision is
+inside the loop. What these tests are about is the pane's reaction to the
+scroll position and not Fyne's scrollbar fade, so they move the offset and
+call the hook, which is what updateOffset does either way.
 */
-func scrollEnded() { time.Sleep(600 * time.Millisecond) }
+func scrollBy(sc *container.Scroll, dy float32) {
+	limit := max(sc.Content.MinSize().Height-sc.Size().Height, 0)
+	y := min(max(sc.Offset.Y-dy, 0), limit)
+	if y == sc.Offset.Y {
+		return
+	}
+	sc.Offset.Y = y
+	if sc.OnScrolled != nil {
+		sc.OnScrolled(sc.Offset)
+	}
+	sc.Refresh()
+}
 
 // Canary #7 (docs/fyne-quirks.md): one RichText over a long document repaints
 // every segment per wheel notch, so the pane keeps distant blocks out of the
@@ -82,7 +89,6 @@ func TestBlocksRenderAsTheyAreScrolledTo(t *testing.T) {
 	for i := 0; i < 400 && !p.IsLive(last); i++ {
 		scrollBy(sc, -400)
 	}
-	scrollEnded()
 	require.True(t, p.IsLive(last), "the end of the document renders once scrolled to")
 	require.False(t, p.IsLive(0), "the top has been released by then")
 }
@@ -94,7 +100,6 @@ func TestDocumentHeightIsTheSameWhicheverBlocksAreRendered(t *testing.T) {
 	for range 20 {
 		scrollBy(sc, -400)
 	}
-	scrollEnded()
 	require.NotZero(t, p.Live())
 	require.Equal(t, before, p.MinSize().Height, "the document changed height while scrolling")
 }
@@ -305,7 +310,6 @@ func TestAFreshPaneIsTheSameHeightAsOneThatHasBeenResized(t *testing.T) {
 	for range 6 {
 		scrollBy(sc, -400)
 	}
-	scrollEnded()
 	was := settled.MinSize().Height
 
 	fresh := New(src, Options{})

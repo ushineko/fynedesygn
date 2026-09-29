@@ -252,16 +252,38 @@ func (c *Card) Available() bool { return c.available }
 // question is whether they are still true, and a dim number answers it without
 // moving anything. Recovery clears the marker.
 func (c *Card) SetStale(stale bool) {
-	if c.stale == stale {
-		return
+	c.setStale(stale, stale)
+}
+
+/*
+SetLastKnown dims every row without marking the header.
+
+For values that are the last ones heard but whose source has not *stopped* --
+a panel showing what it knew when it was last running, before this run's first
+reading has landed. The values are as provisional as a stale card's and are
+dimmed for the same reason, but GoneMarker would be a lie: nothing is
+unavailable, nothing has been asked yet.
+
+The distinction is the consumer's to make and it is a real one. A card that
+said "(unavailable)" two seconds after the program started would be reporting
+a fault where there is only a device that has not woken up.
+*/
+func (c *Card) SetLastKnown(dim bool) {
+	c.setStale(dim, false)
+}
+
+// setStale is the two halves of staleness, which are separate because a card
+// can want the dimming without the word.
+func (c *Card) setStale(dim, mark bool) {
+	if c.stale != dim {
+		c.stale = dim
+		for _, r := range c.rows {
+			rd := r.Reading()
+			rd.Stale = dim
+			r.Set(rd)
+		}
 	}
-	c.stale = stale
-	for _, r := range c.rows {
-		rd := r.Reading()
-		rd.Stale = stale
-		r.Set(rd)
-	}
-	if stale {
+	if mark {
 		c.mark.Show()
 	} else {
 		c.mark.Hide()

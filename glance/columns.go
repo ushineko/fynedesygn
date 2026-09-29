@@ -90,6 +90,27 @@ func perColumn(cards, columns int) int {
 	return (cards + columns - 1) / columns
 }
 
+/*
+shape is how many columns the cards actually occupy at a width, and how many
+go in each.
+
+The count the width fits is not the count that gets drawn. Four cards in three
+columns is two per column -- and two columns hold all four, so the third is
+empty. Sizing for the count the width fits then left a third of the window
+blank with the cards crammed into the rest, which is what a panel widened to
+900 with four cards did: three columns of 292 where two of 444 were meant.
+
+So the columns are counted back from the rows. It never grows the count and it
+never leaves a column empty.
+*/
+func (l *cardsLayout) shape(width float32, cards int) (cols, rows int) {
+	rows = perColumn(cards, l.columns(width, cards))
+	if rows < 1 {
+		return 1, cards
+	}
+	return (cards + rows - 1) / rows, rows
+}
+
 // Layout places the cards.
 func (l *cardsLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	shown := visible(objects)
@@ -97,10 +118,9 @@ func (l *cardsLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 		return
 	}
 	l.width = size.Width
-	cols := l.columns(size.Width, len(shown))
+	cols, rows := l.shape(size.Width, len(shown))
 	gap := l.gap()
 	colWidth := (size.Width - gap*float32(cols-1)) / float32(cols)
-	rows := perColumn(len(shown), cols)
 
 	for i, o := range shown {
 		col, row := i/rows, i%rows
@@ -133,9 +153,8 @@ func (l *cardsLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 		return fyne.Size{}
 	}
 
-	cols := l.columns(l.width, len(shown))
+	_, rows := l.shape(l.width, len(shown))
 	gap := l.gap()
-	rows := perColumn(len(shown), cols)
 
 	widest, tallest := float32(0), float32(0)
 	for col := 0; col*rows < len(shown); col++ {

@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.66
+**Version**: 0.1.67
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -256,6 +256,22 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.67 (2026-09-29)
+
+- **Fix**: the grid arrangement survives a restyle, and a width the user set
+  survives the next reading. Two faults that between them made `Grid` look
+  unimplemented. `Panel.Restyle` replaced the cards' layout with a VBox --
+  the gap is a factor of the text size, but the cards' layout reads it from
+  the panel on every pass, so the line only threw that layout away, and every
+  panel restyles at startup when its theme is applied. `Panel.Resize` then
+  recorded the width it had just honoured as the width it had asked for, so
+  the next reading read the user's width back as its own and dropped it: a
+  window that could be dragged wider and snapped back a second later (#133).
+- **Docs**: quirk 40, a container resized to the size it already has does not
+  lay out again -- which is why the restyle test above resizes to a different
+  width. Written the obvious way it passed against the bug it was meant to
+  catch.
 
 ### 0.1.66 (2026-09-29)
 

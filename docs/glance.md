@@ -600,6 +600,13 @@ that wrap to the width they are given.
   weight, and a row reads down a column properly. A battery is not: the
   percentage is the reading and the device name is only which battery it
   belongs to.
+- **The reading is bold as well as large.** `CellValueScale` says it in size;
+  weight says it from further away, which is the distance a battery percentage
+  is read from. The name and the state stay regular, so the three pieces read
+  in the order they matter. It is set through `themed.bold`, which drops the
+  weight where the theme has no bold face for the family: quirk 35 means a
+  missing face is a panic in the painter rather than a lighter stroke, and a
+  reader may pick any mono family they like.
 - **The emphasis is the whole of the difference.** Drawn as a row the figure is
   a small number at the right margin in the same weight as the name, so the eye
   reads the name and then hunts for the figure. Drawn as a cell the figure is

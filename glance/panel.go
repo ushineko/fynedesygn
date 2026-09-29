@@ -6,7 +6,6 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 )
 
@@ -73,6 +72,14 @@ type Panel struct {
 	// user chose from a width nobody chose; see Resize.
 	asked float32
 	sized bool
+
+	// chosen is the width the user last set, kept because the panel resizes on
+	// every reading and has to hand that width back each time. Comparing
+	// against asked alone only survives one pass: the moment the user's width
+	// was honoured it *became* asked, so the next resize read it as this
+	// panel's own request and dropped it -- a window that could be dragged
+	// wider and snapped back a second later.
+	chosen float32
 }
 
 // NewPanel builds an empty panel. minWidth of 0 means MinWidth.
@@ -282,17 +289,21 @@ func (p *Panel) Resize() {
 
 		So the first Resize always takes the content, and afterwards a width
 		that is not the one this panel last asked for is a width something
-		else set: the user, or the compositor on their behalf.
+		else set: the user, or the compositor on their behalf. That width is
+		remembered, because it has to be handed back on every later resize and
+		this panel resizes on every reading; see chosen.
 
 		The height follows the content either way, which is what quirk 34 is
 		about: a card that hides leaves a band of empty window behind it
 		unless something lowers the requested size, and nobody chose that
 		band.
 	*/
-	if p.resizable && p.sized {
-		if current := p.win.Canvas().Size().Width; current > want.Width && current != p.asked {
-			want.Width = current
+	if p.resizable {
+		current := p.win.Canvas().Size().Width
+		if p.sized && current != p.asked {
+			p.chosen = current
 		}
+		want.Width = max(want.Width, p.chosen)
 	}
 	p.asked, p.sized = want.Width, true
 
@@ -304,9 +315,13 @@ func (p *Panel) Resize() {
 func (p *Panel) Restyle() {
 	p.bg.FillColor = p.BackgroundColour()
 	p.bg.Refresh()
-	// The gap is a factor of the text size; see Card's margins for why the
-	// layout is replaced rather than refreshed.
-	p.stack.Layout = layout.NewCustomPaddedVBoxLayout(p.gap())
+	// The gap is a factor of the text size, and cardsLayout reads it from the
+	// panel on every pass, so there is nothing to replace here -- a refresh
+	// picks the new face up. Replacing the layout is what this line used to do,
+	// and it swapped a VBox in over the cards' own layout: the arrangement was
+	// lost the first time the panel restyled, which every panel does at
+	// startup when its theme is applied. The grid shipped and never once ran.
+	p.stack.Refresh()
 	for _, c := range p.cards {
 		c.Restyle()
 	}

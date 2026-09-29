@@ -62,9 +62,15 @@ type Store struct {
 	codec Codec
 	delay time.Duration
 
-	mu    sync.Mutex
-	doc   map[string]json.RawMessage
-	dirty bool
+	mu sync.Mutex
+
+	// writing serialises the write itself, which happens outside mu: the
+	// document is copied under the lock and marshalled and written without
+	// it, so that a slow disk does not block every reader. Two writes at
+	// once onto one path is a race, and on Windows an error.
+	writing sync.Mutex
+	doc     map[string]json.RawMessage
+	dirty   bool
 	// unreadable is set when the file on disk did not parse. The store then
 	// serves reads from defaults and refuses to write, because the one thing
 	// worse than leaving a file nobody could read is overwriting it.
@@ -291,7 +297,14 @@ func (s *Store) Has(key string) bool {
 	return ok
 }
 
-// Pending reports whether a change is waiting for the quiet period.
+// Pending reports whether a change is waiting to be written, or is being
+// written now.
+//
+// Until it is false the file on disk is not the settings this store holds.
+// That includes the moment a write is in progress: Flush used to clear this
+// on the way *in*, so a caller that waited for Pending to go false and then
+// looked at the file could find the old one -- and a program that flushed on
+// exit and quit on !Pending could lose the change it had just made.
 func (s *Store) Pending() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -331,6 +344,13 @@ is not an error and not a write: a program that flushes on exit does not rewrite
 a file it never changed.
 */
 func (s *Store) Flush() error {
+	// One write at a time, for the whole of it. Two flushes -- a caller's and
+	// the timer's -- used to reach writeAtomic together, and two renames onto
+	// one path is a race: harmless on Linux, an error on Windows, where a
+	// rename over a file another handle has open fails outright.
+	s.writing.Lock()
+	defer s.writing.Unlock()
+
 	s.mu.Lock()
 	if s.unreadable != nil {
 		err := s.unreadable
@@ -341,9 +361,10 @@ func (s *Store) Flush() error {
 		s.mu.Unlock()
 		return nil
 	}
-	s.dirty = false
 	s.seq++ // a timer in flight finds a different sequence and stands down
+	seq := s.seq
 	if s.path == "" {
+		s.dirty = false
 		s.mu.Unlock()
 		return nil // a store with nowhere to write: see Memory
 	}
@@ -356,9 +377,22 @@ func (s *Store) Flush() error {
 
 	b, err := codec.Marshal(doc)
 	if err != nil {
+		return err // still dirty, so a later flush tries again
+	}
+	if err := writeAtomic(path, b); err != nil {
 		return err
 	}
-	return writeAtomic(path, b)
+
+	// Clean only now, and only if nothing changed while the write was in
+	// flight: a Set during the write bumped the sequence and its change is
+	// not on disk, so the store is still dirty and its timer still owes a
+	// write.
+	s.mu.Lock()
+	if s.seq == seq {
+		s.dirty = false
+	}
+	s.mu.Unlock()
+	return nil
 }
 
 /*

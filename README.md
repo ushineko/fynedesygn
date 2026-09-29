@@ -257,6 +257,18 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: a settings store is not clean until its write has finished.
+  `Flush` cleared the pending flag on the way *in*, so for the length of a
+  marshal and a rename the store claimed the file held settings it did not,
+  and a program that flushed on exit and quit as soon as `Pending` went false
+  could lose the change it had just made. It also let a caller's flush and the
+  timer's reach the write together: two renames onto one path, harmless on
+  Linux and an error on Windows, where a rename over a file another handle
+  has open fails. The write is serialised and the flag is cleared after it,
+  and only if nothing changed meanwhile (#121).
+
 ### 0.1.63 (2026-09-29)
 
 - **Add**: `Panel.SetArrangement` lays the cards out in columns. `Grid`

@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.68
+**Version**: 0.1.69
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -256,6 +256,16 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.69 (2026-09-29)
+
+- **Add**: `Card.SetTip`, what a card says when the pointer rests on it. A
+  glance card grows with what it holds, so a section with more to report than
+  fits either widens -- moving everything beside it -- or drops the detail.
+  The note is the third option. `NewPanel` puts a tip layer in the panel's
+  content with it, because a note drawn as an overlay would take every pointer
+  event in the window while it was up (quirk 26). `widgets.Tipped` is
+  `WithTip` for an object whose note changes while it is on screen (#136).
 
 ### 0.1.68 (2026-09-29)
 

@@ -7,6 +7,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
+	"github.com/ushineko/fynedesygn/widgets"
 )
 
 // MinWidth is the default floor for a glance window's width. Without a floor,
@@ -112,7 +113,11 @@ func NewPanel(minWidth float32) *Panel {
 	// space between one card and the next is CardGap, which is the only place
 	// the background shows.
 	p.bg.FillColor = p.BackgroundColour()
-	p.root = container.NewStack(p.bg, p.stack)
+	// The tip layer is last, so a card's note is drawn over the cards rather
+	// than as an overlay -- an overlay takes every pointer event in the
+	// window while it is up (quirk 26), which on a panel means the context
+	// menu stops opening whenever a note is showing. See Card.SetTip.
+	p.root = container.NewStack(p.bg, p.stack, widgets.NewTipLayer())
 	return p
 }
 

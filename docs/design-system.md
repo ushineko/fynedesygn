@@ -412,6 +412,12 @@ Border{
   `fynedesygn.` belongs to the library. Every other key belongs to the program,
   and the library never reads inside it. The store writes the file one second
   after the last change, and when the window closes.
+- A store that is not the shell's is closed by whoever opened it. `Close`
+  writes what is outstanding and stops the store writing on its own. Without
+  it a change made in the last moments of a program leaves a write scheduled
+  with nobody left to run it for, which lands after the window has gone --
+  and, in a test, into a temporary directory the framework is already
+  removing. The shell closes its own store in `Stop`.
 - The store keeps a section that the running program never asks for, and does
   not discard it. An older program therefore cannot delete what a newer one
   wrote.

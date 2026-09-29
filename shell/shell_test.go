@@ -46,7 +46,12 @@ func testOptions(sections ...Section) Options {
 // swap and popup paths run without a display.
 func headless(t *testing.T, o Options) *Shell {
 	t.Helper()
-	return Headless(fynetest.App(t), o)
+	s := Headless(fynetest.App(t), o)
+	// Stop closes the settings store. Without it a Set made by the test
+	// leaves a write scheduled for a second later, landing in a temporary
+	// directory the framework is already removing.
+	t.Cleanup(s.Stop)
+	return s
 }
 
 func onScreen(t *testing.T, o Options) *Shell {
@@ -824,6 +829,7 @@ func TestAShellBuildsAsMasterOrSecondary(t *testing.T) {
 		a := test.NewApp()
 
 		s := NewIn(a, Options{AppID: "io.example.app", Name: "shell", Secondary: secondary})
+		t.Cleanup(s.Stop)
 		require.NotNil(t, s.Window)
 		assert.Equal(t, secondary, s.opts.Secondary)
 
@@ -848,6 +854,7 @@ func TestTheRefreshButtonCanBeLeftOut(t *testing.T) {
 				return widget.NewLabel("body")
 			})},
 		})
+		t.Cleanup(s.Stop)
 
 		found := false
 		for _, o := range test.LaidOutObjects(s.Window.Content()) {
@@ -883,6 +890,7 @@ func TestAWindowWithItsOwnAppearanceLeavesTheAppsThemeAlone(t *testing.T) {
 			return widget.NewLabel("body")
 		})},
 	})
+	t.Cleanup(s.Stop)
 
 	chosen := s.Appearance()
 	chosen.TextSize = 18
@@ -906,6 +914,7 @@ func TestAShellOwnsTheAppsThemeByDefault(t *testing.T) {
 			return widget.NewLabel("body")
 		})},
 	})
+	t.Cleanup(s.Stop)
 
 	chosen := s.Appearance()
 	chosen.TextSize = 18
@@ -931,6 +940,7 @@ func TestASectionScrollsUpAndDownOnly(t *testing.T) {
 			return widget.NewLabel("a sentence long enough to need wrapping")
 		})},
 	})
+	t.Cleanup(s.Stop)
 
 	assert.Equal(t, container.ScrollVerticalOnly, s.Scroller().Direction)
 }
@@ -951,6 +961,7 @@ func TestAWideSectionKeepsItsSidewaysRoom(t *testing.T) {
 			}).WideContent(),
 		},
 	})
+	t.Cleanup(s.Stop)
 
 	s.Select("Table")
 	assert.Equal(t, container.ScrollBoth, s.Scroller().Direction)
@@ -979,6 +990,7 @@ func TestProseInASectionWrapsRatherThanRunningOff(t *testing.T) {
 			return label
 		})},
 	})
+	t.Cleanup(s.Stop)
 	s.Window.Resize(fyne.NewSize(400, 300))
 	s.Scroller().Resize(fyne.NewSize(400, 300))
 	label.Resize(fyne.NewSize(400, label.MinSize().Height))
@@ -1022,6 +1034,7 @@ func TestASectionReachedLaterStillDrawsInTheWindowsOwnTheme(t *testing.T) {
 			NewSection("Two", nil, body("second")),
 		},
 	})
+	t.Cleanup(s.Stop)
 	chosen := s.Appearance()
 	chosen.TextSize = windowSize
 	s.SetAppearance(chosen)

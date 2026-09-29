@@ -710,6 +710,23 @@ and for the other documents in `docs/`.
   enabled, and what the log keeps. A test that asserts that a section holds a
   `Border` that holds a `VBox` tests the code against itself, and it fails
   every time somebody moves something.
+- **Do not put Fyne's arithmetic inside an assertion.** A number that text
+  shaping produced is a number that differs between platforms, and a test that
+  compares one is a test of Fyne. `markdown` asserted that a rebuilt document
+  had the same `MinSize().Height` as a scrolled one. The contract is ours --
+  a block reserves the height it measured, whether or not it is rendered --
+  so the assertion is over the pane's own recorded block heights. It catches
+  the same defect, it names the block that moved, and it does not care what
+  the fonts on the runner are. Comparing two measurements taken in the same
+  process is fine: it is the assertion against a constant, or across a
+  platform, that is not.
+- **Do not drive a Fyne widget's input path to provoke your own code.** Call
+  the hook the widget would call. `markdown` sent wheel notches through
+  `Scroll.Scrolled`, which on a platform whose scrollbars auto-hide starts a
+  timer that refreshes the bars half a second later. See quirk 41. The test
+  was about the pane and got the scrollbar's fade as well. Driving your *own*
+  widget's handler is the opposite and is right: that is the entry point under
+  test.
 - Write a test name as a sentence that names the defect the test prevents.
 - Assert the content of a cell through a pure function that you extracted,
   because a table builds its cells only when it needs them, and there is

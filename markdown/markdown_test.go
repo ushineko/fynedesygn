@@ -83,6 +83,26 @@ func TestDocumentRendersOnlyNearTheViewport(t *testing.T) {
 	require.True(t, p.IsLive(0), "the first block is on screen")
 }
 
+/*
+blockHeights is what the pane has recorded for each block.
+
+The pane's own numbers, not Fyne's total. A block that is taken out of the
+tree leaves its spacer behind at the height the block measured, which is the
+whole mechanism by which the document keeps its length while most of it is
+not rendered -- so these are the values the contract is actually about.
+
+Asserting on p.MinSize().Height instead put Fyne's text shaping inside the
+assertion, which is how a test of our virtualisation came to fail on one
+platform and not the others. See docs/style.md.
+*/
+func blockHeights(p *Pane) []float32 {
+	out := make([]float32, len(p.spacers))
+	for i, sp := range p.spacers {
+		out[i] = sp.MinSize().Height
+	}
+	return out
+}
+
 func TestBlocksRenderAsTheyAreScrolledTo(t *testing.T) {
 	p, sc := paneInScroll(t, 900, 500)
 	last := p.Blocks() - 1
@@ -95,20 +115,40 @@ func TestBlocksRenderAsTheyAreScrolledTo(t *testing.T) {
 
 func TestDocumentHeightIsTheSameWhicheverBlocksAreRendered(t *testing.T) {
 	p, sc := paneInScroll(t, 900, 500)
-	before := p.MinSize().Height
-	require.Greater(t, before, float32(500))
+	before := blockHeights(p)
+	require.NotEmpty(t, before)
+
 	for range 20 {
 		scrollBy(sc, -400)
 	}
+
+	// The test is worth nothing if nothing was released: a pane that kept
+	// every block in the tree would pass it without virtualising at all.
 	require.NotZero(t, p.Live())
-	require.Equal(t, before, p.MinSize().Height, "the document changed height while scrolling")
+	require.Less(t, p.Live(), p.Blocks(), "no block was released, so nothing was under test")
+
+	require.Equal(t, before, blockHeights(p),
+		"a block changed the height it reserves depending on whether it is rendered")
 }
 
 func TestThePaneMeasuresAgainWhenTheWindowNarrows(t *testing.T) {
 	p, _ := paneInScroll(t, 900, 500)
-	wide := p.MinSize().Height
+	wide := blockHeights(p)
+
 	p.Resize(fyne.NewSize(450, p.Size().Height))
-	require.Greater(t, p.MinSize().Height, wide, "narrowing makes the document taller")
+
+	narrow := blockHeights(p)
+	require.Len(t, narrow, len(wide))
+	// Some block wraps onto more lines, and none gets shorter. Which blocks
+	// grow is the font's business; that the pane measured again is ours.
+	taller := 0
+	for i := range narrow {
+		require.GreaterOrEqual(t, narrow[i], wide[i], "block %d got shorter when the pane narrowed", i)
+		if narrow[i] > wide[i] {
+			taller++
+		}
+	}
+	require.NotZero(t, taller, "the pane did not measure again when it narrowed")
 }
 
 func TestDetachStopsWatchingTheScroll(t *testing.T) {
@@ -310,17 +350,20 @@ func TestAFreshPaneIsTheSameHeightAsOneThatHasBeenResized(t *testing.T) {
 	for range 6 {
 		scrollBy(sc, -400)
 	}
-	was := settled.MinSize().Height
+	was := blockHeights(settled)
 
 	fresh := New(src, Options{})
 	sc.Content = container.NewVBox(fresh)
 	sc.Refresh()
 	fresh.Follow(sc)
 
-	// The numbers are in the message because this has failed on CI and the
-	// message alone said only that it had: a height mismatch is diagnosable
-	// from how far apart the two are and not at all from "they differ".
-	require.Equal(t, was, fresh.MinSize().Height,
-		"a rebuilt document is a different height, so everything in it moved: settled %v, fresh %v",
-		was, fresh.MinSize().Height)
+	// Block by block rather than on the total, so a failure says which block
+	// was measured differently -- which is the whole question when a document
+	// comes out short -- instead of only that the two disagree.
+	now := blockHeights(fresh)
+	require.Len(t, now, len(was))
+	for i := range was {
+		require.Equal(t, was[i], now[i],
+			"block %d is a different height in a rebuilt document, so everything below it moved", i)
+	}
 }

@@ -293,6 +293,10 @@ func TestAFreshPaneIsTheSameHeightAsOneThatHasBeenResized(t *testing.T) {
 	sc.Refresh()
 	fresh.Follow(sc)
 
+	// The numbers are in the message because this has failed on CI and the
+	// message alone said only that it had: a height mismatch is diagnosable
+	// from how far apart the two are and not at all from "they differ".
 	require.Equal(t, was, fresh.MinSize().Height,
-		"a rebuilt document is a different height, so everything in it moved")
+		"a rebuilt document is a different height, so everything in it moved: settled %v, fresh %v",
+		was, fresh.MinSize().Height)
 }

@@ -257,6 +257,17 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: a panel measures its text in its own face. A `canvas.Text`
+  measures in the *application's* font unless it carries a font source --
+  `MinSize` passes one and it is nil until somebody sets it -- while the
+  painter draws it in whatever theme covers it. A panel with a face of its
+  own therefore reserved the width of one family and drew another, and where
+  the drawn family was wider the last glyph fell off the end: "CPU" as "CPL",
+  "tailscale0" as "tailscale". The face is set on the text now, so the two
+  agree (#131).
+
 ### 0.1.65 (2026-09-29)
 
 - **Add**: `Card.SetIcon` puts a glyph before a card's title. Before it

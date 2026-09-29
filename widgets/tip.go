@@ -65,9 +65,51 @@ func WithTip(o fyne.CanvasObject, text string) fyne.CanvasObject {
 	if text == "" {
 		return o
 	}
+	return Tipped(o, text)
+}
+
+/*
+Tipped is WithTip for an object whose note changes while it is on screen.
+
+WithTip returns its object unchanged when the text is empty, which is what
+lets a caller annotate conditionally without branching -- and means an object
+that had nothing to say when it was built can never be given anything later.
+A reading that is sometimes worth a note and usually is not needs the catcher
+either way, so this always wraps, and an empty note simply does not appear.
+
+Use SetTip on what this returns to replace the text.
+*/
+func Tipped(o fyne.CanvasObject, text string) fyne.CanvasObject {
 	t := &tipArea{text: text, under: o}
 	t.ExtendBaseWidget(t)
 	return container.NewStack(o, t)
+}
+
+/*
+SetTip replaces the note on something Tipped returned, and reports whether it
+found one.
+
+An empty text leaves the catcher in place and says nothing, so a note that
+comes and goes does not rebuild the tree it is attached to.
+*/
+func SetTip(o fyne.CanvasObject, text string) bool {
+	box, ok := o.(*fyne.Container)
+	if !ok {
+		return false
+	}
+	for _, child := range box.Objects {
+		if t, is := child.(*tipArea); is {
+			t.mu.Lock()
+			changed := t.text != text
+			t.text = text
+			t.mu.Unlock()
+			if changed && text == "" {
+				t.hide()
+			}
+			return true
+		}
+	}
+	return false
 }
 
 /*
@@ -98,7 +140,11 @@ An interface method rather than an exported field, so a walker can find a tip
 without importing this package -- which is what keeps the test helpers out of
 the import graph of the package they help test.
 */
-func (t *tipArea) Tip() string { return t.text }
+func (t *tipArea) Tip() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.text
+}
 
 // tipArea is the transparent catcher: it draws nothing and exists to notice the
 // pointer.
@@ -294,6 +340,9 @@ func (t *tipArea) show() {
 	defer t.mu.Unlock()
 	if t.timer == nil || t.shown != nil {
 		return // the pointer left, or a tip is already up
+	}
+	if t.text == "" {
+		return // wrapped for a note it does not have at the moment
 	}
 
 	label := widget.NewLabel(t.text)

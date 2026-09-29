@@ -435,6 +435,32 @@ left a space beside the wider bandwidth card. In a translucent window that
 space was a hole in the panel. In an opaque window it is an uneven right edge,
 which is the same fault and less visible.
 
+### A card that has more to say than it can draw
+
+`Card.SetTip` is what a card says when the pointer rests on it. A glance card
+is small on purpose and grows with what it holds, so a section with more to
+report than fits has two bad choices: widen the card, and everything beside it
+moves; or drop the detail. The note is the third. The card keeps its size and
+what did not fit is a hover away.
+
+Use it for detail, never for the reading. A note is not on screen until
+somebody hovers, and a panel is read at a glance by somebody who is not
+hovering — anything that has to be seen belongs in a row or a cell. The case
+it was built for is hayami's peripherals section, which draws two devices and
+names the rest in a note rather than growing a cell wider every time a pair of
+headphones connects.
+
+An empty note says nothing and leaves the card unchanged, so a note that comes
+and goes needs no branch around it. `NewPanel` puts a tip layer in the panel's
+content, which is what keeps a note from being drawn as an overlay — an
+overlay takes every pointer event in the window while it is up (quirk 26), so
+a panel without the layer would stop opening its context menu whenever a note
+was showing.
+
+A terminal panel has no pointer and draws no notes. That is the right answer
+rather than a gap: the note is what did not fit, and a reader who cannot see
+it is no worse off than before there was one.
+
 ## Sizing
 
 The window measures its content and takes that size. A fixed-size window in

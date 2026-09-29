@@ -6,6 +6,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
+	"github.com/ushineko/fynedesygn/widgets"
 )
 
 // CardRadius is the corner radius of a card, in pixels.
@@ -151,7 +152,10 @@ func NewCard(title string) *Card {
 	c.inner = container.New(
 		layout.NewCustomPaddedLayout(c.padTop(), c.padBottom(), c.padH(), c.padH()),
 		container.NewVBox(c.header, c.body))
-	c.frame = container.NewStack(c.face, c.inner)
+	// Tipped rather than WithTip: a card's note is a reading like any other
+	// and comes and goes, so the catcher is there from the start and says
+	// nothing until there is something to say. See SetTip.
+	c.frame = widgets.Tipped(container.NewStack(c.face, c.inner), "").(*fyne.Container)
 	c.frame.Hide()
 	return c
 }
@@ -390,3 +394,26 @@ func (c *Card) Restyle() {
 
 // Object is the card's content, for a caller assembling a panel by hand.
 func (c *Card) Object() fyne.CanvasObject { return c.frame }
+
+/*
+SetTip is what the card says when the pointer rests on it: detail there is no
+room to draw.
+
+A glance card is small on purpose and grows with what it holds, so a section
+with more to report than fits has two bad choices -- widen the card, which
+moves everything beside it, or drop the detail. This is the third: the card
+keeps its size and the detail is a hover away. hayami's peripherals section is
+the case it was built for, where a third pair of headphones would otherwise
+have made the card a third wider.
+
+An empty text says nothing, so a note that comes and goes needs no branch.
+
+**The panel has to have a tip layer** or the note is drawn as an overlay, which
+takes every pointer event in the window while it is up (quirk 26). NewPanel
+puts one in.
+*/
+func (c *Card) SetTip(text string) { widgets.SetTip(c.frame, text) }
+
+// Tip is what the card says on hover, for a test that would otherwise have to
+// hover to find out.
+func (c *Card) Tip() string { return widgets.TipText(c.frame) }

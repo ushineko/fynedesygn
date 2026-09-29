@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.67
+**Version**: 0.1.68
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -256,6 +256,15 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.68 (2026-09-29)
+
+- **Fix**: a grid leaves no empty column. The count of columns a width fits is
+  not the count the cards occupy: four cards in three columns is two per
+  column, and two columns hold all four, so the third was empty while the
+  cards had been sized for three. A panel widened to 900 drew three columns of
+  292 with a third of the window blank. The columns are counted back from the
+  rows now (#135).
 
 ### 0.1.67 (2026-09-29)
 

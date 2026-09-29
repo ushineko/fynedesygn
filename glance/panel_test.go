@@ -615,3 +615,30 @@ func TestAPanelWithNoFloorIsAsWideAsItsContent(t *testing.T) {
 	assert.Equal(t, glance.MinWidth, build(0), "zero still means the default floor")
 	assert.Equal(t, float32(400), build(400), "a floor that is asked for is kept")
 }
+
+// AC. A width the user set is kept, resize after resize.
+//
+// A glance panel resizes on every reading, so keeping the user's width for one
+// pass is not keeping it. The regression this encodes did exactly that: the
+// honoured width was recorded as the width this panel had asked for, so the
+// next reading read it back as its own and dropped it -- a window that could
+// be dragged wider and snapped back a second later.
+func TestAWidthTheUserSetSurvivesEveryLaterResize(t *testing.T) {
+	w := newTestWindow(t, glance.Options{Title: "Sensors", Resizable: true})
+	c := glance.NewCard("Card")
+	c.AddRow(glance.NewRow("label", "0"))
+	c.SetAvailable(true)
+	w.Panel().Add(c)
+	w.Panel().Attach(w.Window())
+
+	content := w.Window().Canvas().Size().Width
+	wide := content + 400
+	w.Window().Resize(fyne.NewSize(wide, w.Window().Canvas().Size().Height))
+	require.Equal(t, wide, w.Window().Canvas().Size().Width, "the driver did not take the width")
+
+	for i := range 3 {
+		w.Panel().Resize()
+		assert.Equal(t, wide, w.Window().Canvas().Size().Width,
+			"the panel took the window back off the user on resize %d", i+1)
+	}
+}

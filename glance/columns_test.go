@@ -99,3 +99,24 @@ func TestAGridCanGoBackToAStack(t *testing.T) {
 	p.Content().Resize(fyne.NewSize(1600, 2000))
 	assert.Equal(t, 1, columnsOf(p))
 }
+
+// AC. The arrangement survives a restyle.
+//
+// The regression this encodes shipped: Restyle replaced the cards' layout with
+// a VBox, so the grid was lost the first time the text size or the scheme
+// changed -- which every panel does at startup, when its own theme is applied.
+// A test that only ever set the arrangement and measured could not see it.
+func TestAGridSurvivesARestyle(t *testing.T) {
+	p := panelOf(t, 4, 1600)
+	p.SetArrangement(glance.Grid)
+	p.Content().Resize(fyne.NewSize(1600, 2000))
+	require.Greater(t, columnsOf(p), 1, "the grid was not in columns to begin with")
+
+	// A different width, because Fyne skips the layout pass when the size did
+	// not change -- and a test that resized to 1600 twice never ran the layout
+	// the restyle had just replaced.
+	p.Restyle()
+	p.Content().Resize(fyne.NewSize(1500, 2000))
+
+	assert.Greater(t, columnsOf(p), 1, "a restyle flattened the grid into a stack")
+}

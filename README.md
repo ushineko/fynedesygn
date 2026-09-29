@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.70
+**Version**: 0.1.71
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -256,6 +256,15 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.71 (2026-09-29)
+
+- **Tests**: the markdown pane's height tests assert on the pane's own
+  recorded block heights rather than on a rendered document's `MinSize`. A
+  number that text shaping produced differs between platforms, which is how a
+  test of our virtualisation came to fail on macOS and pass everywhere else.
+  They still catch the defect they were written for and now name the block
+  that moved. The rules are in `docs/design-system.md` (#138).
 
 ### 0.1.70 (2026-09-29)
 

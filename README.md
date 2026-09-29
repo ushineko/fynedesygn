@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.69
+**Version**: 0.1.70
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -256,6 +256,20 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.70 (2026-09-29)
+
+- **Fix**: a settings store can be stopped. Every `Set` started a goroutine
+  that slept out the quiet period and could not be called off, so a window
+  that had closed still had a write landing a second later -- and, through the
+  shell's error callback, went on to refresh widgets off the UI thread. One
+  timer for the store now, reset by each change; `Close` stops it and writes
+  what is outstanding, and `Shell.Stop` calls it. This is the data race and
+  the harfbuzz panic that had been failing macOS and Windows CI (#134, #137).
+- **Docs**: quirk 41. Where the scrollbars auto-hide, `Scroll.Scrolled` starts
+  a 500 ms timer that refreshes the bars through `fyne.Do` -- which the test
+  driver runs inline, on that timer's goroutine. Linux and Windows never see
+  it, because `scrollBarAlwaysVisible` is a constant `true` there.
 
 ### 0.1.69 (2026-09-29)
 

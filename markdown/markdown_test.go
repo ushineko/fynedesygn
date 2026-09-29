@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -48,6 +49,22 @@ func scrollBy(sc *container.Scroll, dy float32) {
 	sc.Scrolled(&fyne.ScrollEvent{Scrolled: fyne.NewDelta(0, dy)})
 }
 
+/*
+scrollEnded waits out the timer Fyne starts on every wheel notch.
+
+Quirk 41. Scroll.Scrolled schedules its bar refresh 500 ms later through a
+time.AfterFunc, and under the test driver fyne.Do runs inline -- so that
+refresh measures text on the *timer's* goroutine while the test goes on
+measuring on its own. Two goroutines in Fyne's font metrics cache, which is
+not synchronised, and the race detector says so.
+
+It is only a test's problem: a real program's fyne.Do queues to the UI thread.
+A test that scrolls and then measures has to let the timer land first, which
+is what this is, and 500 ms is the upstream constant rather than a number
+picked to make a failure go away.
+*/
+func scrollEnded() { time.Sleep(600 * time.Millisecond) }
+
 // Canary #7 (docs/fyne-quirks.md): one RichText over a long document repaints
 // every segment per wheel notch, so the pane keeps distant blocks out of the
 // tree. If Fyne ever virtualises RichText itself, this is the test to revisit.
@@ -65,6 +82,7 @@ func TestBlocksRenderAsTheyAreScrolledTo(t *testing.T) {
 	for i := 0; i < 400 && !p.IsLive(last); i++ {
 		scrollBy(sc, -400)
 	}
+	scrollEnded()
 	require.True(t, p.IsLive(last), "the end of the document renders once scrolled to")
 	require.False(t, p.IsLive(0), "the top has been released by then")
 }
@@ -76,6 +94,7 @@ func TestDocumentHeightIsTheSameWhicheverBlocksAreRendered(t *testing.T) {
 	for range 20 {
 		scrollBy(sc, -400)
 	}
+	scrollEnded()
 	require.NotZero(t, p.Live())
 	require.Equal(t, before, p.MinSize().Height, "the document changed height while scrolling")
 }
@@ -286,6 +305,7 @@ func TestAFreshPaneIsTheSameHeightAsOneThatHasBeenResized(t *testing.T) {
 	for range 6 {
 		scrollBy(sc, -400)
 	}
+	scrollEnded()
 	was := settled.MinSize().Height
 
 	fresh := New(src, Options{})

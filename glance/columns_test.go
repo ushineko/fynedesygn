@@ -146,3 +146,29 @@ func TestFyneStillSkipsALayoutWhenTheSizeDidNotChange(t *testing.T) {
 	c.Resize(fyne.NewSize(401, 400))
 	assert.Greater(t, l.runs, after, "a resize to a different size did not run the layout")
 }
+
+// AC. A width that fits more columns than the cards fill does not leave one
+// empty, and the cards take the whole width.
+//
+// Four cards in three columns is two per column, and two columns hold all
+// four. Sizing for three left a third of the window blank with the cards
+// crammed into the rest -- measured on a real panel widened to 900: three
+// columns of 292 where two of 444 were meant.
+func TestAGridLeavesNoEmptyColumn(t *testing.T) {
+	// Wide enough for three columns, derived rather than a number, so the
+	// test lands on three whatever the test theme's text size is.
+	width := 3*glance.MinCardWidth() + 2*glance.CardGap() + 10
+	p := panelOf(t, 4, width)
+	p.SetArrangement(glance.Grid)
+	p.Content().Resize(fyne.NewSize(width, 2000))
+
+	require.Equal(t, 2, columnsOf(p), "four cards drew in something other than two columns")
+
+	// Two columns and one gap between them account for the whole width.
+	var widest float32
+	for _, c := range p.Cards() {
+		widest = max(widest, c.Object().Size().Width)
+	}
+	assert.InDelta(t, width, widest*2+glance.CardGap(), 1,
+		"the cards were sized for more columns than they filled")
+}

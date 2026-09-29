@@ -257,6 +257,16 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Add**: `Panel.SetArrangement` lays the cards out in columns. `Grid`
+  reflows them into as many as the width fits and `Stack` is one above
+  another, which is the default and what every existing caller keeps. A width
+  that fits one column *is* a stack, so a panel nobody widens never looks any
+  different and no caller has to decide which it wants at each size.
+  Column-major, matching the reading order a terminal panel already uses for
+  the same setting (#124).
+
 ### 0.1.62 (2026-09-28)
 
 - **Add**: `Card.SetLastKnown` dims a card's rows without marking its header.

@@ -113,7 +113,6 @@ func NewCell(name, blank string) *Cell {
 		note:  canvas.NewText("", nil),
 		shown: true,
 	}
-	c.value.TextStyle = fyne.TextStyle{Monospace: true}
 	for _, t := range []*canvas.Text{c.name, c.value, c.note} {
 		t.Alignment = fyne.TextAlignCenter
 	}
@@ -222,6 +221,22 @@ func (c *Cell) restyleText() {
 	c.name.TextSize = c.textSize()
 	c.value.TextSize = c.textSize() * CellValueScale
 	c.note.TextSize = c.textSize()
+
+	/*
+		Bold, because the reading is the whole point of a cell.
+		CellValueScale already says so in size; weight says it from further
+		away, which is the distance a battery percentage is actually read
+		from. The name above and the state below stay regular, so the three
+		pieces of a cell read in the order they matter.
+
+		Monospace with it, so the digits still hold their columns when a level
+		goes from 9 to 10. Through bold rather than set outright, because a
+		mono family with no bold is a panic in the painter and not a lighter
+		weight -- see quirk 35. It is here and not in the constructor because
+		a cell can be given a different face later, and the new family may
+		answer differently.
+	*/
+	c.value.TextStyle = c.bold(fyne.TextStyle{Monospace: true})
 
 	c.name.Color = c.colour(theme.ColorNameForeground)
 	c.value.Color = c.readingColour()

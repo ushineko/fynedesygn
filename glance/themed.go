@@ -58,6 +58,29 @@ func (t *themed) Theme() fyne.Theme {
 	return theme.DefaultTheme()
 }
 
+/*
+bold adds Bold to a style where the theme has that face, and leaves it off
+where it does not.
+
+Quirk 35. Fyne reads the font the theme returns for a style and does not fall
+back to another face, so a theme with no bold variant of the family returns
+nothing and the painter reads the empty value -- a panic, not a lighter
+weight. Fyne's own test theme is such a theme, and so is any family a reader
+picks that ships no bold.
+
+The answer is the theme this object draws in rather than the application's: a
+panel carries its own face, and its mono family is not the one the rest of the
+program uses.
+*/
+func (t *themed) bold(style fyne.TextStyle) fyne.TextStyle {
+	want := style
+	want.Bold = true
+	if t.Theme().Font(want) == nil {
+		return style
+	}
+	return want
+}
+
 // variant is the light/dark variant to resolve colours in.
 //
 // The application's, always, even for an object with a theme of its own: a

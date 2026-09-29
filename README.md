@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.71
+**Version**: 0.1.72
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -256,6 +256,15 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.72 (2026-09-29)
+
+- **Add**: a cell's reading is bold. `CellValueScale` says it is the point of
+  a cell in size; weight says it from further away, which is the distance a
+  battery percentage is read from. The name and the state stay regular. Set
+  through `themed.bold`, which drops the weight where the theme has no bold
+  face for the family -- quirk 35 means a missing face is a panic in the
+  painter rather than a lighter stroke (#139).
 
 ### 0.1.71 (2026-09-29)
 

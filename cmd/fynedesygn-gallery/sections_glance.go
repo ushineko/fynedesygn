@@ -70,6 +70,7 @@ func buildGlance(_ *shell.Shell) fyne.CanvasObject {
 		demo("Card, live", liveCard().Object()),
 		demo("Card, source gone", staleCard().Object()),
 		demo("Card + Sparkline", plotCard().Object()),
+		demo("Sparkline, ScaleShared, SeriesColour + Faded", sharedPlot(90)),
 
 		demo("Card + Meter", meterCard().Object()),
 
@@ -244,6 +245,33 @@ func glancePlot(n int) *glance.Sparkline {
 		t := float64(i)
 		p.Add("coolant", 38.5+1.2*math.Sin(t/11))
 		p.Add("cpu", 62+14*math.Sin(t/7)+4*math.Sin(t/3))
+	}
+	return p
+}
+
+// sharedPlot is a bandwidth plot: two interfaces, each a pair of traces for
+// down and up, drawn under ScaleShared so their heights compare. An interface's
+// down is its SeriesColour (the scheme's link colour for the first, the
+// categorical violet for the second) and its up the Faded version of it. The wired link
+// moves tens of MiB/s and the wireless one about one, so the wireless pair is
+// a low line along the floor, which is what the shared scale is for.
+func sharedPlot(n int) *glance.Sparkline {
+	th := fynetheme.Current()
+	p := glance.NewSparkline(n)
+	p.SetScale(glance.ScaleShared)
+	for i, iface := range []string{"eno1", "wlan0"} {
+		c := glance.SeriesColour(th, i)
+		p.AddSeries(iface+" down", c, 64*1024)
+		p.AddSeries(iface+" up", glance.Faded(c), 64*1024)
+	}
+
+	const mib = 1 << 20
+	for i := range n {
+		t := float64(i)
+		p.Add("eno1 down", 18*mib*(0.55+0.45*math.Sin(t/9)*math.Sin(t/4)))
+		p.Add("eno1 up", 4*mib*(0.5+0.4*math.Sin(t/6)))
+		p.Add("wlan0 down", 1.2*mib*(0.6+0.35*math.Sin(t/5)))
+		p.Add("wlan0 up", 0.3*mib*(0.6+0.3*math.Sin(t/7)))
 	}
 	return p
 }

@@ -17,11 +17,14 @@ const SparklineHeight float32 = 26
 //
 // Three rules it enforces, each of which was a defect first:
 //
-//   - **Each trace is scaled to its own range, not to a shared axis.** In one
-//     recorded session a CPU trace ranged 65–98 °C while the coolant trace it
-//     was drawn beside moved 45.8–46.6 °C, roughly 40:1. On a shared axis the
-//     coolant trace is two pixels tall. Heights are therefore not comparable
-//     between traces, and the rows above the plot are where values are read.
+//   - **Each trace is scaled to its own range, not to a shared axis**, unless
+//     the plot is told otherwise with SetScale. In one recorded session a CPU
+//     trace ranged 65–98 °C while the coolant trace it was drawn beside moved
+//     45.8–46.6 °C, roughly 40:1. On a shared axis the coolant trace is two
+//     pixels tall. Heights are therefore not comparable between traces, and
+//     the rows above the plot are where values are read. A plot whose traces
+//     are the same quantity and are meant to be compared (bandwidth) asks for
+//     ScaleShared instead.
 //   - **Each trace has a minimum span**, so an idle flat line stays flat
 //     instead of amplifying sensor noise into a mountain range.
 //   - **There is no legend.** Each trace is drawn in the colour of its row's
@@ -36,9 +39,29 @@ type Sparkline struct {
 
 	capacity int
 	height   float32
+	scale    Scale
 	order    []string
 	series   map[string]*series
 }
+
+// Scale is how a plot's traces are fitted to its height.
+type Scale int
+
+const (
+	// ScaleEach draws every trace against its own range, widened to its
+	// minimum span about the middle. It is the default, and the right plot
+	// for traces of different quantities read for their shape: coolant at
+	// 40 °C beside a processor at 90 °C.
+	ScaleEach Scale = iota
+	// ScaleShared draws every trace against one range: zero at the bottom and
+	// the greatest sample of any trace in the window at the top, widened to
+	// the largest of the traces' minimum spans when the peak is below it. It
+	// is the right plot for traces of one quantity that are meant to be
+	// compared, such as the down and up rates of several interfaces, where a
+	// 1 KiB/s trace must be a flat line beside a 20 MiB/s one. It assumes the
+	// samples are not negative.
+	ScaleShared
+)
 
 // series is one trace: its samples, its colour, and its own vertical scale.
 type series struct {
@@ -69,6 +92,28 @@ func (s *series) bounds() (low, span float64) {
 		span = s.minSpan
 	}
 	return lo, span
+}
+
+// sharedBounds are the low edge and the span every trace is drawn against
+// under ScaleShared: zero, and the greatest sample across all traces, widened
+// to the largest minimum span when the peak is below it.
+func (s *Sparkline) sharedBounds() (low, span float64) {
+	for _, ser := range s.series {
+		if ser.minSpan > span {
+			span = ser.minSpan
+		}
+		for _, v := range ser.samples {
+			if v > span {
+				span = v
+			}
+		}
+	}
+	if span <= 0 {
+		// Every sample is zero and no trace asked for a span: draw the
+		// traces along the bottom rather than dividing by zero.
+		span = 1
+	}
+	return 0, span
 }
 
 // NewSparkline builds an empty plot holding at most capacity samples per
@@ -152,6 +197,19 @@ func (s *Sparkline) Clear() {
 	s.Refresh()
 }
 
+// SetScale chooses how the traces are fitted to the plot's height. ScaleEach
+// is the default; see Scale for when each is right.
+func (s *Sparkline) SetScale(sc Scale) {
+	if s.scale != sc {
+		s.scale = sc
+		s.Refresh()
+	}
+}
+
+// Scale reports how the traces are fitted, so a consumer's test can assert
+// the plot it built is the kind it meant without measuring pixels.
+func (s *Sparkline) Scale() Scale { return s.scale }
+
 // SetHeight changes the plot's height, which a card scales with the text size.
 func (s *Sparkline) SetHeight(h float32) {
 	s.height = h
@@ -228,13 +286,20 @@ func (r *sparklineRenderer) segment(colour color.Color, width float32) *canvas.L
 	return l
 }
 
-// rebuild draws every trace into the current size. Each trace is scaled to its
-// own bounds; see the type's comment for why they are not shared.
+// rebuild draws every trace into the current size. Under ScaleEach each trace
+// is scaled to its own bounds, and under ScaleShared all of them to one; see
+// the type's comment for why the default is not shared.
 func (r *sparklineRenderer) rebuild() {
 	r.used = 0
 	w, h := r.size.Width, r.size.Height
 	if w <= 0 || h <= 0 {
 		return
+	}
+
+	shared := r.plot.scale == ScaleShared
+	var sharedLow, sharedSpan float64
+	if shared {
+		sharedLow, sharedSpan = r.plot.sharedBounds()
 	}
 
 	for _, key := range r.plot.order {
@@ -243,7 +308,10 @@ func (r *sparklineRenderer) rebuild() {
 		if n < 2 {
 			continue
 		}
-		low, span := ser.bounds()
+		low, span := sharedLow, sharedSpan
+		if !shared {
+			low, span = ser.bounds()
+		}
 		step := w / float32(n-1)
 
 		prev := fyne.NewPos(0, h-float32((ser.samples[0]-low)/span)*h)

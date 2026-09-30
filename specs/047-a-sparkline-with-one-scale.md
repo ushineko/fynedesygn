@@ -60,7 +60,7 @@ choosing its own is the copy the library exists to end.
 - [x] `Faded` keeps the hue and lowers alpha.
 - [x] The gallery builds and the new sparkline is photographed
   (`docs/img/`), or the screenshot harness is run by the reviewer; noted.
-  The gallery builds (`make gallery`); the photograph is for the reviewer:
+  The gallery builds (`make gallery`); the photograph, taken at review:
   `tools/screenshot.sh --section Glance --scheme "Breeze Dark" docs/img/gallery-glance.png`. The
   README's alt text for that image already describes the new plot.
   Shot 2026-09-30 with the harness (`--section Glance --scheme "Breeze Dark"`):
@@ -103,4 +103,4 @@ choosing its own is the copy the library exists to end.
   background violet `#7c4dbd`, teal `#0f8a80`, magenta `#b0369a` (on Breeze
   Light's window 5.0, 3.7, 4.8; all above the 3:1 non-text minimum).
 - `make test` (race), `make lint` (0 issues), `make gallery` pass.
-- Photograph: for the reviewer, `--section Glance`.
+- Photograph: taken at review with `--section Glance`, docs/img/gallery-glance.png.

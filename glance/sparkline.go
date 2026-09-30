@@ -206,6 +206,10 @@ func (s *Sparkline) SetScale(sc Scale) {
 	}
 }
 
+// Scale reports how the traces are fitted, so a consumer's test can assert
+// the plot it built is the kind it meant without measuring pixels.
+func (s *Sparkline) Scale() Scale { return s.scale }
+
 // SetHeight changes the plot's height, which a card scales with the text size.
 func (s *Sparkline) SetHeight(h float32) {
 	s.height = h

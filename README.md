@@ -269,7 +269,7 @@ MIT. See [LICENSE](LICENSE).
   categorical violet, teal and magenta weighted for the background, none of
   them a status colour, wrapping after the fourth; and
   `glance.Faded(c)` is c at half the alpha, for the secondary series of a
-  pair. The gallery's Glance section shows a bandwidth plot of two pairs
+  pair; `Sparkline.Scale()` reads the scale back. The gallery's Glance section shows a bandwidth plot of two pairs
   under the shared scale; `docs/glance.md` says when each scale is right
   (spec 047, #143).
 

@@ -295,3 +295,11 @@ func BenchmarkSparklineRefresh(b *testing.B) {
 		s.Add("coolant", 46.4)
 	}
 }
+
+// Scale reads back what SetScale set, ScaleEach until then.
+func TestScaleReadsBackWhatWasSet(t *testing.T) {
+	s := glance.NewSparkline(8)
+	assert.Equal(t, glance.ScaleEach, s.Scale())
+	s.SetScale(glance.ScaleShared)
+	assert.Equal(t, glance.ScaleShared, s.Scale())
+}

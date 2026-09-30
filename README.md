@@ -99,9 +99,9 @@ Each example is a complete program with a headless test, in `examples/`, on
 
 ## Used by
 
-Four programs, all by the same author and all public. The first three carried
-this design system as hand-synced copies before it was extracted, and are the
-reason it exists; the fourth was built on the library from the start.
+Seven programs, all by the same author and all public. The first three
+carried this design system as hand-synced copies before it was extracted,
+and are the reason it exists; the others were built on the library.
 
 | Project | What it is | Role here |
 |---|---|---|
@@ -109,6 +109,9 @@ reason it exists; the fourth was built on the library from the start.
 | [nmsbonker](https://github.com/ushineko/nmsbonker) | No Man's Sky trainer and mod editor | Second adopter. `steps`, the log pane and the cancellable busy popup came from it |
 | [angou](https://github.com/ushineko/angou) | Encryption tool for secrets | The origin. The rationale comments in `docs/design-system.md` are transcribed from its `internal/gui` |
 | [terrariabonker](https://github.com/ushineko/terrariabonker) | Live-memory trainer for Terraria | Built on the library rather than migrated to it. Reported the table resize cost (spec 015) and asked for hover tips (spec 010) |
+| [hayami](https://github.com/ushineko/hayami) | Glance panel for Linux: peripheral batteries, bandwidth, cooler thermals, Claude Code and Codex usage, on the desktop and in a terminal | The `glance` package exists for it (specs 016, 017, 038–048): the frameless always-on-top window, cards, cells with bars, meters, the shared-scale sparkline and series colours, and the restyle fix. Also `settings`, `markdown` and `glance/kwin` |
+| [hotaru](https://github.com/ushineko/hotaru) | RGB lighting and AIO cooler control for Linux, with a live dashboard on the cooler's LCD | Drove `settings` (spec 011) and the shell's program-settings, section-arrival and affixed-controls work (specs 019–028); uses `steps`, `logpane` and `dialogs` |
+| [ototo](https://github.com/ushineko/ototo) | Audio-output switcher that lives in the tray and follows the best connected output | A shell-and-widgets consumer; spec 035 came from it |
 
 A component is done when one of these can delete its copy, which is why their
 feedback has its own specs (006, 007) rather than being folded into the
@@ -268,6 +271,11 @@ MIT. See [LICENSE](LICENSE).
   test helper waits for that before `Stop`. Two races in sixty runs before,
   none after. No API change; a real driver serialises both on the Fyne
   thread and never saw it.
+
+- README "Used by" lists every program on the library: hayami, hotaru and
+  ototo had been missing. A canary now fails when a spec cites a program
+  the table does not name, and the project rules say the table is part of
+  every docs change.
 
 ### 0.1.76 (2026-09-30)
 
@@ -1008,7 +1016,7 @@ changed, a section missing from Contents. Each was checked by breaking the
 thing it guards, and one was blind on the first attempt. The rule they enforce
 is in `.claude/CLAUDE.md`. Spec 018.
 
-A "Used by" section names the four programs built on this library, one of
+A "Used by" section names the programs built on this library, one of
 which the project's own record had lost: terrariabonker has been on it since
 before v0.1.27 and appeared only in changelog entries.
 

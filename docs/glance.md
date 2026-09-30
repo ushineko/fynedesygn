@@ -482,6 +482,14 @@ each change of font scale, and the first data of each card.
   what [Numbers that do not jitter](#numbers-that-do-not-jitter) prevents. Only
   a *card* that appears or disappears may resize the window, and that is a real
   event and not a repaint.
+- **A resizable panel keeps a width the user dragged, and a restyle forgets
+  it.** `Options.Resizable` lets the user widen the window; the panel remembers
+  that width and hands it back on every later resize, because it resizes on
+  every reading. **A restyle fits the content and forgets a dragged width.** A
+  font or scheme change re-measures everything, and the width the window has
+  at that moment is Fyne's own fit to the new face (quirk 34), not anyone's
+  choice -- read as one, a wide face followed by a narrow one kept the wide
+  window. A drag after the restyle is remembered as before.
 - Padding and spacing follow the text size; do not keep them at a fixed number
   of pixels. At a scale of 0.8, a margin set for a scale of 1.0 is too large in
   proportion. The monitor multiplies each margin by the scale, with a small

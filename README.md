@@ -257,6 +257,15 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: a restyle fits the panel's content. `Panel.SetTheme` and
+  `Panel.Restyle` resize to the content and forget a width the user dragged;
+  before, Fyne's own growth of the window to the new face was recorded as the
+  user's width, so switching from a wide face to a narrow one kept the wide
+  window for the life of the program (hayami #85). A drag after the restyle is
+  kept as before. `Add` and `SetArrangement` are unchanged (#140).
+
 ### 0.1.72 (2026-09-29)
 
 - **Add**: a cell's reading is bold. `CellValueScale` says it is the point of

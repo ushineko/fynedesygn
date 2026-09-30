@@ -273,7 +273,12 @@ func (p *Panel) Size() fyne.Size {
 //
 // It runs now rather than on the next frame. A window that resizes a frame
 // after the cause resizes visibly.
-func (p *Panel) Resize() {
+func (p *Panel) Resize() { p.resize(false) }
+
+// resize is Resize, and with fit it is a re-measure: the width the window has
+// is not read as anyone's choice, and a remembered one is forgotten. See
+// Restyle.
+func (p *Panel) resize(fit bool) {
 	if p.win == nil {
 		return
 	}
@@ -305,7 +310,10 @@ func (p *Panel) Resize() {
 	*/
 	if p.resizable {
 		current := p.win.Canvas().Size().Width
-		if p.sized && current != p.asked {
+		switch {
+		case fit:
+			p.chosen = 0
+		case p.sized && current != p.asked:
 			p.chosen = current
 		}
 		want.Width = max(want.Width, p.chosen)
@@ -316,7 +324,16 @@ func (p *Panel) Resize() {
 }
 
 // Restyle repaints the panel and every card in the current theme, after a
-// scheme or text size change, and resizes: a larger face is a larger window.
+// scheme or text size change, and resizes: a larger face is a larger window,
+// and a smaller one a smaller window.
+//
+// The resize fits the content and forgets a width the user dragged. The width
+// the window has at this point is nobody's choice: SetTheme has just replaced
+// the content and Fyne has fitted the window to the new face by itself (quirk
+// 34 grows and never shrinks), so reading it the way Resize does recorded that
+// growth as the user's width, and a wide face followed by a narrow one kept
+// the wide window for the life of the program. A drag after the restyle is
+// remembered as before.
 func (p *Panel) Restyle() {
 	p.bg.FillColor = p.BackgroundColour()
 	p.bg.Refresh()
@@ -330,7 +347,7 @@ func (p *Panel) Restyle() {
 	for _, c := range p.cards {
 		c.Restyle()
 	}
-	p.Resize()
+	p.resize(true)
 }
 
 // Overlay stacks an object over the whole panel, for something that has to

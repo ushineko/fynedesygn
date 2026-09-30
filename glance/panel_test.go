@@ -642,3 +642,53 @@ func TestAWidthTheUserSetSurvivesEveryLaterResize(t *testing.T) {
 			"the panel took the window back off the user on resize %d", i+1)
 	}
 }
+
+// restyleWindow is a resizable window with no floor, so its width is the
+// content's and a face change shows in it.
+func restyleWindow(t *testing.T) *glance.Window {
+	t.Helper()
+	w := newTestWindow(t, glance.Options{Title: "Sensors", Resizable: true, MinWidth: glance.NoMinWidth})
+	c := glance.NewCard("Card")
+	c.AddRow(glance.NewRow("temperature", "100 °C"))
+	c.SetAvailable(true)
+	w.Panel().Add(c)
+	return w
+}
+
+// AC. A restyle fits the content, even when the last face was wider.
+//
+// SetTheme replaces the window's content and Fyne fits the window to the new
+// face on its own (quirk 34: it grows and never shrinks), and Restyle then saw
+// a width it had not asked for and kept it as the user's. A wide face followed
+// by a narrow one left the narrow panel in the wide window for good.
+func TestARestyleFitsTheContent(t *testing.T) {
+	w := restyleWindow(t)
+	p := w.Panel()
+
+	p.SetTheme(fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: 24}))
+	wide := w.Window().Canvas().Size().Width
+
+	p.SetTheme(fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: 9}))
+	narrow := p.Size().Width
+	require.Less(t, narrow, wide, "the narrow face did not measure narrower")
+
+	assert.Equal(t, narrow, w.Window().Canvas().Size().Width,
+		"the window kept the wide face's width after a narrower restyle")
+}
+
+// AC. A drag after a restyle is still the user's.
+func TestAWidthSetAfterARestyleIsKept(t *testing.T) {
+	w := restyleWindow(t)
+	p := w.Panel()
+
+	p.SetTheme(fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: 9}))
+	dragged := p.Size().Width + 300
+	w.Window().Resize(fyne.NewSize(dragged, w.Window().Canvas().Size().Height))
+	require.Equal(t, dragged, w.Window().Canvas().Size().Width, "the driver did not take the width")
+
+	for i := range 3 {
+		p.Resize()
+		assert.Equal(t, dragged, w.Window().Canvas().Size().Width,
+			"the panel took the dragged width back on resize %d", i+1)
+	}
+}

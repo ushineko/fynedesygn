@@ -82,7 +82,7 @@ with the same command and check the alt text still matches.
 
 ![The About section: the program's name and version over a column of notes and a table of facts, the standard shape every program gets from shell.AboutSection.](docs/img/gallery-about.png)
 
-![The Glance section: the always-on-top panel vocabulary drawn at the width a real glance window uses, each piece captioned with its Go name — a live card, a card whose source has gone with its header marked "(unavailable)" and its values dimmed, a card with a two-trace sparkline under its rows, a card of four quota meters whose bars run green, green, amber and red as they approach their limits, a column of rows in four states, and each value formatter shown at three magnitudes in a monospace column.](docs/img/gallery-glance.png)
+![The Glance section: the always-on-top panel vocabulary drawn at the width a real glance window uses, each piece captioned with its Go name — a live card, a card whose source has gone with its header marked "(unavailable)" and its values dimmed, a card with a two-trace sparkline under its rows, a bare sparkline of two interfaces' down and up rates on one shared scale, one interface in the scheme's link blue and the other in violet, each with its upload a faded copy of it and the quieter interface a low line along the floor, a card of four quota meters whose bars run green, green, amber and red as they approach their limits, a column of rows in four states, and each value formatter shown at three magnitudes in a monospace column.](docs/img/gallery-glance.png)
 
 ## Examples
 
@@ -256,6 +256,22 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### Unreleased
+
+- **Add**: a sparkline can draw every series against one scale.
+  `Sparkline.SetScale(ScaleShared)` puts zero at the bottom and the greatest
+  sample of any series in the window at the top, widened to the largest
+  minimum span when the peak is below it, so a 1 KiB/s interface is a flat
+  line beside a 20 MiB/s one rather than the same amplitude. `ScaleEach`,
+  each series to its own range, stays the default, so the cooler card does
+  not change. `glance.SeriesColour(th, i)` is the theme's link colour and then a
+  categorical violet, teal and magenta weighted for the background, none of
+  them a status colour, wrapping after the fourth; and
+  `glance.Faded(c)` is c at half the alpha, for the secondary series of a
+  pair. The gallery's Glance section shows a bandwidth plot of two pairs
+  under the shared scale; `docs/glance.md` says when each scale is right
+  (spec 047, #143).
 
 ### 0.1.74 (2026-09-30)
 

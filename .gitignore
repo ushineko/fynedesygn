@@ -6,6 +6,7 @@
 /glance-monitor
 /glance-monitor.exe
 coverage.out
+/.cache/
 
 # Editor / OS
 .idea/

@@ -257,6 +257,11 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- `make lint` keeps its cache under the checkout, so git worktrees stop
+  reporting findings against each other's deleted files.
+
 ### 0.1.73 (2026-09-30)
 
 - **Fix**: a restyle fits the panel's content. `Panel.SetTheme` and

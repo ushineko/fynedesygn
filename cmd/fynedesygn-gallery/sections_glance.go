@@ -68,13 +68,14 @@ func buildGlance(_ *shell.Shell) fyne.CanvasObject {
 				"pieces it is built from. The rules are in docs/glance.md."),
 
 		demo("Card, live", liveCard().Object()),
+		// The cell card sits beside the row card it is the alternative to, and
+		// inside the section's first screen, which is what the README shows.
+		demo("Card + CellGrid", cellCard().Object()),
 		demo("Card, source gone", staleCard().Object()),
 		demo("Card + Sparkline", plotCard().Object()),
 		demo("Sparkline, ScaleShared, SeriesColour + Faded", sharedPlot(90)),
 
 		demo("Card + Meter", meterCard().Object()),
-
-		demo("Card + CellGrid", cellCard().Object()),
 
 		demo("Row", container.NewVBox(
 			glanceRow("Coolant", glance.Known(glance.Quantity(46.6, "°C", glanceUnit), fd.StatusGood)),
@@ -141,6 +142,11 @@ margin in the same weight as the device name, so the eye reads the name and
 then hunts for the figure; in a cell the figure is what it lands on and the
 name is only which device it belongs to. The card above this one is the same
 peripherals section drawn as rows, which is the comparison worth making.
+
+Three of the cells carry a bar under their state, a length the eye compares
+across the card. The keyboard has no reading and so no bar, and its cell is the
+same height as the others: the bar's row is reserved whether or not one is
+drawn in it.
 */
 func cellCard() *glance.Card {
 	c := glance.NewCard("Peripherals")
@@ -149,6 +155,7 @@ func cellCard() *glance.Card {
 	mouse := glance.NewCell("G502 X PLUS", glance.NoPercent())
 	mouse.Set(glance.Known(glance.Percent(67), fd.StatusGood))
 	mouse.SetNote("Discharging")
+	mouse.SetBar(0.67, fd.StatusGood)
 
 	board := glance.NewCell("Keychron K4 HE", glance.NoPercent())
 	board.Set(glance.Missing(glance.NoPercent()))
@@ -157,10 +164,12 @@ func cellCard() *glance.Card {
 	buds := glance.NewCell("AirPods Pro", glance.NoPercent())
 	buds.Set(glance.Known(glance.Percent(80), fd.StatusGood))
 	buds.SetNote("L 80  R 90")
+	buds.SetBar(0.80, fd.StatusGood)
 
 	phones := glance.NewCell("Arctis Nova Pro", glance.NoPercent())
 	phones.Set(glance.Known(glance.Percent(15), fd.StatusBad))
 	phones.SetNote("Discharging")
+	phones.SetBar(0.15, fd.StatusBad)
 
 	grid.Add(mouse, board, buds, phones)
 	c.Add(grid)

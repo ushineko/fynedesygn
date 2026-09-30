@@ -643,6 +643,20 @@ that wrap to the width they are given.
   a sparkline the card cannot restyle it, because `AddObject` takes a plain
   canvas object. Call `CellGrid.Restyle` when the scheme or the text size
   changes.
+- **A level can have a bar under it.** `Cell.SetBar(fraction, status)` draws
+  one under the state, the cell's width and a meter's height, by the meter's
+  rules: the fraction is clamped to 0..1, the fill is the status colour (the
+  scheme's primary when ungraded), and the empty track is the disabled colour.
+  A percentage is a number the eye has to read; a bar is a length it compares
+  across a card. `Cell.ClearBar` takes it away, and a new cell has none — which
+  is right for a reading that already draws its own level, such as a band of
+  segments.
+- **The bar's row is reserved whether or not a bar is drawn in it.** A cell is
+  the same height with a bar, without one and after `ClearBar`, so a device that
+  gains or loses a level does not reflow the card. Every cell pays for the row
+  once.
+- **A stale reading dims its bar** as it dims its figure, and `Restyle` and
+  `SetTheme` recolour it.
 - **There is no icon.** The monitor draws a battery glyph beside the
   percentage and it is deliberately not carried: an icon per device type means
   this module knowing what a mouse is, which is an application concept. A

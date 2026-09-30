@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 
 	fd "github.com/ushineko/fynedesygn"
+	"github.com/ushineko/fynedesygn/widgets"
 )
 
 // CellValueScale is how much larger a cell's reading is than its name.
@@ -90,6 +91,12 @@ type Cell struct {
 	note  *canvas.Text
 	box   *fyne.Container
 
+	// bar is the level under the state, when there is one. Its row is in the
+	// layout whether or not it is shown, so a cell is the same height with a
+	// bar and without -- see SetBar.
+	bar       *bar
+	barStatus fd.Status
+
 	reading Reading
 	shown   bool
 
@@ -111,8 +118,10 @@ func NewCell(name, blank string) *Cell {
 		name:  canvas.NewText(name, nil),
 		value: canvas.NewText(blank, nil),
 		note:  canvas.NewText("", nil),
+		bar:   newBar(),
 		shown: true,
 	}
+	c.bar.Hide()
 	for _, t := range []*canvas.Text{c.name, c.value, c.note} {
 		t.Alignment = fyne.TextAlignCenter
 	}
@@ -120,7 +129,7 @@ func NewCell(name, blank string) *Cell {
 	c.reading = Measured(blank)
 	c.fullName = name
 	c.restyleText()
-	c.box = container.New(&cellLayout{cell: c}, c.name, c.value, c.note)
+	c.box = container.New(&cellLayout{cell: c}, c.name, c.value, c.note, c.bar)
 	return c
 }
 
@@ -131,6 +140,49 @@ func (c *Cell) Set(rd Reading) {
 	c.value.Text = rd.Text
 	c.value.Color = c.readingColour()
 	c.value.Refresh()
+	// A stale reading dims the bar under it too, so the bar follows.
+	c.bar.set(c.bar.fraction, c.barColour())
+}
+
+/*
+SetBar draws a bar under the cell's state: the cell's width, a meter's height,
+filled to fraction and coloured by st.
+
+A percentage in a cell is a number the eye has to read; a bar is a length the
+eye compares across a card of them. It is drawn by the meter's rules: fraction
+is clamped to 0..1, because a bar wider than its track has left the layout; the
+fill is st's status colour and an ungraded one is the scheme's primary; the
+empty track is the disabled colour. A stale reading dims the fill, as it dims
+the figure.
+
+**The bar's row is always reserved.** A cell is the same height with a bar,
+without one and after ClearBar, so a device that gains or loses a level does not
+reflow the card. Every cell pays for the row once, and a cell with no bar draws
+nothing in it.
+
+A reading that already draws its own level -- a band of segments -- wants no
+bar under it; that is ClearBar, which is also how a new cell starts.
+*/
+func (c *Cell) SetBar(fraction float64, st fd.Status) {
+	c.barStatus = st
+	c.bar.set(clamp01(fraction), c.barColour())
+	c.bar.Show()
+}
+
+// ClearBar takes the bar away and leaves its row empty. The cell keeps its
+// height.
+func (c *Cell) ClearBar() {
+	c.bar.Hide()
+}
+
+// barColour is the bar's fill: the disabled colour when the reading is stale,
+// the bar's status colour otherwise. Dimming wins over the verdict, as it does
+// for the reading.
+func (c *Cell) barColour() fyne.ThemeColorName {
+	if c.reading.Stale {
+		return theme.ColorNameDisabled
+	}
+	return widgets.StatusColorName(c.barStatus)
 }
 
 // SetName replaces the name over the reading, for a cell whose subject can
@@ -151,6 +203,7 @@ func (c *Cell) SetNote(s string) {
 // so being told is not enough.
 func (c *Cell) SetTheme(th fyne.Theme) {
 	c.themed.SetTheme(th)
+	c.bar.SetTheme(th)
 	c.Restyle()
 }
 
@@ -211,6 +264,7 @@ func (c *Cell) Restyle() {
 	c.name.Refresh()
 	c.value.Refresh()
 	c.note.Refresh()
+	c.bar.set(c.bar.fraction, c.barColour())
 	c.refit(c.name, c.value, c.note)
 	c.box.Refresh()
 }
@@ -264,7 +318,9 @@ func (c *Cell) Shown() bool { return c.shown }
 func (c *Cell) Object() fyne.CanvasObject { return c.box }
 
 /*
-cellLayout stacks a cell's three pieces, centred, and decides its width.
+cellLayout stacks a cell's three pieces, centred, and decides its width. Under
+them is the bar's row, BarHeight tall whether or not the bar is shown, so that
+SetBar and ClearBar never change the cell's height.
 
 The reading sets the width and the name is elided into it, up to
 CellNameBudget. A device name is as transient as the device -- a mouse waking
@@ -288,9 +344,9 @@ func (l *cellLayout) padding() float32 {
 }
 
 // MinSize is the width the reading needs, widened for the name and the state
-// up to their budget, and the three pieces' heights.
+// up to their budget, and the three pieces' heights and the bar's row.
 func (l *cellLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
-	if len(objects) < 3 {
+	if len(objects) < 4 {
 		return fyne.Size{}
 	}
 	value := objects[1].MinSize()
@@ -302,14 +358,18 @@ func (l *cellLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 		width = max(width, min(textWidth(c.note, c.fullNote), budget))
 	}
 
-	height := objects[0].MinSize().Height + value.Height + objects[2].MinSize().Height
-	return fyne.NewSize(width, height+2*l.padding())
+	// The bar's row is BarHeight and not the bar's MinSize, because the row is
+	// reserved whether the bar is shown or not, and a hidden object is one a
+	// container may be entitled to stop measuring.
+	height := objects[0].MinSize().Height + value.Height + objects[2].MinSize().Height + BarHeight
+	return fyne.NewSize(width, height+3*l.padding())
 }
 
 // Layout centres each piece on its own line, eliding the two that may be
-// longer than the cell is wide.
+// longer than the cell is wide, and gives the bar the last row at the cell's
+// full width.
 func (l *cellLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
-	if len(objects) < 3 {
+	if len(objects) < 4 {
 		return
 	}
 	// A cell that has not been given a width yet keeps its words. Eliding
@@ -322,8 +382,11 @@ func (l *cellLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	}
 
 	y := float32(0)
-	for _, o := range objects {
+	for i, o := range objects {
 		h := o.MinSize().Height
+		if i == 3 {
+			h = BarHeight
+		}
 		o.Move(fyne.NewPos(0, y))
 		o.Resize(fyne.NewSize(size.Width, h))
 		y += h + l.padding()

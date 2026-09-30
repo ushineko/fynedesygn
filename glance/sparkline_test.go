@@ -120,6 +120,107 @@ func TestThePlotReservesHeightAndNoWidth(t *testing.T) {
 	assert.Equal(t, glance.SparklineHeight, s.MinSize().Height)
 }
 
+// sharedPair is a plot of two traces from 0 to their peaks, one segment each,
+// so a segment's rise is the drawn height of its trace.
+func sharedPair(sc glance.Scale, minSpan float64) *glance.Sparkline {
+	s := glance.NewSparkline(10)
+	s.SetScale(sc)
+	s.AddSeries("wide", green, minSpan)
+	s.AddSeries("narrow", steel, minSpan)
+	s.Add("wide", 0)
+	s.Add("wide", 100)
+	s.Add("narrow", 0)
+	s.Add("narrow", 1)
+	return s
+}
+
+// rise is how far a segment climbs, in pixels.
+func rise(l *canvas.Line) float64 { return float64(l.Position1.Y - l.Position2.Y) }
+
+// The rule for bandwidth: under ScaleShared the traces are drawn against one
+// range, so a trace peaking at 1 beside one peaking at 100 is a hundredth of
+// its height. An interface at 1 KiB/s must not look as busy as one at 20 MiB/s.
+func TestASharedScaleDrawsTracesAgainstOneRange(t *testing.T) {
+	fynetest.App(t)
+
+	lines := drawnLines(t, sharedPair(glance.ScaleShared, 0.1), fyne.NewSize(100, 100))
+	require.Len(t, lines, 2, "one segment per trace for two samples each")
+
+	assert.InDelta(t, 100.0, rise(lines[0]), 0.01, "the greatest sample is the top of the plot")
+	assert.InDelta(t, 1.0, rise(lines[1]), 0.01, "a peak of 1 against a peak of 100 is a hundredth of the height")
+	assert.InDelta(t, 100.0, float64(lines[0].Position1.Y), 0.01, "zero is the bottom of the plot")
+	assert.InDelta(t, 100.0, float64(lines[1].Position1.Y), 0.01, "zero is the bottom of the plot")
+}
+
+// The same two traces under the default each fill the height: ScaleShared is
+// opt-in, and the cooler card does not change.
+func TestEachScaleIsTheDefaultAndFillsTheHeight(t *testing.T) {
+	fynetest.App(t)
+
+	for name, s := range map[string]*glance.Sparkline{
+		"set": sharedPair(glance.ScaleEach, 0.1),
+		"switched back": func() *glance.Sparkline {
+			s := sharedPair(glance.ScaleShared, 0.1)
+			s.SetScale(glance.ScaleEach)
+			return s
+		}(),
+	} {
+		lines := drawnLines(t, s, fyne.NewSize(100, 100))
+		require.Len(t, lines, 2, name)
+		for _, l := range lines {
+			assert.InDelta(t, 100.0, rise(l), 0.01, "%s: each trace fills the height of its own range", name)
+		}
+	}
+
+	plain := glance.NewSparkline(10)
+	plain.AddSeries("wide", green, 0.1)
+	plain.AddSeries("narrow", steel, 0.1)
+	for _, v := range []float64{0, 100} {
+		plain.Add("wide", v)
+	}
+	for _, v := range []float64{0, 1} {
+		plain.Add("narrow", v)
+	}
+	for _, l := range drawnLines(t, plain, fyne.NewSize(100, 100)) {
+		assert.InDelta(t, 100.0, rise(l), 0.01, "a plot never told otherwise scales each trace")
+	}
+}
+
+// Under ScaleShared a quiet window is widened to the largest minimum span, so
+// an idle link at 1 B/s stays near the floor instead of filling the plot.
+func TestASharedScaleIsWidenedToTheLargestMinimumSpan(t *testing.T) {
+	fynetest.App(t)
+
+	s := glance.NewSparkline(10)
+	s.SetScale(glance.ScaleShared)
+	s.AddSeries("small", green, 2)
+	s.AddSeries("large", steel, 10)
+	s.Add("small", 0)
+	s.Add("small", 1)
+
+	lines := drawnLines(t, s, fyne.NewSize(100, 100))
+	require.Len(t, lines, 1, "the trace with no samples draws nothing")
+	assert.InDelta(t, 10.0, rise(lines[0]), 0.01,
+		"a peak of 1 against the largest minimum span, 10, is a tenth of the height")
+}
+
+// A shared plot of nothing but zeros, with no minimum span, is a line along the
+// bottom rather than a division by zero.
+func TestASharedScaleOfZerosDrawsAlongTheBottom(t *testing.T) {
+	fynetest.App(t)
+
+	s := glance.NewSparkline(10)
+	s.SetScale(glance.ScaleShared)
+	s.AddSeries("idle", green, 0)
+	s.Add("idle", 0)
+	s.Add("idle", 0)
+
+	lines := drawnLines(t, s, fyne.NewSize(100, 100))
+	require.Len(t, lines, 1)
+	assert.InDelta(t, 100.0, float64(lines[0].Position1.Y), 0.01)
+	assert.InDelta(t, 100.0, float64(lines[0].Position2.Y), 0.01)
+}
+
 // drawnLines renders the plot at a size and returns the lines it drew.
 func drawnLines(t *testing.T, s *glance.Sparkline, size fyne.Size) []*canvas.Line {
 	t.Helper()

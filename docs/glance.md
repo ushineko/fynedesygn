@@ -710,12 +710,35 @@ never click. `glance.Sparkline` draws it.
   not compare.** In one recorded session the CPU moved between 65 °C and 98 °C
   while the coolant moved between 45.8 °C and 46.6 °C, a ratio of about 40 to
   1. On one axis the coolant trace would be 2 px tall. Read the shape from the
-  plot and the values from the rows.
+  plot and the values from the rows. This is `ScaleEach`, the default.
+- **Use one scale when the traces are one quantity and the reader compares
+  them.** Bandwidth is the case. Two interfaces at 1 KiB/s and 20 MiB/s drawn
+  each to its own range have the same amplitude, and the quiet one looks as
+  busy as the loaded one. `SetScale(ScaleShared)` draws every trace against
+  one range: zero at the bottom, and the greatest sample of any trace in the
+  window at the top. The quiet interface is then a line along the floor, which
+  is the truth. The rule of thumb: if the traces have different units, or the
+  same unit at different levels that are each normal (coolant and CPU), scale
+  each; if a trace's height beside another's is the thing to read, share.
 - **Give each trace a minimum range**, which is 5 °C in the monitor. An idle
   line then stays flat, and does not make sensor noise into large movements.
-- **A gap is a gap.** A poll that read nothing records nothing, and the plot
-  does not fill the space. The history is in memory and is empty after a
-  restart, which is not a state worth keeping on disk.
+  Under `ScaleShared` the scale is widened to the largest of the traces'
+  minimum ranges when the peak is below it, so a window where every link is
+  idle does not stretch a few bytes a second into the full height.
+- **Take the colours of traces without a row from the design system.** Where
+  a trace has a row whose value is coloured, it takes that colour, as above.
+  Where it does not (four bandwidth traces under one card) `SeriesColour(th,
+  i)` gives it one. Series 0 is the scheme's link colour. Series 1, 2 and 3
+  are the design system's categorical violet, teal and magenta, lighter on a
+  dark background and darker on a light one. The fifth wraps to the first.
+  The palette cannot supply four: its selection accent is the info colour,
+  positive is the good colour, and hover or link equals the accent in six of
+  the nine schemes. None of the four is a status hue, so a trace never reads
+  as a verdict, and a program that chooses its own colours is the copy the
+  library exists to remove. A pair of traces for one thing (an interface's
+  down and up) is the colour and `Faded` of it: the same hue at half the
+  alpha, so the pair reads as one interface and the secondary line as the
+  lesser.
 
 ## The context menu is the whole interface
 
@@ -853,6 +876,7 @@ number. See design-system.md, Numbers.
 | Meter bar height / radius | 8 / 4 |
 | Sparkline height | 26 |
 | Sparkline minimum span per trace | 5 units |
+| Faded series alpha | half the primary's |
 | Trend smoothing | 60 s trailing mean |
 | Fast poll / idle poll | 2 s (counters), 5 s (sensors) / 30 s |
 | HTTP read deadline / subprocess deadline | 2 s / 5 s |

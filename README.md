@@ -82,7 +82,7 @@ with the same command and check the alt text still matches.
 
 ![The About section: the program's name and version over a column of notes and a table of facts, the standard shape every program gets from shell.AboutSection.](docs/img/gallery-about.png)
 
-![The Glance section: the always-on-top panel vocabulary drawn at the width a real glance window uses, each piece captioned with its Go name — a live card, a card whose source has gone with its header marked "(unavailable)" and its values dimmed, a card with a two-trace sparkline under its rows, a bare sparkline of two interfaces' down and up rates on one shared scale, one interface in the scheme's link blue and the other in violet, each with its upload a faded copy of it and the quieter interface a low line along the floor, a card of four quota meters whose bars run green, green, amber and red as they approach their limits, a column of rows in four states, and each value formatter shown at three magnitudes in a monospace column.](docs/img/gallery-glance.png)
+![The Glance section: the always-on-top panel vocabulary drawn at the width a real glance window uses, each piece captioned with its Go name — a live card, a card of four peripheral cells with a bar under each battery level — green, green and red — and none under the keyboard that has no reading, a card whose source has gone with its header marked "(unavailable)" and its values dimmed, a card with a two-trace sparkline under its rows, a bare sparkline of two interfaces' down and up rates on one shared scale, one interface in the scheme's link blue and the other in violet, each with its upload a faded copy of it and the quieter interface a low line along the floor, a card of four quota meters whose bars run green, green, amber and red as they approach their limits, a column of rows in four states, and each value formatter shown at three magnitudes in a monospace column.](docs/img/gallery-glance.png)
 
 ## Examples
 
@@ -256,6 +256,20 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### Unreleased
+
+- **Add**: a cell can draw a bar under its state. `Cell.SetBar(fraction,
+  status)` draws one the cell's width and a meter's height, by the meter's
+  rules -- the fraction clamped to 0..1, the status colour, the empty track in
+  the disabled colour -- and `Cell.ClearBar` takes it away; a new cell has
+  none. The bar's row is reserved whether or not a bar is shown, so `MinSize`
+  is the same with one and without. **Every cell is taller by that row**, bar
+  or not: one reflow for a consumer at upgrade and none afterwards. A stale
+  reading dims its bar, and `Restyle` and `SetTheme` recolour it. The
+  gallery's peripherals cell card draws bars under three cells and none under
+  the one with no reading; `docs/glance.md` covers it under Cells (spec 048,
+  #148).
 
 ### 0.1.75 (2026-09-30)
 

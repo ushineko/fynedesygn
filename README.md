@@ -264,7 +264,7 @@ MIT. See [LICENSE](LICENSE).
   before, Fyne's own growth of the window to the new face was recorded as the
   user's width, so switching from a wide face to a narrow one kept the wide
   window for the life of the program (hayami #85). A drag after the restyle is
-  kept as before. `Add` and `SetArrangement` are unchanged (#140).
+  kept as before. `Add` and `SetArrangement` are unchanged (spec 046, #140).
 
 ### 0.1.72 (2026-09-29)
 

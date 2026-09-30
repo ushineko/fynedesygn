@@ -212,6 +212,11 @@ type Shell struct {
 
 	busyMu    sync.Mutex // guards the busy fields from Busy's goroutine callers
 	busyCount int
+	// performs counts Perform goroutines from start to the end of their busy
+	// tail, the regate included. Working goes false a moment before that
+	// tail has finished, and a test that stops the shell on seeing it races
+	// the tail's own writes (#142); waitPerforms is the wait for the tail.
+	performs  sync.WaitGroup
 	busyWhat  string
 	busyPop   *widget.PopUp
 	busyLabel *widget.Label

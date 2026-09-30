@@ -257,6 +257,18 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: `TestPerformCancellableCancelsThroughTheContext` raced under the
+  race detector, on CI as much as at the desk (#142). `Working` goes false a
+  moment before an operation's tail has regated the window; on the test
+  driver, where `fyne.Do` runs inline on the job's goroutine, a test that
+  stopped the shell on seeing it wrote the split positions at the same time
+  as the tail. The shell counts each Perform to the end of its tail and the
+  test helper waits for that before `Stop`. Two races in sixty runs before,
+  none after. No API change; a real driver serialises both on the Fyne
+  thread and never saw it.
+
 ### 0.1.76 (2026-09-30)
 
 - **Add**: a cell can draw a bar under its state. `Cell.SetBar(fraction,

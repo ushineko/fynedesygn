@@ -41,9 +41,11 @@ identity the class lacks.
 - [x] R4 (`TestAPositionScriptCannotBeEscapedByItsStrings`, with a caption
       in the watch and position scripts)
 - [x] R5 (`docs/glance.md`, Desktop integration)
-- [ ] On the desk, in hayami: started onto a preferences page, the panel is
-      placed and the preferences window is not; a drag of the preferences
-      window changes nothing in the settings (hayami spec 030)
+- [x] On the desk, in hayami on this branch, started onto a preferences
+      page: the panel was placed at its saved 3690,2052 and the preferences
+      window left at the compositor's 686,1442; a drag of the preferences
+      window changed nothing in the settings; a drag of the panel was saved
+      (hayami spec 030)
 
 ## Risks & Assumptions
 

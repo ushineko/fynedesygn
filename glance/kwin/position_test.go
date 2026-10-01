@@ -10,23 +10,24 @@ import (
 )
 
 func TestThePositionScriptMovesAndKeepsTheSize(t *testing.T) {
-	s := kwin.PositionScript("io.ushineko.example", 900, 400)
+	s := kwin.PositionScript(kwin.Target{Class: "io.ushineko.example"}, 900, 400)
 
-	assert.Contains(t, s, `const target = "io.ushineko.example"`)
+	assert.Contains(t, s, `const target = { class: "io.ushineko.example", caption: "" }`)
 	assert.Contains(t, s, "x: 900, y: 400")
 	assert.Contains(t, s, "width: g.width, height: g.height",
 		"a glance window is sized by its content; a script that set a size would fight Panel.Resize")
-	assert.Contains(t, s, "w.resourceClass == target")
+	assert.Contains(t, s, "w.resourceClass == target.class")
+	assert.Contains(t, s, "if (matches(w))")
 }
 
 // Negative coordinates are ordinary: a compositor's origin is the primary
 // screen's, and a screen to the left of it has negative x.
 func TestThePositionScriptTakesAScreenToTheLeftOfTheOrigin(t *testing.T) {
-	assert.Contains(t, kwin.PositionScript("x", -1920, 0), "x: -1920, y: 0")
+	assert.Contains(t, kwin.PositionScript(kwin.Target{Class: "x"}, -1920, 0), "x: -1920, y: 0")
 }
 
 func TestTheReportScriptCallsBackWithTheFourNumbers(t *testing.T) {
-	s := kwin.ReportGeometryScript("io.ushineko.example",
+	s := kwin.ReportGeometryScript(kwin.Target{Class: "io.ushineko.example"},
 		"org.ushineko.Example", "/Window", "org.ushineko.Window", "Report")
 
 	assert.Contains(t, s, `callDBus("org.ushineko.Example", "/Window", "org.ushineko.Window", "Report", g.x, g.y, g.width, g.height)`)
@@ -39,10 +40,12 @@ func TestAPositionScriptCannotBeEscapedByItsStrings(t *testing.T) {
 	bad := `x"; workspace.windowList()[0].closeWindow(); //`
 
 	for _, s := range []string{
-		kwin.PositionScript(bad, 0, 0),
-		kwin.PlaceScript(bad, 0, 0),
-		kwin.ReportGeometryScript("x", bad, "/p", "i", "m"),
-		kwin.ReportGeometryScript("x", "s", "/p", "i", bad),
+		kwin.PositionScript(kwin.Target{Class: bad}, 0, 0),
+		kwin.PositionScript(kwin.Target{Class: "x", Caption: bad}, 0, 0),
+		kwin.PlaceScript(kwin.Target{Class: bad}, 0, 0),
+		kwin.ReportGeometryScript(kwin.Target{Class: "x"}, bad, "/p", "i", "m"),
+		kwin.ReportGeometryScript(kwin.Target{Class: "x"}, "s", "/p", "i", bad),
+		kwin.WatchGeometryScript(kwin.Target{Class: "x", Caption: bad}, "s", "/p", "i", "m"),
 	} {
 		// The property is that the injected text stays inside a string
 		// literal. Asserting on the raw script cannot say that — the payload
@@ -66,7 +69,7 @@ func withoutStringLiterals(s string) string {
 // AC. The watch script connects handlers rather than reporting once, which
 // is what lets it stay loaded and answer when the window actually moves.
 func TestTheWatchScriptConnectsRatherThanReporting(t *testing.T) {
-	js := kwin.WatchGeometryScript("io.ushineko.hayami",
+	js := kwin.WatchGeometryScript(kwin.Target{Class: "io.ushineko.hayami"},
 		"io.ushineko.hayami", "/Geometry", "io.ushineko.hayami.Geometry", "Report")
 
 	assert.Contains(t, js, "interactiveMoveResizeFinished.connect",
@@ -78,19 +81,39 @@ func TestTheWatchScriptConnectsRatherThanReporting(t *testing.T) {
 	assert.Contains(t, js, `callDBus("io.ushineko.hayami", "/Geometry"`)
 }
 
-// AC. It matches on the app id, as every other script here does.
-func TestTheWatchScriptMatchesTheAppID(t *testing.T) {
-	js := kwin.WatchGeometryScript("io.example.thing", "s", "/p", "i", "m")
-	assert.Contains(t, js, `const target = "io.example.thing"`)
-	assert.Contains(t, js, "w.resourceClass != target")
+// AC. It matches on the target, as every other script here does.
+func TestTheWatchScriptMatchesTheTarget(t *testing.T) {
+	js := kwin.WatchGeometryScript(kwin.Target{Class: "io.example.thing"}, "s", "/p", "i", "m")
+	assert.Contains(t, js, `const target = { class: "io.example.thing", caption: "" }`)
+	assert.Contains(t, js, "if (!matches(w)) { return; }")
+}
+
+// AC. A target with a caption is one window of its class: the panel, not
+// the preferences window that shares its app ID (#154). Without a caption
+// the class alone matches, as before, for a program with one window.
+func TestATargetWithACaptionIsOneWindowOfItsClass(t *testing.T) {
+	js := kwin.WatchGeometryScript(kwin.Target{Class: "io.ushineko.hayami", Caption: "hayami"},
+		"s", "/p", "i", "m")
+	assert.Contains(t, js, `const target = { class: "io.ushineko.hayami", caption: "hayami" }`)
+	assert.Contains(t, js, `w.resourceClass == target.class &&`)
+	assert.Contains(t, js, `(target.caption == "" || w.caption == target.caption)`)
+
+	for _, s := range []string{
+		kwin.PositionScript(kwin.Target{Class: "c", Caption: "t"}, 0, 0),
+		kwin.PlaceScript(kwin.Target{Class: "c", Caption: "t"}, 0, 0),
+		kwin.ReportGeometryScript(kwin.Target{Class: "c", Caption: "t"}, "s", "/p", "i", "m"),
+	} {
+		assert.Contains(t, s, `caption: "t"`, "every script takes the same target")
+		assert.Contains(t, s, "matches(w)")
+	}
 }
 
 // AC. The place script moves a window that is there and otherwise waits for
 // one, which is what a program whose window is not up yet needs (#152).
 func TestThePlaceScriptPlacesNowOrWhenTheWindowAppears(t *testing.T) {
-	s := kwin.PlaceScript("io.ushineko.example", 3690, 2052)
+	s := kwin.PlaceScript(kwin.Target{Class: "io.ushineko.example"}, 3690, 2052)
 
-	assert.Contains(t, s, `const target = "io.ushineko.example"`)
+	assert.Contains(t, s, `const target = { class: "io.ushineko.example", caption: "" }`)
 	assert.Contains(t, s, "x: 3690, y: 2052")
 	assert.Contains(t, s, "width: g.width, height: g.height", "the size is the window's own")
 	assert.Contains(t, s, "for (const w of workspace.windowList()) { place(w); }",
@@ -98,12 +121,12 @@ func TestThePlaceScriptPlacesNowOrWhenTheWindowAppears(t *testing.T) {
 	assert.Contains(t, s, "workspace.windowAdded.connect", "one not yet there is placed when it appears")
 }
 
-// AC. The place script places one window and no more: a second window of the
-// class, a preferences window, is not the one being restored.
+// AC. The place script places one window and no more: a later match, or a
+// second copy of the program, is not moved onto the first.
 func TestThePlaceScriptPlacesOnlyTheFirstWindow(t *testing.T) {
-	s := kwin.PlaceScript("io.ushineko.example", 0, 0)
+	s := kwin.PlaceScript(kwin.Target{Class: "io.ushineko.example"}, 0, 0)
 
-	assert.Contains(t, s, "if (placed || w.resourceClass != target) { return; }")
+	assert.Contains(t, s, "if (placed || !matches(w)) { return; }")
 	assert.Contains(t, s, "workspace.windowAdded.disconnect(added)",
 		"the handler lets go once it has placed a window")
 	assert.Contains(t, s, "if (!placed) {", "a window placed at once needs no handler")

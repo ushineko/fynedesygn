@@ -260,6 +260,18 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Breaking**: the four window scripts in `glance/kwin` — `PositionScript`,
+  `PlaceScript`, `ReportGeometryScript`, `WatchGeometryScript` — take a
+  `kwin.Target{Class, Caption}` in place of an app ID. On Wayland every
+  window of an app carries its app ID, so a class matched a program's
+  preferences window as much as its panel: hayami saved a drag of the
+  preferences window as the panel's position, and `PlaceScript`'s "first
+  window" placed the preferences window when the program was started onto a
+  preferences page (measured: it appears 140 ms before the panel). A target
+  with a caption is one window; an empty caption is the old behaviour
+  (spec 050, #154).
 ### 0.1.77 (2026-09-30)
 
 - **Add**: `kwin.PlaceScript` puts a window at a position as soon as there is

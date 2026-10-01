@@ -2,8 +2,37 @@ package kwin
 
 import "fmt"
 
-// PositionScript is a KWin script that moves every window of one app id, and
-// the answer to a question a Wayland client cannot answer for itself.
+/*
+Target is the window a script acts on: every window of Class, or the one of
+them whose caption is Caption when that is given.
+
+A class alone is not a window. On Wayland every window of an app carries the
+app's ID as its resource class -- the preferences window as much as the
+panel -- so a script that matched the class moved and reported both (#154).
+hayami's preferences window was saved as the panel's position when dragged,
+and started straight into a preferences page the compositor showed that
+window 140 ms before the panel, which is the order "the first window of the
+class" got wrong. The caption is the window's title, which a program sets
+and knows; an empty one keeps the old meaning for a program with one window.
+*/
+type Target struct {
+	Class   string
+	Caption string
+}
+
+// match is the JavaScript that declares the target and a matches(w) for it,
+// shared by every script here so they agree on what a window is.
+func (t Target) match() string {
+	return fmt.Sprintf(`const target = { class: %q, caption: %q };
+function matches(w) {
+    return w.resourceClass == target.class &&
+        (target.caption == "" || w.caption == target.caption);
+}
+`, t.Class, t.Caption)
+}
+
+// PositionScript is a KWin script that moves the target's windows, and the
+// answer to a question a Wayland client cannot answer for itself.
 //
 // Measured on Plasma 6: `desktop.Window.RequestPosition(900, 400)` moved a
 // glance window by nothing at all. Fyne's own doc comment hedges — the request
@@ -24,15 +53,14 @@ import "fmt"
 //
 // The script is returned as text and the calls as data, for the reason
 // ReconfigureCall gives. See OpacityScript for the load, run and unload cycle.
-func PositionScript(appID string, x, y int) string {
-	return fmt.Sprintf(`const target = %q;
-for (const w of workspace.windowList()) {
-    if (w.resourceClass == target) {
+func PositionScript(t Target, x, y int) string {
+	return t.match() + fmt.Sprintf(`for (const w of workspace.windowList()) {
+    if (matches(w)) {
         const g = w.frameGeometry;
         w.frameGeometry = { x: %d, y: %d, width: g.width, height: g.height };
     }
 }
-`, appID, x, y)
+`, x, y)
 }
 
 /*
@@ -48,19 +76,19 @@ the script found nothing, and the panel opened where the compositor put it
 connects to workspace.windowAdded and places the first window of the class
 it sees, then disconnects.
 
-Only the first. A program's second window of the same class — a preferences
-window carries its app's ID on Wayland — is not the one being restored, and
-without the guard it would be moved onto the first.
+Once. The target names the window -- with a caption, where a program has
+more than one window of its class (#154) -- and the first match is placed
+and no other, so a window that matches later, or a second copy of the
+program, is not moved onto it.
 
 The script stays loaded until the program unloads it, as WatchGeometryScript
 does; once it has placed a window it does nothing more. The size is kept, as
 PositionScript keeps it.
 */
-func PlaceScript(appID string, x, y int) string {
-	return fmt.Sprintf(`const target = %q;
-let placed = false;
+func PlaceScript(t Target, x, y int) string {
+	return t.match() + fmt.Sprintf(`let placed = false;
 function place(w) {
-    if (placed || w.resourceClass != target) { return; }
+    if (placed || !matches(w)) { return; }
     placed = true;
     const g = w.frameGeometry;
     w.frameGeometry = { x: %d, y: %d, width: g.width, height: g.height };
@@ -72,7 +100,7 @@ if (!placed) {
         if (placed) { workspace.windowAdded.disconnect(added); }
     });
 }
-`, appID, x, y)
+`, x, y)
 }
 
 // ReportGeometryScript is a KWin script that reads a window's true geometry
@@ -90,15 +118,14 @@ if (!placed) {
 // thing with the same round trip.
 //
 // A loaded script runs once, so a report is a fresh load, run and unload.
-func ReportGeometryScript(appID, service, path, iface, method string) string {
-	return fmt.Sprintf(`const target = %q;
-for (const w of workspace.windowList()) {
-    if (w.resourceClass == target) {
+func ReportGeometryScript(t Target, service, path, iface, method string) string {
+	return t.match() + fmt.Sprintf(`for (const w of workspace.windowList()) {
+    if (matches(w)) {
         const g = w.frameGeometry;
         callDBus(%q, %q, %q, %q, g.x, g.y, g.width, g.height);
     }
 }
-`, appID, service, path, iface, method)
+`, service, path, iface, method)
 }
 
 /*
@@ -126,19 +153,20 @@ change -- and fires freely, so the program on the other end saves only when
 the value it holds has actually changed.
 
 Windows that appear later are watched too: a panel restarted while the script
-is loaded is still a window this wants to hear about.
+is loaded is still a window this wants to hear about. Only the target's,
+which with a caption is one window: the preferences window a drag of which
+was saved as the panel's position is the reason the target has one (#154).
 
 The call carries four ints: x, y, width, height, like ReportGeometryScript.
 */
-func WatchGeometryScript(appID, service, path, iface, method string) string {
-	return fmt.Sprintf(`const target = %q;
-function report(w) {
+func WatchGeometryScript(t Target, service, path, iface, method string) string {
+	return t.match() + fmt.Sprintf(`function report(w) {
     const g = w.frameGeometry;
     callDBus(%q, %q, %q, %q, Math.round(g.x), Math.round(g.y),
              Math.round(g.width), Math.round(g.height));
 }
 function watch(w) {
-    if (w.resourceClass != target) { return; }
+    if (!matches(w)) { return; }
     if (w.interactiveMoveResizeFinished) {
         w.interactiveMoveResizeFinished.connect(function() { report(w); });
     }
@@ -148,5 +176,5 @@ function watch(w) {
 }
 for (const w of workspace.windowList()) { watch(w); }
 workspace.windowAdded.connect(watch);
-`, appID, service, path, iface, method)
+`, service, path, iface, method)
 }

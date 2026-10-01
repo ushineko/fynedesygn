@@ -11,7 +11,9 @@ already on screen. A program that restores its position with it has to run
 it after its window exists, and a toolkit does not say when that is: hayami
 slept 600 ms. Traced on the desk on 2026-09-30, a cold Fyne window took
 2.15 s to appear; the script ran against an empty list, unloaded, and the
-panel opened centred on the other monitor (ushineko/hayami#106).
+panel opened centred on the other monitor (ushineko/hayami#106; the trace
+also found a second cause on hayami's side, a stale script under the watch's
+name, which hayami's spec 029 records).
 
 The compositor knows the moment. `workspace.windowAdded` is the event, and
 `WatchGeometryScript` already stays loaded to connect to it.
@@ -36,8 +38,9 @@ The compositor knows the moment. `workspace.windowAdded` is the event, and
 - [x] R2 (`TestThePlaceScriptPlacesOnlyTheFirstWindow`)
 - [x] R4 (`TestAPositionScriptCannotBeEscapedByItsStrings`, extended)
 - [x] R5 (`docs/glance.md`, Desktop integration)
-- [ ] On the desk: hayami 0.8.2 built on this script, restarted cold, comes
-      up at its saved position (recorded in hayami spec 029)
+- [x] On the desk: hayami built on this script, restarted, was at its saved
+      position the first time the compositor reported it, 1.4 s after
+      launch, with no fixed delay in the program (hayami spec 029)
 
 ## Risks & Assumptions
 

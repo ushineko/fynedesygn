@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.77
+**Version**: 0.1.78
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -260,7 +260,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.78 (2026-09-30)
 
 - **Breaking**: the four window scripts in `glance/kwin` — `PositionScript`,
   `PlaceScript`, `ReportGeometryScript`, `WatchGeometryScript` — take a

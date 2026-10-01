@@ -122,7 +122,11 @@ cost.
   `kwin.PositionScript` sets `frameGeometry` on a window that is already on
   screen, which is the one route that works: measured, the same window that
   `RequestPosition` could not move went to 900,400. Use it for the screen the
-  pointer is on. For putting a window back where it was, `kwin.PlaceScript`:
+  pointer is on. Every window script takes a `kwin.Target`: the class, and
+  the caption when the program has more than one window of that class, which
+  on Wayland it does as soon as it has a preferences window, since every
+  window of an app carries the app's ID. For putting a window back where it
+  was, `kwin.PlaceScript`:
   it places the window if it is there and otherwise the first one of the class
   that appears, loaded and left like the watch script, because a program
   cannot know how long its own window takes to come up (2.15 s, measured, for

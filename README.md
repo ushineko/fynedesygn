@@ -262,6 +262,12 @@ MIT. See [LICENSE](LICENSE).
 
 ### Unreleased
 
+- **Add**: `kwin.PlaceScript` puts a window at a position as soon as there is
+  one: now if it is on screen, otherwise the first window of the class that
+  appears, once. `PositionScript` moves a window that is already there, and a
+  program restoring its position with it had to guess how long its window
+  takes to appear; hayami guessed 600 ms and a cold start took 2.15 s
+  (spec 049, #152).
 - **Fix**: `TestPerformCancellableCancelsThroughTheContext` raced under the
   race detector, on CI as much as at the desk (#142). `Working` goes false a
   moment before an operation's tail has regated the window; on the test

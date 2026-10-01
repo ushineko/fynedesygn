@@ -122,7 +122,11 @@ cost.
   `kwin.PositionScript` sets `frameGeometry` on a window that is already on
   screen, which is the one route that works: measured, the same window that
   `RequestPosition` could not move went to 900,400. Use it for the screen the
-  pointer is on, or for putting a window back where it was.
+  pointer is on. For putting a window back where it was, `kwin.PlaceScript`:
+  it places the window if it is there and otherwise the first one of the class
+  that appears, loaded and left like the watch script, because a program
+  cannot know how long its own window takes to come up (2.15 s, measured, for
+  a cold Fyne window) and a script that ran before it found nothing to move.
 
   A rule's `position` also works and is a different tool: it is applied at the
   window's creation and pins to one screen, so it says "always open here" and

@@ -17,17 +17,24 @@ below.
 - **Module**: `github.com/ushineko/fynedesygn`
 - **Licence**: MIT. Public repository, distributed for use by other projects.
 - **Consumers, in adoption order**: clockwork-orange, then nmsbonker, then
-  angou, then terrariabonker. The first three carried the design system as
-  hand-synced copies and are the acceptance test: a component is done when an
-  app can delete its copy. terrariabonker was built on the library rather than
-  migrated to it, so it is the check on whether the API reads well to someone
-  who never had the copy -- specs 010 and 015 came from it.
+  angou, then terrariabonker, then hotaru, ototo and hayami. The first three
+  carried the design system as hand-synced copies and are the acceptance
+  test: a component is done when an app can delete its copy. The others were
+  built on the library, so they are the check on whether the API reads well
+  to someone who never had the copy -- specs 010 and 015 came from
+  terrariabonker, 011 and 019–028 from hotaru, 035 from ototo, and the whole
+  of `glance` (016 onward) from hayami.
 - **Source of record for behaviour**: the three copy-carrying apps'
   `internal/gui` packages as they stand today. Where they disagree,
   `docs/design-system.md` records the choice. angou's rationale comments travel
   with the code.
-- All four are linked from the README's "Used by" section, which is where a
-  reader looks for them.
+- **Every consumer is a row in the README's "Used by" table**, which is
+  where a reader looks for them, and the table is part of every docs
+  change: a new repository whose `go.mod` requires this module gets a row in
+  the same commit as the first spec it drives, and a spec that cites a
+  program (`hayami #85`) whose name is not in the table fails
+  `readme_test.go`. The table went stale once, three programs long, because
+  nothing read it.
 
 ---
 

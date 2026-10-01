@@ -343,3 +343,50 @@ rewriting released entries to satisfy a test written afterwards would be
 changing the record to fit the guard.
 */
 const firstCitedSpec = 19
+
+/*
+The "Used by" table is the only place a reader learns who runs this library,
+and it went stale three programs long while their specs piled up here. A
+spec that cites a program by name and issue ("hayami #85") is a program on
+the library; if the table does not name it, this fails, and the fix is the
+row.
+
+Prose also writes "issue #17" and "as #5". Those words are skipped by name;
+anything else before a "#NN" is taken for a program, and if it is a word the
+spec is reworded rather than the list grown, because a list that grows is a
+list that hides the next program.
+*/
+func TestEveryProgramTheSpecsCiteIsInTheUsedByTable(t *testing.T) {
+	readme := readme(t)
+	start := strings.Index(readme, "## Used by")
+	require.Positive(t, start, "the README has no Used by section")
+	table := readme[start:]
+	if end := strings.Index(readme[start:], "\n## "); end > 0 {
+		table = readme[start : start+end]
+	}
+
+	prose := map[string]bool{"issue": true, "issues": true, "as": true, "and": true, "in": true, "see": true,
+		"of": true, "to": true, "is": true, "closes": true, "fixes": true, "than": true, "at": true,
+		"from": true, "or": true, "with": true, "by": true, "for": true, "spec": true, "pr": true}
+	specs, err := filepath.Glob("specs/*.md")
+	require.NoError(t, err)
+	cited := map[string]string{}
+	cite := regexp.MustCompile(`\b([a-z][a-z0-9-]+) #[0-9]+\b`)
+	for _, spec := range specs {
+		body, err := os.ReadFile(spec)
+		require.NoError(t, err)
+		for _, m := range cite.FindAllStringSubmatch(string(body), -1) {
+			if prose[m[1]] {
+				continue
+			}
+			if _, ok := cited[m[1]]; !ok {
+				cited[m[1]] = spec
+			}
+		}
+	}
+	for program, spec := range cited {
+		if !strings.Contains(table, "["+program+"]") {
+			t.Errorf("%s cites %s, which the Used by table does not name (a row, or reword the spec if it is a word)", spec, program)
+		}
+	}
+}

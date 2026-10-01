@@ -362,7 +362,9 @@ func (s *Shell) perform(what string, cancellable bool, fn func(ctx context.Conte
 	if cancellable {
 		button = cancel
 	}
+	s.performs.Add(1)
 	go func() {
+		defer s.performs.Done()
 		defer cancel()
 		done := s.busy(what, button)
 		defer done()
@@ -371,6 +373,18 @@ func (s *Shell) perform(what string, cancellable bool, fn func(ctx context.Conte
 		}
 	}()
 }
+
+/*
+waitPerforms blocks until every Perform goroutine has run to the end of its
+busy tail.
+
+Working reports false as soon as the count drops, but the tail goes on to
+regate the window, and that touches the same state Stop does. On a real
+driver both run on the Fyne thread and cannot overlap; the test driver runs
+fyne.Do inline on the job's goroutine, so a test that Stops on seeing
+!Working races the regate. Tests wait here before Stop.
+*/
+func (s *Shell) waitPerforms() { s.performs.Wait() }
 
 // Report shows an operation's failure as a banner that stays until dismissed.
 // Cancellation is not a failure and shows nothing. Call on the UI thread.

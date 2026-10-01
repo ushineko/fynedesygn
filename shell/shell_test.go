@@ -51,6 +51,9 @@ func headless(t *testing.T, o Options) *Shell {
 	// leaves a write scheduled for a second later, landing in a temporary
 	// directory the framework is already removing.
 	t.Cleanup(s.Stop)
+	// Cleanups run last-registered first: an operation's tail has finished
+	// before Stop touches the state it writes (#142).
+	t.Cleanup(s.waitPerforms)
 	return s
 }
 

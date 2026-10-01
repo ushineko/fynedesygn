@@ -35,6 +35,46 @@ for (const w of workspace.windowList()) {
 `, appID, x, y)
 }
 
+/*
+PlaceScript is a KWin script that puts a window at x, y as soon as there is
+one: now, if a window of the class is on screen, and otherwise the first one
+that appears, once.
+
+PositionScript moves a window that is already there, and a program that
+restores its position with it has to guess how long its own window takes to
+appear. hayami guessed 600 ms; a cold Fyne window on the desk took 2.15 s,
+the script found nothing, and the panel opened where the compositor put it
+(#152). The compositor knows the moment, and this asks it: the script
+connects to workspace.windowAdded and places the first window of the class
+it sees, then disconnects.
+
+Only the first. A program's second window of the same class — a preferences
+window carries its app's ID on Wayland — is not the one being restored, and
+without the guard it would be moved onto the first.
+
+The script stays loaded until the program unloads it, as WatchGeometryScript
+does; once it has placed a window it does nothing more. The size is kept, as
+PositionScript keeps it.
+*/
+func PlaceScript(appID string, x, y int) string {
+	return fmt.Sprintf(`const target = %q;
+let placed = false;
+function place(w) {
+    if (placed || w.resourceClass != target) { return; }
+    placed = true;
+    const g = w.frameGeometry;
+    w.frameGeometry = { x: %d, y: %d, width: g.width, height: g.height };
+}
+for (const w of workspace.windowList()) { place(w); }
+if (!placed) {
+    workspace.windowAdded.connect(function added(w) {
+        place(w);
+        if (placed) { workspace.windowAdded.disconnect(added); }
+    });
+}
+`, appID, x, y)
+}
+
 // ReportGeometryScript is a KWin script that reads a window's true geometry
 // and calls it back to the program over the session bus.
 //

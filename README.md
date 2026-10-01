@@ -260,6 +260,15 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: a tip no longer appears, or stays, after the pointer leaves the
+  window. Fyne sends no `MouseOut` when the pointer leaves the window, so a tip
+  waiting on a control the pointer left from appeared a second later and stayed
+  until the pointer came back; on a panel at the screen edge that is the usual
+  way out. `widgets` now registers GLFW's cursor-enter callback on the window a
+  tip belongs to and takes its tips down on leave (quirk 42, #156).
+
 ### 0.1.78 (2026-09-30)
 
 - **Breaking**: the four window scripts in `glance/kwin` — `PositionScript`,

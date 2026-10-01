@@ -185,6 +185,11 @@ func (t *tipArea) MouseIn(e *desktop.MouseEvent) {
 	t.timer = time.AfterFunc(TipDelay, func() { fyne.Do(t.show) })
 	t.mu.Unlock()
 	arm(t)
+	// Fyne does not say when the pointer leaves the window; GLFW does, once
+	// asked (quirk 42).
+	if app := fyne.CurrentApp(); app != nil {
+		watchLeave(app.Driver().CanvasForObject(t))
+	}
 
 	// The control underneath still highlights: it is only the hover routing
 	// that has been taken from it, not its behaviour.

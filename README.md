@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.78
+**Version**: 0.1.79
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -260,7 +260,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.79 (2026-10-01)
 
 - **Fix**: a tip no longer appears, or stays, after the pointer leaves the
   window. Fyne sends no `MouseOut` when the pointer leaves the window, so a tip

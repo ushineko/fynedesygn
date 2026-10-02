@@ -109,7 +109,7 @@ and are the reason it exists; the others were built on the library.
 | [nmsbonker](https://github.com/ushineko/nmsbonker) | No Man's Sky trainer and mod editor | Second adopter. `steps`, the log pane and the cancellable busy popup came from it |
 | [angou](https://github.com/ushineko/angou) | Encryption tool for secrets | The origin. The rationale comments in `docs/design-system.md` are transcribed from its `internal/gui` |
 | [terrariabonker](https://github.com/ushineko/terrariabonker) | Live-memory trainer for Terraria | Built on the library rather than migrated to it. Reported the table resize cost (spec 015) and asked for hover tips (spec 010) |
-| [hayami](https://github.com/ushineko/hayami) | Glance panel for Linux: peripheral batteries, bandwidth, cooler thermals, Claude Code and Codex usage, on the desktop and in a terminal | The `glance` package exists for it (specs 016, 017, 038–048): the frameless always-on-top window, cards, cells with bars, meters, the shared-scale sparkline and series colours, and the restyle fix. Also `settings`, `markdown` and `glance/kwin` |
+| [hayami](https://github.com/ushineko/hayami) | Glance panel for Linux: peripheral batteries, bandwidth, cooler thermals, Claude Code and Codex usage, on the desktop and in a terminal | The `glance` package exists for it (specs 016, 017, 038–048, 051): the frameless always-on-top window, cards, rows in coloured parts with pinned labels, cells with bars, meters, the shared-scale sparkline and series colours, and the restyle fix. Also `settings`, `markdown` and `glance/kwin` |
 | [hotaru](https://github.com/ushineko/hotaru) | RGB lighting and AIO cooler control for Linux, with a live dashboard on the cooler's LCD | Drove `settings` (spec 011) and the shell's program-settings, section-arrival and affixed-controls work (specs 019–028); uses `steps`, `logpane` and `dialogs` |
 | [ototo](https://github.com/ushineko/ototo) | Audio-output switcher that lives in the tray and follows the best connected output | A shell-and-widgets consumer; spec 035 came from it |
 
@@ -259,6 +259,21 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### Unreleased
+
+- **Add**: a row's value in coloured parts. `glance.Reading` gains `Parts
+  []glance.Part` (`Text`, `Status`, `Colour`, `Bold`), and
+  `glance.Parted(parts...)` builds one whose `Text` is the parts end to end.
+  `glance.Row` draws each part in its own colour in the monospace face, at the
+  width of the same text unparted, so a bandwidth row can grade its download
+  and its upload separately: hayami's 2 KiB/s download was painted orange
+  because the upload beside it was 40 MiB/s.
+- **Add**: `glance.NewRowWidth(label, blank, labelWidth)` pins a row's label
+  column to a width. A longer label is clipped, not widened into, so a
+  hardware name that arrives after the card is drawn cannot grow the window
+  (194 → 230 px on one desk). `NewMeter`'s label width is a floor by
+  comparison, and is unchanged (spec 051, #158).
 
 ### 0.1.79 (2026-10-01)
 

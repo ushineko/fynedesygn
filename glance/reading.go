@@ -2,6 +2,7 @@ package glance
 
 import (
 	"image/color"
+	"strings"
 
 	fd "github.com/ushineko/fynedesygn"
 )
@@ -43,6 +44,50 @@ type Reading struct {
 	// Stale still wins: a value that is no longer being refreshed is dimmed
 	// whatever colour it was.
 	Colour color.Color
+
+	// Parts draws the value as pieces side by side, each in its own colour,
+	// for a value that is two readings at once: a bandwidth row's down and up
+	// rates, each graded by its own size. Painting the whole value by the
+	// stronger one coloured a 2 KiB/s download orange because the upload was
+	// 40 MiB/s (hayami spec 031).
+	//
+	// Text is still the whole value -- the parts' concatenation -- and is what
+	// the row is measured by, so a parted value is exactly as wide as the
+	// same text unparted. Parted builds a reading that way. Status and Colour
+	// still describe the row as a whole (a sparkline trace reads them); each
+	// part is painted from its own. Stale dims every part.
+	Parts []Part
+}
+
+// Part is one piece of a parted value. It is painted like a Reading: Colour
+// when set, the foreground for Info, the status colour otherwise.
+type Part struct {
+	// Text is this piece of the value, padded like any other: the parts are
+	// laid end to end and their total width is the row's.
+	Text string
+	// Status ranks this piece.
+	Status fd.Status
+	// Colour overrides Status for painting, as Reading.Colour does.
+	Colour color.Color
+	// Bold draws this piece bold, where the theme has a bold monospace face
+	// (quirk 35); where it has none the piece is regular.
+	Bold bool
+}
+
+// Parted is a value drawn in pieces. Its Text is the pieces' concatenation,
+// which is what the row measures, and its Status is Info: the grading is in
+// the parts.
+func Parted(parts ...Part) Reading {
+	return Reading{Text: partsText(parts), Status: fd.StatusInfo, Parts: parts}
+}
+
+// partsText is the whole value a set of parts spells.
+func partsText(parts []Part) string {
+	var b strings.Builder
+	for _, p := range parts {
+		b.WriteString(p.Text)
+	}
+	return b.String()
 }
 
 // Tinted returns a copy of r painted in an explicit colour. Used for a value

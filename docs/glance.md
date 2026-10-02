@@ -550,6 +550,48 @@ Each one has an empty form of the same width, such as `NoRate` and
   them take the change in width. See also design-system.md, "An `HBox` hands a
   truncating label its minimum size" (quirk 17), and fix the width.
 
+### A value in parts
+
+A row's value is one reading, painted in one colour, except where it is two.
+A bandwidth row shows the download and the upload together, and each has its
+own band: coloured by the stronger, a 2 KiB/s download was painted orange
+because the upload beside it was 40 MiB/s (hayami spec 031).
+
+- **`glance.Parted(parts...)` is a value in pieces.** Each `glance.Part` has
+  its text, its `Status` or an explicit `Colour`, and `Bold`. The row draws
+  them end to end in the monospace face, each in its own colour; an Info part
+  is the foreground, as an ungraded value is. `Stale` on the reading dims
+  every part.
+- **The parts are a way of painting the text, not another text.** The
+  reading's `Text` is the parts end to end, and the row is measured by it in
+  the plain face, so a parted value is the width of the same text unparted
+  and a row can switch between the two without moving. Pad each part through
+  the formatters, as any value; the whole is then a fixed width because each
+  piece is.
+- **A part is bold only where the theme has a bold monospace face** (quirk
+  35). The design system's mono families keep one advance across weights; a
+  family that does not would make a bold part overhang its slot by the
+  difference.
+- A new reading with as many parts repaints the texts the row has. Nothing is
+  laid out unless a part changed width.
+
+### A pinned label
+
+`glance.NewRowWidth(label, blank, labelWidth)` is a row whose label column is
+`labelWidth` px whatever it says. It is for a label that arrives after the card
+is drawn: a cooler row relabelled with the device's own name ("Kraken Elite
+V2", "i7-13700K") widened its card from 194 to 230 px on one desk (hayami spec
+031).
+
+- **It is a pin, not a floor.** A longer label is given the width to draw in
+  and clipped there (quirk 39), and `SetLabel` never changes the row's size.
+  Truncate a label that can be long with an ellipsis before handing it over;
+  a clipped letter reads as a fault.
+- `widgets.FixedWidth`, which `NewMeter`'s `labelWidth` uses, is a floor: a
+  stack under the label that is as wide as its widest child. That suits
+  meters, whose labels are short and fixed; it is not what a name read from a
+  device needs.
+
 ## Meters
 
 A **meter** is the one shape here that is a bar. It shows a proportion of

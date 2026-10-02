@@ -53,7 +53,7 @@ probe is granted and the desktop shows between the cards.
 
 ## Acceptance Criteria
 
-- [ ] `make test` passes on Linux (CI).
+- [x] `make test` passes on Linux (CI): PR #161, ubuntu, macOS and Windows.
 - [x] `go test -tags migrated_fynedo ./...` passes on Windows 11 (25
   packages).
 - [x] On Windows 11, hayami's panel starts, stays up and is translucent:

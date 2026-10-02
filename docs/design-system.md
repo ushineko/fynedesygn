@@ -171,6 +171,9 @@ Border{
   in position, beside its sections, and reads that list in a test. It keeps a
   list of what must stay reachable in the same way. `fynetest.ScrolledButtons`
   is the check: a control on the list must not appear in its result.
+- The body under affixed controls scrolls in `s.VScroll(name, body)`, not
+  `container.NewVScroll`. A new scroller every build goes back to the top on
+  every operation, because operations rebuild the section. (spec 054)
 - Use `Border` and not `VBox` when a child must fill the section. The content
   pane is a scroller that gives its content at least the size of the viewport.
 - A section that has grown into several pages of one activity is a

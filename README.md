@@ -262,6 +262,15 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **New**: `Shell.VScroll(name, content)`, a scroller whose position survives
+  the section being rebuilt (spec 054, #164). A section with affixed controls
+  gave its body a scroller of its own, and every operation's rebuild sent it
+  back to the top. Ticking a checkbox halfway down nmsbonker's Tweaks page
+  threw the page back to the top under the pointer. Navigation still starts
+  at the top.
+
 ### 0.1.82 (2026-10-02)
 
 - **New**: `shell.Tabs`, a section made of sections (spec 053). One entry in

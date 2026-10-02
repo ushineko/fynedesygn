@@ -42,7 +42,7 @@ hand-synced copies.
 | [`profiling`](https://pkg.go.dev/github.com/ushineko/fynedesygn/profiling) | An opt-in pprof endpoint bound to loopback whatever address it is given, and a soft memory ceiling that defers to `GOMEMLIMIT`. See [Performance](docs/performance.md). |
 | [`settings`](https://pkg.go.dev/github.com/ushineko/fynedesygn/settings) | A program's settings in one file the user can read: one section per top-level key, each decoded into the caller's own type, written a second after the last change. The file extension chooses the format. |
 | [`settings/yamlcodec`](https://pkg.go.dev/github.com/ushineko/fynedesygn/settings/yamlcodec) | YAML for `.yaml` and `.yml`, imported for its effect so a program that writes JSON carries no YAML parser. |
-| [`shell`](https://pkg.go.dev/github.com/ushineko/fynedesygn/shell) | The window skeleton: header, section nav, content pane, status bar, busy indicator, banners, `Perform`, section lifecycle, plus the standard Appearance and About sections. |
+| [`shell`](https://pkg.go.dev/github.com/ushineko/fynedesygn/shell) | The window skeleton: header, section nav and navigation groups, `Tabs` (a section made of sections), content pane, status bar, busy indicator, banners, `Perform`, section lifecycle, plus the standard Appearance and About sections. |
 | [`glance`](https://pkg.go.dev/github.com/ushineko/fynedesygn/glance) | The other window archetype: a frameless, always-on-top status panel sized to its content, with cards that hide when their source is silent, fixed-width value formatting, a sparkline and a quota meter. |
 | [`glance/kwin`](https://pkg.go.dev/github.com/ushineko/fynedesygn/glance/kwin) | The KDE Plasma window rule a glance window needs — above, no border, and the opacity Fyne cannot draw itself. |
 | [`steps`](https://pkg.go.dev/github.com/ushineko/fynedesygn/steps) | The step list a job shows beside its log, updated in place. |
@@ -83,6 +83,8 @@ with the same command and check the alt text still matches.
 ![The About section: the program's name and version over a column of notes and a table of facts, the standard shape every program gets from shell.AboutSection.](docs/img/gallery-about.png)
 
 ![The Glance section: the always-on-top panel vocabulary drawn at the width a real glance window uses, each piece captioned with its Go name — a live card, a card of four peripheral cells with a bar under each battery level — green, green and red — and none under the keyboard that has no reading, a card whose source has gone with its header marked "(unavailable)" and its values dimmed, a card with a two-trace sparkline under its rows, a bare sparkline of two interfaces' down and up rates on one shared scale, one interface in the scheme's link blue and the other in violet, each with its upload a faded copy of it and the quieter interface a low line along the floor, a card of four quota meters whose bars run green, green, amber and red as they approach their limits, a column of rows in four states, and each value formatter shown at three magnitudes in a monospace column.](docs/img/gallery-glance.png)
+
+![The Tabs section: one entry in the navigation and a strip of three buttons above the content — Economy, highlighted, then Movement and Ships — with the Economy page drawn beneath, a heading and one line saying what shell.Tabs is.](docs/img/gallery-tabs.png)
 
 ## Examples
 
@@ -259,6 +261,16 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### Unreleased
+
+- **New**: `shell.Tabs`, a section made of sections (spec 053). One entry in
+  the navigation, a strip of buttons above the page showing. Detach reaches
+  every part; Arrive and Wide reach the one showing. Choosing a tab is
+  arriving: sections detach, the page arrives, the content returns to the
+  top, and `OnInvalidate` is not called. The choice survives rebuilds,
+  navigation and restarts under `shell.TabsKey`. Lifted from hotaru's Create
+  section for nmsbonker #7; the gallery has a Tabs section.
 
 ### 0.1.81 (2026-10-01)
 

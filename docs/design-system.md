@@ -173,6 +173,14 @@ Border{
   is the check: a control on the list must not appear in its result.
 - Use `Border` and not `VBox` when a child must fill the section. The content
   pane is a scroller that gives its content at least the size of the viewport.
+- A section that has grown into several pages of one activity is a
+  `shell.Tabs`, not several sections. Tabs keep the pages out of the
+  navigation, which is the point: the reader thinks of them as one place. A
+  `NavGroup` is the other fold, for sections of a kind that are each a place
+  of their own, and it puts them in the navigation. Choosing a tab detaches,
+  arrives and scrolls to the top as the navigation does, and the choice is
+  remembered. Use `Tabs` rather than Fyne's `AppTabs` for this, for the
+  reason below. (spec 053)
 - `AppTabs` takes the height of its tallest item, so put real content only in
   the selected tab. The other tabs hold an empty container until the user
   selects them.

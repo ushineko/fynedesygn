@@ -127,8 +127,9 @@ func NewWindow(a fyne.App, o Options) *Window {
 	w := &Window{menu: o.Menu, app: a, wanted: o.Translucent}
 
 	drv, isDesktop := a.Driver().(desktop.Driver)
+	frameless := isDesktop && !o.Decorated
 	switch {
-	case o.Decorated || !isDesktop:
+	case !frameless:
 		w.win = a.NewWindow(o.Title)
 	default:
 		// CreateSplashWindow is the only way to an undecorated window in
@@ -159,10 +160,12 @@ func NewWindow(a fyne.App, o Options) *Window {
 	w.panel.resizable = o.Resizable
 	w.panel.Attach(w.win)
 
-	if o.Menu != nil {
+	if o.Menu != nil || (frameless && dragsToMove) {
 		// Over the whole panel, not beside the cards. A catcher in the card
 		// stack would take up a card's worth of height and would only see
-		// taps inside its own strip; stacked over, it sees the window.
+		// taps inside its own strip; stacked over, it sees the window. On
+		// Windows it is also what a frameless window is dragged by
+		// (move_windows.go), so it is there with or without a menu.
 		w.panel.Overlay(newMenuCatcher(w))
 	}
 	return w
@@ -250,8 +253,8 @@ func (w *Window) ShowAndRun() {
 	go fyne.Do(func() {
 		if grantTranslucent() {
 			w.translucent = true
-			// Before the window exists: the first frame is already the real
-			// one, and what it is cleared with is decided here.
+			// Before the first frame: that frame is already the real one, and
+			// what it is cleared with is decided here.
 			//
 			// The panel's own background, not the app's theme. A theme is
 			// app-wide, so a program with a second window had that window
@@ -277,10 +280,18 @@ func (w *Window) ShowAndRun() {
 			// is why every other window now paints its own background; see
 			// spec 045, and #119 for the upstream change that would make this
 			// unnecessary.
+		}
+		w.win.Show()
+
+		// The theme goes on after Show and not before it (quirk 43). On
+		// Windows a theme change asks every window for its native handle, and
+		// a window Show has not yet created has none: the process panicked
+		// before the panel drew. This is still before the first frame -- the
+		// loop draws after this body returns -- so the clear is unchanged.
+		if w.translucent {
 			w.app.Settings().SetTheme(
 				fdtheme.WithTransparentBackground(w.app.Settings().Theme()))
 		}
-		w.win.Show()
 
 		// The hint has been taken up, so it is put back. Fyne creates the
 		// GLFW window inside Show -- this body is already on the main
@@ -309,7 +320,8 @@ func (w *Window) ShowMenu(pos fyne.Position) {
 }
 
 // menuCatcher is a transparent object stacked over the panel that turns a
-// secondary tap anywhere in the window into the context menu.
+// secondary tap anywhere in the window into the context menu, and on Windows
+// a primary press into a move of the window (move_windows.go).
 //
 // It is a widget rather than a handler on the panel because Fyne routes
 // pointer events to objects and there is no window-level tap callback, and it

@@ -113,6 +113,17 @@ cost.
   fallback and goes around the client entirely. It works on KDE and on GNOME,
   and it is the answer to give a user who asks. `Options.Decorated` is for a
   desktop that offers no such gesture, and not for these two.
+
+  **On Windows the window moves itself.** There is no Meta-drag there, so a
+  frameless glance window hands a primary press anywhere on it to Windows as
+  a press on the caption (`WM_NCLBUTTONDOWN`, `HTCAPTION`) -- the system's
+  own move loop, which is what `startSystemMove()` is on Qt. The press is
+  taken by the window's catcher, so on Windows a glance window has one
+  whether or not it has a menu. Spec 052, `glance/move_windows.go`.
+
+  The move loop takes the release too, so on Windows a primary click on a
+  glance window reaches nothing inside it. That is safe because a glance
+  window is read, not clicked; a control placed in one would not work there.
 - **`RequestPosition` does nothing here.** Measured on Plasma 6 on Wayland:
   `desktop.Window.RequestPosition(900, 400)` left the window at the pixel it
   was already on. Fyne's doc comment hedges — the request "may be ignored (for

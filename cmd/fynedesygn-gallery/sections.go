@@ -44,6 +44,7 @@ func sectionsWith(demo *jobDemo) []shell.Section {
 		shell.NewSection("Log", fynetheme.ListIcon, logs.build).OnDetach(logs.detach).WideContent(),
 		shell.NewSection("Forms", fynetheme.SettingsIcon, form.build),
 		shell.NewSection("Glance", fynetheme.VisibilityIcon, buildGlance),
+		tabsDemo(),
 		markdown.Section("Documents", fynetheme.DocumentCreateIcon, mustDoc("markdown.md"), docOptions(), func(*shell.Shell) fyne.CanvasObject {
 			return widgets.Heading("Documents",
 				"markdown.Pane showing docs/markdown.md from the embedded docs package: per-block rendering near "+
@@ -515,4 +516,25 @@ func swatches() fyne.CanvasObject {
 		row.Add(widgets.WithTip(block, "A tappable block of colour. Click to select."))
 	}
 	return row
+}
+
+/*
+tabsDemo is shell.Tabs (spec 053): one entry in the navigation, three pages
+under a strip. Each page says what it is demonstrating, so a reader switching
+tabs can see the chosen one survive leaving the section and coming back.
+*/
+func tabsDemo() *shell.Tabs {
+	page := func(title, blurb string) shell.Section {
+		return shell.NewSection(title, nil, func(*shell.Shell) fyne.CanvasObject {
+			return widgets.Heading(title, blurb)
+		})
+	}
+	return shell.NewTabs("Tabs", fynetheme.GridIcon,
+		page("Economy", "shell.Tabs: a section made of sections, one drawn at a time. "+
+			"The navigation has one entry; the strip above picks the page."),
+		page("Movement", "Choosing a tab is arriving: every section is detached, this page "+
+			"is told it arrived, and the content goes back to the top. Nothing is invalidated."),
+		page("Ships", "The chosen tab is remembered across rebuilds, navigation and restarts, "+
+			"by page title, in the settings store."),
+	)
 }

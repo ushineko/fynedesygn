@@ -174,6 +174,8 @@ type Shell struct {
 	// live one per key. See split.go.
 	splitPos map[string]float64
 	splits   map[string]*container.Split
+	// scrolls are the live scrollers VScroll made, by name (spec 054).
+	scrolls map[string]*container.Scroll
 
 	// The navigation's shape, the last non-hidden mode (so Ctrl+B has
 	// something to come back to), and the holder the button navigations are
@@ -792,6 +794,9 @@ func (s *Shell) swap(keepScroll bool) {
 		}
 	}
 	if !keepScroll {
+		// Navigation starts every scroller at the top, as it does the
+		// content pane; only a rebuild in place keeps an offset (spec 054).
+		s.scrolls = nil
 		if a, ok := sec.(Arriver); ok {
 			a.Arrive()
 		}

@@ -84,6 +84,8 @@ func buildGlance(_ *shell.Shell) fyne.CanvasObject {
 			glanceRow("Sensor", glance.Missing(glance.NoQuantity("°C", glanceUnit))),
 		)),
 
+		demo("Row, Parted + NewRowWidth", partsCard().Object()),
+
 		// The formatters are the opinionated half of the package and the place
 		// the no-reflow rule is enforced, so they are shown as a column of
 		// values rather than described. Every line is the same width.
@@ -211,6 +213,38 @@ func plotCard() *glance.Card {
 	fans.Set(glance.Measured(glance.Count(1298, glance.NumberWidth, "rpm")))
 	return c
 }
+
+/*
+partsCard is a value in coloured parts under labels in a pinned column.
+
+Each rate is graded by its own size, so the quiet download stays the
+foreground while the busy upload beside it is amber and bold; coloured as one
+value, the download would be amber too. The labels are pinned to one width,
+so the long hardware name is clipped (truncated with an ellipsis here, as a
+caller would) rather than widening the card.
+*/
+func partsCard() *glance.Card {
+	c := glance.NewCard("Bandwidth")
+	blank := glance.NoRate() + " " + glance.NoRate()
+	eth := glance.NewRowWidth("eno2", blank, glancePartsLabel)
+	vpn := glance.NewRowWidth("veth4a1b2c9…", blank, glancePartsLabel)
+	c.AddRow(eth, vpn)
+	c.SetAvailable(true)
+	eth.Set(glance.Parted(
+		glance.Part{Text: glance.Rate(2048)},
+		glance.Part{Text: " "},
+		glance.Part{Text: glance.Rate(40 * (1 << 20)), Status: fd.StatusWarn, Bold: true},
+	))
+	vpn.Set(glance.Parted(
+		glance.Part{Text: glance.Rate(900)},
+		glance.Part{Text: " "},
+		glance.Part{Text: glance.Rate(3686)},
+	))
+	return c
+}
+
+// glancePartsLabel pins the label column of the parted rows.
+const glancePartsLabel float32 = 96
 
 // meterCard is the quota shape: a proportion of something with a limit, drawn
 // as a label, a caption carrying the detail, and a bar graded by how close to

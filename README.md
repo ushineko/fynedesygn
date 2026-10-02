@@ -260,6 +260,20 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: a translucent glance window no longer panics on Windows before it
+  draws. `ShowAndRun` applied the transparent theme before `Show`, and on
+  Windows Fyne asks every window for its native handle when the theme
+  changes, which a window not yet shown does not have (quirk 43, spec 052).
+  The theme now goes on after `Show`, still before the first frame, so
+  Linux is unchanged.
+- **Add**: a frameless glance window on Windows is dragged from anywhere on
+  it (spec 052). Windows has no Meta-drag, so the window opened centred, on
+  top, and could not be moved. A primary press is handed to Windows as a
+  press on the caption; the secondary one still opens the menu. Linux is
+  unchanged: there the catcher is not `Mouseable`.
+
 ### 0.1.80 (2026-10-01)
 
 - **Add**: a row's value in coloured parts. `glance.Reading` gains `Parts

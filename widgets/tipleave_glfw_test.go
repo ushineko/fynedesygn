@@ -16,9 +16,11 @@ import (
 	"fyne.io/fyne/v2/test"
 	"github.com/go-gl/glfw/v3.4/glfw"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ushineko/fynedesygn/internal/glfwwin"
 )
 
-// fakeDesktopWindow has the field viewportOf reads, the way Fyne's desktop
+// fakeDesktopWindow has the field glfwwin.ViewportOf reads, the way Fyne's desktop
 // window does.
 type fakeDesktopWindow struct {
 	fyne.Window
@@ -29,12 +31,12 @@ type fakeDesktopWindow struct {
 // without it -- the test driver's window -- is nil, not a crash.
 func TestTheGLFWWindowIsReadFromTheViewportField(t *testing.T) {
 	view := &glfw.Window{}
-	require.Same(t, view, viewportOf(&fakeDesktopWindow{viewport: view}))
+	require.Same(t, view, glfwwin.ViewportOf(&fakeDesktopWindow{viewport: view}))
 
 	test.NewApp()
 	win := test.NewWindow(nil)
 	defer win.Close()
-	require.Nil(t, viewportOf(win), "a window with no viewport field is not one")
+	require.Nil(t, glfwwin.ViewportOf(win), "a window with no viewport field is not one")
 	watchLeave(win.Canvas()) // nothing to register, and nothing to break
 }
 
@@ -45,7 +47,7 @@ own (quirk 42).
 
 watchLeave depends on both. A Fyne that renamed the field would leave tips
 appearing after the pointer left the window again, silently, because
-viewportOf returns nil rather than failing; one that started registering the
+glfwwin.ViewportOf returns nil rather than failing; one that started registering the
 callback would make this workaround redundant. Either shows up here.
 */
 func TestFyneStillKeepsItsGLFWWindowWhereATipLooks(t *testing.T) {

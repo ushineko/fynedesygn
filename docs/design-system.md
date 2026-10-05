@@ -774,6 +774,13 @@ and for the other documents in `docs/`.
   directories and `/usr/share`. On macOS they are `/System/Library/Fonts` and
   `/Library/Fonts`. On Windows they are `C:\Windows\Fonts` and the fonts
   folder of the user.
+- To let the user drag a file out of the window, wrap what they drag in
+  `dragout.New` and give it a function that returns the paths when the drag
+  starts. The drag asks for a copy. Wayland enforces that; on X11 a target
+  can still move the file, so a section showing it must cope with it
+  disappearing. Wayland and X11 are supported now. Where `dragout.Supported` is false,
+  offer another way to reach the file, such as an Open or Show-in-folder
+  button.
 - The interface needs CGO. To build it for a different platform, you need a C
   toolchain for that platform. A command-line program stays at
   `CGO_ENABLED=0`.

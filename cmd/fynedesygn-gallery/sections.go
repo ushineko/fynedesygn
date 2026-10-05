@@ -7,7 +7,10 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -18,6 +21,7 @@ import (
 
 	fd "github.com/ushineko/fynedesygn"
 	"github.com/ushineko/fynedesygn/docs"
+	"github.com/ushineko/fynedesygn/dragout"
 	"github.com/ushineko/fynedesygn/markdown"
 	"github.com/ushineko/fynedesygn/mermaid"
 	"github.com/ushineko/fynedesygn/shell"
@@ -136,6 +140,7 @@ func buildWidgets(_ *shell.Shell) fyne.CanvasObject {
 			widgets.Note("A warning note.", fd.StatusWarn),
 		)),
 		demo("Swatch", swatches()),
+		container.NewVBox(widgets.Dim("dragout.Source"), dragSample(), widget.NewSeparator()),
 		demo("StatusText / Marker", container.NewHBox(
 			widgets.Marker(fd.StatusInfo), widgets.StatusText("info", fd.StatusInfo), widgets.Sep(),
 			widgets.Marker(fd.StatusGood), widgets.StatusText("good", fd.StatusGood), widgets.Sep(),
@@ -155,6 +160,53 @@ func buildWidgets(_ *shell.Shell) fyne.CanvasObject {
 			widgets.OrNone("", "(none)"),
 		}, "   "))),
 	))
+}
+
+// dragSampleDir is a directory of the gallery's own, made once, for the
+// picture dragSample offers. A fixed name in the shared temporary directory
+// could be planted beforehand as a link to somebody's file.
+var dragSampleDir = sync.OnceValues(func() (string, error) {
+	return os.MkdirTemp("", "fynedesygn-gallery-")
+})
+
+// dragSample is a picture that drags out of the window as a PNG file, for
+// trying dragout.Source against a file manager or a browser.
+func dragSample() fyne.CanvasObject {
+	img := image.NewRGBA(image.Rect(0, 0, 240, 135))
+	for y := range 135 {
+		for x := range 240 {
+			img.Set(x, y, color.RGBA{R: uint8(x), G: uint8(y * 2), B: 160, A: 255})
+		}
+	}
+	var buf bytes.Buffer
+	_ = png.Encode(&buf, img)
+	dir, err := dragSampleDir()
+	path := filepath.Join(dir, "drag-sample.png")
+	// Written again at every drag: a drop target on X11 may move the file
+	// rather than copy it, and the next drag would find nothing.
+	write := func() error { return os.WriteFile(path, buf.Bytes(), 0o600) }
+	if err == nil {
+		err = write()
+	}
+	status := widgets.Dim("Drag the picture into a file manager or a browser's upload field; it copies " + path + ".")
+	if err != nil {
+		status = widgets.StatusText("Could not write the sample: "+err.Error(), fd.StatusBad)
+	} else if !dragout.Supported() {
+		status = widgets.StatusText("Dragging out of the window is not supported on this platform yet.", fd.StatusWarn)
+	}
+
+	pic := canvas.NewImageFromImage(img)
+	pic.FillMode = canvas.ImageFillOriginal
+	src := dragout.New(container.NewHBox(pic), func() []string {
+		if write() != nil {
+			return nil
+		}
+		return []string{path}
+	})
+	failed := widget.NewLabel("")
+	failed.Importance = widget.DangerImportance
+	src.OnFailed = func(err error) { failed.SetText(err.Error()) }
+	return container.NewVBox(src, status, failed)
 }
 
 // --- Table -------------------------------------------------------------------

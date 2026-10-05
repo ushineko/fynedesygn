@@ -45,11 +45,13 @@ hand-synced copies.
 | [`shell`](https://pkg.go.dev/github.com/ushineko/fynedesygn/shell) | The window skeleton: header, section nav and navigation groups, `Tabs` (a section made of sections), content pane, status bar, busy indicator, banners, `Perform`, section lifecycle, plus the standard Appearance and About sections. |
 | [`glance`](https://pkg.go.dev/github.com/ushineko/fynedesygn/glance) | The other window archetype: a frameless, always-on-top status panel sized to its content, with cards that hide when their source is silent, fixed-width value formatting, a sparkline and a quota meter. |
 | [`glance/kwin`](https://pkg.go.dev/github.com/ushineko/fynedesygn/glance/kwin) | The KDE Plasma window rule a glance window needs — above, no border, and the opacity Fyne cannot draw itself. |
+| [`dragout`](https://pkg.go.dev/github.com/ushineko/fynedesygn/dragout) | A wrapper that drags files out of the window into another program — a file manager, a browser's upload field — through the platform's own drag. Wayland and X11; Windows and macOS report it unsupported for now. |
 | [`steps`](https://pkg.go.dev/github.com/ushineko/fynedesygn/steps) | The step list a job shows beside its log, updated in place. |
 | [`fynetest`](https://pkg.go.dev/github.com/ushineko/fynedesygn/fynetest) | Headless test helpers: tree walking, finders, text extraction, scrollable detection. |
 | [`cmd/fynedesygn-gallery`](https://pkg.go.dev/github.com/ushineko/fynedesygn/cmd/fynedesygn-gallery) | The reference program. Every component in every scheme, with `--section` and `--scheme` for screenshots. |
 | [`cmd/fynedesygn-mermaid`](https://pkg.go.dev/github.com/ushineko/fynedesygn/cmd/fynedesygn-mermaid) | The `go generate` helper that renders missing diagrams; `-check` in CI fails on stale ones. |
 | [`docs`](https://pkg.go.dev/github.com/ushineko/fynedesygn/docs) | The documents in `docs/` and their diagrams, embedded for the gallery. |
+| [`internal/glfwwin`](https://pkg.go.dev/github.com/ushineko/fynedesygn/internal/glfwwin) | The GLFW window behind a Fyne window, read where Fyne does not hand it out; shared by `widgets` and `dragout`. Not importable from outside the module. |
 | `examples/` | Small programs, one per UI pattern; see [Examples](#examples). |
 | `tools/` | The screenshot harness for KDE/Wayland. |
 
@@ -261,6 +263,20 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### Unreleased
+
+- **New**: `dragout`, files dragged out of the window into another program
+  (spec 055, #166). Fyne receives drops but cannot start one, and GLFW has no
+  drag source (quirk 44). `dragout.New(content, paths)` wraps an object; a
+  drag past `dragout.Threshold` offers the files as a copy (enforced on
+  Wayland; advisory on X11, where a target may move the file). Wayland uses the
+  core protocol on GLFW's own connection, with a pointer of its own for the
+  press serial GLFW keeps private. X11 uses XDND on a second connection.
+  After the drag Fyne is sent the release it never saw, so the next click is
+  not swallowed (quirk 45). Windows and macOS follow in phase 2; until then
+  `Supported` is false there. The gallery's Widgets section has a picture to
+  drag. `internal/glfwwin` now holds the GLFW-window lookup `widgets` used.
 
 ### 0.1.83 (2026-10-02)
 

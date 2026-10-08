@@ -802,6 +802,14 @@ and for the other documents in `docs/`.
   the desktop the user knows. On Linux the window manager does this. On
   Windows the system's move loop does not, and a glance window snaps itself
   (spec 058).
+- A window that stays on top should stand aside for a full-screen window: a
+  browser in full screen (F11, a web player's full-screen button) or a game in
+  windowed or borderless full screen. On KWin an active full-screen window is
+  in a layer above keep-above windows, so the window manager already does
+  this. On Windows it does not, and `Window.SetHideForFullscreen` does it
+  (spec 059): full screen is the window in front covering its whole monitor,
+  decided by geometry alone, because that is all a borderless full-screen
+  window is.
 
 ## Numbers
 

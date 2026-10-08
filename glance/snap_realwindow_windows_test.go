@@ -126,7 +126,7 @@ func workArea(hwnd uintptr) rwRect {
 
 // runGlanceMonitor builds and starts the glance-monitor example and returns
 // its window. It is killed when the test ends.
-func runGlanceMonitor(t *testing.T) uintptr {
+func runGlanceMonitor(t *testing.T, args ...string) uintptr {
 	t.Helper()
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "glance-monitor.exe")
@@ -138,7 +138,7 @@ func runGlanceMonitor(t *testing.T) uintptr {
 	require.NoError(t, err, "%s", out)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cmd := exec.CommandContext(ctx, bin)
+	cmd := exec.CommandContext(ctx, bin, args...)
 	profile := filepath.Join(dir, "profile")
 	cmd.Env = append(os.Environ(),
 		"APPDATA="+filepath.Join(profile, "Roaming"),

@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.84
+**Version**: 0.1.85
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -264,7 +264,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.85 (2026-10-07)
 
 - **New**: a glance card's rows found by their names (spec 056, #168).
   `Row.SetID` names a row; `Card.InsertRow(at, row)` puts it among the rows,

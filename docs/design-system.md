@@ -784,6 +784,20 @@ and for the other documents in `docs/`.
 - The interface needs CGO. To build it for a different platform, you need a C
   toolchain for that platform. A command-line program stays at
   `CGO_ENABLED=0`.
+- On Windows, link the windowed program with `-ldflags "-H windowsgui"`. It
+  then has no console and no standard error: a message it prints is lost.
+- Explorer starts the program when the user clicks a Start menu entry, a
+  desktop shortcut or a login shortcut, and that is the case to test. A test
+  started from a shell has the shell as its parent and does not show what a
+  click does.
+- Do not parse the windowed program's arguments with cobra, or set
+  `cobra.MousetrapHelpText = ""` before `Execute`. When explorer.exe is the
+  parent, cobra prints a note for a console user, waits five seconds and
+  exits 1 before the program runs. The windowed program has nowhere to show
+  the note, so a click gives a busy cursor and then nothing (hayami #159). A
+  console program can keep the note.
+- Give the Windows executable an icon resource. Without one, the Start menu
+  entry and the shortcuts the installer writes have a blank icon.
 
 ## Numbers
 

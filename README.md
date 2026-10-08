@@ -264,6 +264,14 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Docs**: design-system.md, Platform: what a windowed program needs on
+  Windows. Link it with `-H windowsgui`; test a launch from Explorer, not a
+  shell; keep its arguments away from cobra's Explorer check (or clear
+  `cobra.MousetrapHelpText`), which exits a program Explorer starts after five
+  seconds (hayami #159); and give it an icon resource.
+
 ### 0.1.86 (2026-10-07)
 
 - **New**: `glance.Lines`, a third panel arrangement: one line per reading

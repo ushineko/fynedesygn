@@ -475,6 +475,35 @@ ID is its name within the card, so a row that moves keeps its label column, its
 pin (`NewRowWidth`) and its meaning; a consumer that found rows by their
 position had to keep the rows in a fixed order to keep those.
 
+### A line per reading
+
+A panel arranges its cards one of three ways, as a setting the user can change
+while the window is up (`Panel.SetArrangement`): `Stack`, one card above
+another; `Grid`, columns that reflow to the width; and `Lines`, one line per
+reading across the whole width (spec 057). `Lines` is the shape of a session
+manager's pane and of a terminal's one-line-per-reading layout, so a program
+whose terminal draws that can draw it in its window too.
+
+In `Lines` a card leaves out its heading and everything that is not a reading:
+a plot, and anything added with `AddObject`. Rows stay as they are. A meter is
+one line: its label, a bar taking the slack, its caption and its trailing
+value; its stats row is left out. A grid of cells is one cell per line: the
+name and the state at the left, the bar, the reading at the right at the
+name's size. **The lines of one card share their columns**: the meters of a
+card, and the cells of a grid, each take the widest label, caption, state and
+reading among them, so every bar starts and ends at the same x and a figure is
+in the same place on every line, as it is in a terminal's columns.
+
+The panel hands the arrangement to every card, including one added later, and
+resizes the window once, at the switch: a change of arrangement is a change of
+shape. Nothing is rebuilt: rows keep their IDs (above) and the consumer's
+handles, a value set in one arrangement is the value drawn in the next, and
+leaving `Lines` puts back exactly what it hid. A card outside a panel, as in the
+gallery, is told directly with `Card.SetArrangement`.
+
+The heading carries `GoneMarker`, so in `Lines` a stale card says it by its
+dimmed rows alone.
+
 ### A card that has more to say than it can draw
 
 `Card.SetTip` is what a card says when the pointer rests on it. A glance card

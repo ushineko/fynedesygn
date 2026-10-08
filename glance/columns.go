@@ -16,6 +16,14 @@ const (
 	// that fits one column is Stack, so a panel that is never widened never
 	// looks any different.
 	Grid
+	// Lines draws one line per reading across the whole width (spec 057): a
+	// card's rows as they are, a meter as its label, a bar taking the slack
+	// and its figures, a cell as its name, state, bar and reading. Card
+	// headings, plots and anything added with AddObject are left out: a line
+	// per reading has no room for what is not one. The shape of a session
+	// manager's pane, and the window's half of a consumer whose terminal draws
+	// the same. One column, as Stack.
+	Lines
 )
 
 // CardWidthInEms is MinCardWidth in text sizes: about twenty-two characters,

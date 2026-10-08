@@ -126,6 +126,7 @@ func NewPanel(minWidth float32) *Panel {
 func (p *Panel) Add(cards ...*Card) {
 	for _, c := range cards {
 		c.SetTheme(p.th)
+		c.SetArrangement(p.arrangement)
 		p.cards = append(p.cards, c)
 		p.stack.Add(c.Object())
 
@@ -148,17 +149,27 @@ func (p *Panel) Add(cards ...*Card) {
 }
 
 /*
-SetArrangement chooses one column or several.
+SetArrangement chooses one column, several, or one line per reading.
 
 Grid reflows the cards into as many columns as the width fits, and a width
 that fits one is Stack -- so a panel nobody widens never looks any different,
-and a caller does not have to decide which it wants at each size.
+and a caller does not have to decide which it wants at each size. Lines is
+one column whose cards draw a line per reading; the panel hands it to each
+card, so a card added later draws the same way.
+
+The objects stay where they are and only their layout changes, so a
+consumer holding rows by ID (Card.RowByID) keeps the same handles across a
+switch, and the switch is a change of shape: the window is resized once,
+here, not on the next reading.
 */
 func (p *Panel) SetArrangement(a Arrangement) {
 	if p.arrangement == a {
 		return
 	}
 	p.arrangement = a
+	for _, c := range p.cards {
+		c.SetArrangement(a)
+	}
 	p.stack.Refresh()
 	if p.win != nil {
 		p.Resize()

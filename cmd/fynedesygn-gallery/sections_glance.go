@@ -73,6 +73,7 @@ func buildGlance(_ *shell.Shell) fyne.CanvasObject {
 		demo("Card + CellGrid", cellCard().Object()),
 		demo("Card, source gone", staleCard().Object()),
 		demo("Card + Sparkline", plotCard().Object()),
+		demo("Card, InsertRow over a plot", insertedCard().Object()),
 		demo("Sparkline, ScaleShared, SeriesColour + Faded", sharedPlot(90)),
 
 		demo("Card + Meter", meterCard().Object()),
@@ -317,4 +318,34 @@ func sharedPlot(n int) *glance.Sparkline {
 		p.Add("wlan0 up", 0.3*mib*(0.6+0.3*math.Sin(t/7)))
 	}
 	return p
+}
+
+// insertedCard is a card whose rows follow what is read: built with one row and
+// a plot, then given a second graphics card and a reason by InsertRow. Both land
+// among the rows and above the plot, where an appended row would have gone under
+// it (spec 056).
+func insertedCard() *glance.Card {
+	c := glance.NewCard("Processors")
+	cpu := glance.NewRow("CPU", glance.NoQuantity("°C", glanceUnit))
+	cpu.SetID("cpu")
+	c.AddRow(cpu)
+	c.AddObject(glancePlot(60))
+	c.SetAvailable(true)
+
+	gpu := glance.NewRow("GPU 1", glance.NoQuantity("°C", glanceUnit))
+	gpu.SetID("gpu:1")
+	reason := glance.NewRow("Coolant", "no cooler")
+	reason.SetID("reason:coolant")
+	// The gallery builds its own cards, so a refusal here is a fault in the
+	// gallery and not something a reader could cause.
+	if err := c.InsertRow(1, gpu); err != nil {
+		panic(err)
+	}
+	if err := c.InsertRow(len(c.Rows()), reason); err != nil {
+		panic(err)
+	}
+
+	cpu.Set(glance.Measured(glance.Quantity(53.0, "°C", glanceUnit)))
+	gpu.Set(glance.Measured(glance.Quantity(41.5, "°C", glanceUnit)))
+	return c
 }

@@ -264,6 +264,17 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **New**: a glance card's rows found by their names (spec 056, #168).
+  `Row.SetID` names a row; `Card.InsertRow(at, row)` puts it among the rows,
+  always above a plot or anything else added after them, where an appended row
+  went under it; `Card.RemoveRow(id)` and `Card.RowByID(id)`. A duplicate ID is
+  `ErrRowID` from `InsertRow` (a panic from `AddRow`), a position outside the
+  rows `ErrRowIndex`. A row inserted into a stale card is dimmed. For cards
+  whose rows follow what is read, without spare hidden rows; a consumer that
+  sets no IDs sees no change. The gallery's glance section shows it.
+
 ### 0.1.84 (2026-10-04)
 
 - **New**: `dragout`, files dragged out of the window into another program

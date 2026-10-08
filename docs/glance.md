@@ -454,6 +454,27 @@ left a space beside the wider bandwidth card. In a translucent window that
 space was a hole in the panel. In an opaque window it is an uneven right edge,
 which is the same fault and less visible.
 
+### A card whose rows follow what is read
+
+Most cards have rows fixed when they are built: a bandwidth card has a row per
+interface the user chose. Some cannot: a machine has one graphics card or two,
+a cooler or none, and a source gives a reason for a gap at the first poll or an
+hour later. Name those rows with `Row.SetID`, then add and take them out as
+what is read changes: `Card.InsertRow(at, row)`, `Card.RemoveRow(id)`,
+`Card.RowByID(id)`.
+
+`InsertRow` places among the rows, never under what follows them. A card's
+pieces go into one column in the order they were added, so a row *appended*
+after a plot lands under the plot. An inserted row goes where the rows are,
+and the plot stays at the bottom. That is what lets a card be built without
+spare hidden rows kept in reserve for whatever might arrive later.
+
+A row going in or out is a change of shape, like a row shown or hidden: call
+the panel's `Resize` after it, in the same call, and never on a timer. A row's
+ID is its name within the card, so a row that moves keeps its label column, its
+pin (`NewRowWidth`) and its meaning; a consumer that found rows by their
+position had to keep the rows in a fixed order to keep those.
+
 ### A card that has more to say than it can draw
 
 `Card.SetTip` is what a card says when the pointer rests on it. A glance card

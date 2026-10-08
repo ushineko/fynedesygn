@@ -1,6 +1,10 @@
 package glance
 
 import (
+	"errors"
+	"fmt"
+	"slices"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
@@ -161,12 +165,120 @@ func NewCard(title string) *Card {
 }
 
 // AddRow appends rows in the order they will be drawn.
+//
+// It panics on a row whose ID the card already holds: two rows answering to
+// one name is a fault in the program building the card, and finding it on
+// the first build is better than a lookup returning whichever came first.
 func (c *Card) AddRow(rows ...*Row) {
 	for _, r := range rows {
+		if err := c.unique(r); err != nil {
+			panic(err)
+		}
 		r.SetTheme(c.th)
 		c.rows = append(c.rows, r)
 		c.body.Add(r.Object())
 	}
+}
+
+// ErrRowID is a row whose ID its card already holds.
+var ErrRowID = errors.New("glance: the card already has a row with that ID")
+
+// ErrRowIndex is a position outside a card's rows.
+var ErrRowIndex = errors.New("glance: no such row position")
+
+/*
+InsertRow puts r among the card's rows so that it is drawn at position at:
+0 is above every row, len(Rows()) is under the last one.
+
+**Among the rows, never under what follows them.** A card's pieces go into
+one column in the order they were added, and a row appended after a plot used
+to land under the plot (hayami's "Coolant  no cooler" drawn through its trend).
+InsertRow places by the rows, not by the column: at the end it goes straight
+after the last row, so a plot, a meter or a grid added after the rows stays
+under it. With no rows yet it goes to the top of the card.
+
+It is a change of shape, not of value, and the card grows by the row's height:
+call the panel's Resize afterwards, as after SetShown. The row is given the
+card's face, and dimmed if the card is showing last-known values. Call it on
+the UI thread, as every other method here.
+
+It returns ErrRowIndex for a position outside 0..len(Rows()), and ErrRowID for
+an ID the card already holds; the card is unchanged either way.
+*/
+func (c *Card) InsertRow(at int, r *Row) error {
+	if at < 0 || at > len(c.rows) {
+		return fmt.Errorf("inserting at %d of %d rows: %w", at, len(c.rows), ErrRowIndex)
+	}
+	if err := c.unique(r); err != nil {
+		return err
+	}
+
+	// Where in the column: in place of the row now at `at`, or straight after
+	// the last row, or -- with no rows at all -- at the top.
+	pos := 0
+	switch {
+	case at < len(c.rows):
+		pos = c.position(c.rows[at])
+	case len(c.rows) > 0:
+		pos = c.position(c.rows[len(c.rows)-1]) + 1
+	}
+
+	r.SetTheme(c.th)
+	if c.stale {
+		rd := r.Reading()
+		rd.Stale = true
+		r.Set(rd)
+	}
+	c.rows = slices.Insert(c.rows, at, r)
+	c.body.Objects = slices.Insert(c.body.Objects, pos, r.Object())
+	c.body.Refresh()
+	return nil
+}
+
+// RemoveRow takes out the row with id, and reports whether there was one. Like
+// InsertRow it changes the card's shape: call the panel's Resize afterwards.
+func (c *Card) RemoveRow(id string) bool {
+	if id == "" {
+		return false
+	}
+	for i, r := range c.rows {
+		if r.id != id {
+			continue
+		}
+		c.rows = slices.Delete(c.rows, i, i+1)
+		if pos := c.position(r); pos >= 0 {
+			c.body.Objects = slices.Delete(c.body.Objects, pos, pos+1)
+		}
+		c.body.Refresh()
+		return true
+	}
+	return false
+}
+
+// RowByID is the row with id, or nil. An empty id finds nothing.
+func (c *Card) RowByID(id string) *Row {
+	if id == "" {
+		return nil
+	}
+	for _, r := range c.rows {
+		if r.id == id {
+			return r
+		}
+	}
+	return nil
+}
+
+// unique is ErrRowID when r's ID is already one of the card's.
+func (c *Card) unique(r *Row) error {
+	if r.id != "" && c.RowByID(r.id) != nil {
+		return fmt.Errorf("row %q: %w", r.id, ErrRowID)
+	}
+	return nil
+}
+
+// position is where r's object stands in the card's column, or -1.
+func (c *Card) position(r *Row) int {
+	return slices.Index(c.body.Objects, r.Object())
 }
 
 // AddObject appends something that is not a row — a Sparkline, a progress bar

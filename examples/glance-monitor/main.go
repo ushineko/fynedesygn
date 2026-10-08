@@ -59,6 +59,8 @@ func main() {
 	remove := flag.Bool("kwin-remove", false, "remove the KDE window rule")
 	translucent := flag.Bool("translucent", false,
 		"ask for a window the desktop shows through, where the driver allows it")
+	hideFullscreen := flag.Bool("hide-fullscreen", false,
+		"hide while a full-screen window is in front on this monitor (Windows)")
 	flag.Parse()
 
 	if *show || *install || *remove {
@@ -75,6 +77,7 @@ func main() {
 	m := newMonitor()
 	m.translucent = *translucent
 	w := m.build(a)
+	w.SetHideForFullscreen(*hideFullscreen)
 	go m.poll()
 	w.ShowAndRun()
 }

@@ -114,6 +114,8 @@ type Window struct {
 	app         fyne.App
 	wanted      bool
 	translucent bool
+
+	fullscreen fullscreenWatch
 }
 
 // NewWindow builds the window and its panel. The window is not shown; add

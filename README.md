@@ -264,6 +264,18 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **New API**: `Window.SetHideForFullscreen` (spec 059, #178). On Windows a
+  glance window hides while the window in front covers the whole of its
+  monitor (a browser in full screen, a game in windowed or borderless full
+  screen) and comes back, without the focus and in the same place, when that
+  stops. Geometry decides: the window's rectangle or its DWM frame containing
+  the monitor. A maximised window, a window on another monitor and the
+  program's own windows do not count. Off unless asked for; a no-op on Linux,
+  where KWin already covers a keep-above window with an active full-screen
+  one. The glance-monitor example takes `-hide-fullscreen`.
+
 ### 0.1.88 (2026-10-08)
 
 - **Fix**: a glance window snapped to an edge on Windows comes off it as soon

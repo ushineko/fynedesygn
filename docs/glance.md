@@ -137,6 +137,23 @@ cost.
   goes with the pointer: part way off the screen, or on to the next monitor.
   Near a corner it snaps on both axes; anywhere else it follows the pointer
   exactly. Spec 058, `glance/snap_windows.go`.
+- **A full-screen window in front can hide it.** `SetHideForFullscreen(true)`
+  (spec 059) hides the window while the window in front covers the whole of
+  the monitor it is on, taskbar included: a browser after F11 or a web
+  player's full-screen button, a game in windowed or borderless full screen.
+  The window comes back, without the focus and in the same place, when that
+  stops. Covering means containing the monitor's rectangle, not equalling it
+  (a full-screen window is often a few pixels larger), by its window
+  rectangle or by the frame DWM draws. A maximised window with a titlebar is
+  not full screen, even where a hidden taskbar lets it cover the monitor;
+  hiding for maximised windows could be a later option. A full-screen window
+  on another monitor, this program's own windows, the desktop and the
+  taskbar do not count, and two looks in a row (a second at the 500 ms
+  interval) are needed either way, so a window passing through full screen
+  does not flicker the panel. Hidden and shown by the system
+  (`ShowWindowAsync`), not by Fyne, which still counts the window as shown.
+  Windows only: on KWin an active full-screen window already covers a
+  keep-above one (to be confirmed on a KWin desk).
 - **`RequestPosition` does nothing here.** Measured on Plasma 6 on Wayland:
   `desktop.Window.RequestPosition(900, 400)` left the window at the pixel it
   was already on. Fyne's doc comment hedges — the request "may be ignored (for

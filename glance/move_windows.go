@@ -68,6 +68,9 @@ func startMove(win fyne.Window) {
 		if !ok || wc.HWND == 0 {
 			return
 		}
+		// The loop sends WM_MOVING to the window; snapEdges is what answers
+		// it (spec 058).
+		snapEdges(wc.HWND)
 		_, _, _ = releaseCapture.Call()
 		_, _, _ = sendMessage.Call(wc.HWND, wmNCLButtonDown, htCaption, 0)
 

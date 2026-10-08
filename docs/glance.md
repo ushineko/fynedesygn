@@ -128,11 +128,15 @@ cost.
   **A drag snaps to the screen's edges on both desktops.** On KDE the
   compositor does it: its border snap zone, 10 px by default, pulls a window
   it is moving onto an edge. Windows' move loop has no such pull, so a glance
-  window there answers the loop's `WM_MOVING` and moves the rectangle it is
-  given onto any edge of the monitor's work area (the taskbar left out) that
-  it comes within 10 px of, scaled for the monitor's DPI. Near a corner it
-  snaps on both axes; anywhere else it follows the pointer exactly. Spec 058,
-  `glance/snap_windows.go`.
+  window there answers the loop's `WM_MOVING`. It works out where the pointer
+  puts the window (the pointer less the point it was grabbed by; not the
+  rectangle Windows proposes, which is built from the last one and made a
+  snapped window stick), and pulls that onto an edge of the monitor's work
+  area (the taskbar left out) when an edge comes within 10 px of it from
+  inside, scaled for the monitor's DPI. Pushed on past an edge, the window
+  goes with the pointer: part way off the screen, or on to the next monitor.
+  Near a corner it snaps on both axes; anywhere else it follows the pointer
+  exactly. Spec 058, `glance/snap_windows.go`.
 - **`RequestPosition` does nothing here.** Measured on Plasma 6 on Wayland:
   `desktop.Window.RequestPosition(900, 400)` left the window at the pixel it
   was already on. Fyne's doc comment hedges — the request "may be ignored (for

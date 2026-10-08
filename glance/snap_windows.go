@@ -32,11 +32,14 @@ var (
 	monitorFromRect  = user32.NewProc("MonitorFromRect")
 	getMonitorInfo   = user32.NewProc("GetMonitorInfoW")
 	getDpiForWindow  = user32.NewProc("GetDpiForWindow")
+	getMessagePos    = user32.NewProc("GetMessagePos")
 )
 
 const (
-	wmMoving    = 0x0216
-	wmNCDestroy = 0x0082
+	wmMoving        = 0x0216
+	wmEnterSizeMove = 0x0231
+	wmExitSizeMove  = 0x0232
+	wmNCDestroy     = 0x0082
 	// monitorDefaultToNearest makes MonitorFromRect answer for a rectangle
 	// that is off every screen, as a window dragged past an edge can be.
 	monitorDefaultToNearest = 2
@@ -50,6 +53,9 @@ var gwlpWndProc = -4
 var (
 	snapMu   sync.Mutex
 	snapping = map[uintptr]uintptr{}
+	// grabs holds, for a window being moved, the pointer's offset from its
+	// top-left when the move began.
+	grabs = map[uintptr]grip{}
 	// snapProc is made once: the runtime keeps a fixed number of callbacks.
 	snapProc = syscall.NewCallback(snapWindowProc)
 )
@@ -84,6 +90,7 @@ func snapWindowProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 	prev := snapping[hwnd]
 	if msg == wmNCDestroy {
 		delete(snapping, hwnd)
+		delete(grabs, hwnd)
 	}
 	snapMu.Unlock()
 	if prev == 0 {
@@ -92,7 +99,14 @@ func snapWindowProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 	if msg == wmNCDestroy {
 		_, _, _ = setWindowLongPtr.Call(hwnd, uintptr(gwlpWndProc), prev)
 	}
-	if msg == wmMoving && lparam != 0 {
+	switch {
+	case msg == wmEnterSizeMove:
+		grab(hwnd)
+	case msg == wmExitSizeMove:
+		snapMu.Lock()
+		delete(grabs, hwnd)
+		snapMu.Unlock()
+	case msg == wmMoving && lparam != 0:
 		// lParam is a RECT the system owns for the length of the call.
 		snapMoving(hwnd, (*edges)(unsafe.Add(nil, lparam)))
 	}
@@ -104,9 +118,51 @@ func snapWindowProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 	return ret
 }
 
-// snapMoving moves the rectangle the window is about to take onto the work
-// area's edges it is near.
+// grab starts a move: the point the window is grabbed by is taken from the
+// first WM_MOVING, whose proposal Windows makes before anything here has
+// changed one. Read now, the pointer has already moved past the drag
+// threshold, and the window would jump by that much.
+func grab(hwnd uintptr) {
+	snapMu.Lock()
+	grabs[hwnd] = grip{}
+	snapMu.Unlock()
+}
+
+// messagePos is where the pointer was for the message being handled, which is
+// the position a WM_MOVING proposal was made from; GetCursorPos is now, and
+// can be ahead of it.
+func messagePos() point {
+	p, _, _ := getMessagePos.Call()
+	return point{x: int32(int16(p & 0xFFFF)), y: int32(int16((p >> 16) & 0xFFFF))}
+}
+
+/*
+snapMoving moves the rectangle the window is about to take onto the work
+area's edges it is near.
+
+**The rectangle snapped is where the pointer puts the window, not the one
+Windows proposes.** Windows builds each proposal from the rectangle as the
+last WM_MOVING left it, plus the pointer's movement since. Snapping the
+proposal itself made the window stick: once on an edge, every small movement
+started from the edge, stayed within the snap distance and was snapped back,
+and the window stayed put while the pointer ran on (hayami's 0.9.2 sit test).
+So the window's free place is worked out again from the pointer and the point
+it was grabbed by (grab), and that is what is snapped: the window comes off
+an edge as soon as the hand is more than the snap distance from it, under the
+point it was grabbed by.
+*/
 func snapMoving(hwnd uintptr, r *edges) {
+	snapMu.Lock()
+	g, moving := grabs[hwnd]
+	if moving && !g.set {
+		pt := messagePos()
+		g = grip{at: point{x: pt.x - r.left, y: pt.y - r.top}, set: true}
+		grabs[hwnd] = g
+	}
+	snapMu.Unlock()
+	if moving {
+		*r = freeRect(*r, messagePos(), g.at)
+	}
 	mon, _, _ := monitorFromRect.Call(uintptr(unsafe.Pointer(r)), monitorDefaultToNearest)
 	if mon == 0 {
 		return
@@ -121,4 +177,11 @@ func snapMoving(hwnd uintptr, r *edges) {
 		dpi = uint32(d)
 	}
 	*r = snapToWork(*r, info.work, snapDistance(dpi))
+}
+
+// grip is the point a window being moved is held by: an offset from its
+// top-left, set from the move's first WM_MOVING.
+type grip struct {
+	at  point
+	set bool
 }

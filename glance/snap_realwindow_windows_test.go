@@ -170,3 +170,80 @@ func runGlanceMonitor(t *testing.T) uintptr {
 	time.Sleep(time.Second)
 	return found
 }
+
+/*
+A window snapped onto an edge leaves it as soon as the pointer carries it
+past the snap distance, in the same drag, and comes off it under the point
+that was grabbed.
+
+The first version snapped the rectangle Windows proposed, and Windows builds
+each proposal from the last one as it was left, plus the pointer's movement
+since. Once snapped, every small movement started from the edge, fell within
+the snap distance and was snapped back: the window stuck to the edge while the
+pointer ran on, and had to be released and dragged again, several times, to
+come off (hayami's 0.9.2 sit test).
+*/
+func TestASnappedGlanceWindowComesOffTheEdgeInTheSameDrag(t *testing.T) {
+	if os.Getenv(realWindowEnv) == "" {
+		t.Skip("moves the real pointer; set " + realWindowEnv + "=1 to run it")
+	}
+	_, _, _ = rwSetDpiAwareness.Call(^uintptr(3)) // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 (-4)
+
+	hwnd := runGlanceMonitor(t)
+	var saved struct{ X, Y int32 }
+	_, _, _ = rwGetCursorPos.Call(uintptr(unsafe.Pointer(&saved)))
+	t.Cleanup(func() { _, _, _ = rwSetCursorPos.Call(uintptr(saved.X), uintptr(saved.Y)) })
+
+	work := workArea(hwnd)
+	start := windowRect(hwnd)
+	w, h := start.R-start.L, start.B-start.T
+	mid := work.L + (work.R-work.L-w)/2
+
+	// One drag: up onto the top edge (4 px short of it, which snaps), then on
+	// down to the middle of the screen without letting go.
+	end := work.T + (work.B-work.T-h)/2
+	dragThrough(t, hwnd, [][2]int32{{mid, work.T + 4}, {mid, end}})
+	got := windowRect(hwnd)
+	t.Logf("through the top edge to (%d, %d): window at (%d, %d)", mid, end, got.L, got.T)
+	require.Equal(t, mid, got.L, "the window did not follow the pointer off the edge")
+	require.Equal(t, end, got.T, "the window stayed on the edge, or came off it away from the point grabbed")
+}
+
+// dragThrough presses on the window and moves it, without letting go, so its
+// top-left passes each point in turn, then releases.
+func dragThrough(t *testing.T, hwnd uintptr, points [][2]int32) {
+	t.Helper()
+	const (
+		leftDown = 0x0002
+		leftUp   = 0x0004
+	)
+	r := windowRect(hwnd)
+	px, py := r.L+60, r.T+40
+	_, _, _ = rwSetCursorPos.Call(uintptr(px), uintptr(py))
+	time.Sleep(150 * time.Millisecond)
+	_, _, _ = rwMouseEvent.Call(leftDown, 0, 0, 0, 0)
+	time.Sleep(150 * time.Millisecond)
+	from := [2]int32{r.L, r.T}
+	for _, p := range points {
+		dx, dy := p[0]-from[0], p[1]-from[1]
+		// A few pixels a step, as a hand moves: a step longer than the snap
+		// distance jumps clear of an edge in one message and hides the fault.
+		steps := max(abs32(dx), abs32(dy))/3 + 1
+		for i := int32(1); i <= steps; i++ {
+			_, _, _ = rwSetCursorPos.Call(uintptr(px+dx*i/steps), uintptr(py+dy*i/steps))
+			time.Sleep(4 * time.Millisecond)
+		}
+		px, py = px+dx, py+dy
+		from = p
+	}
+	time.Sleep(100 * time.Millisecond)
+	_, _, _ = rwMouseEvent.Call(leftUp, 0, 0, 0, 0)
+	time.Sleep(400 * time.Millisecond)
+}
+
+func abs32(v int32) int32 {
+	if v < 0 {
+		return -v
+	}
+	return v
+}

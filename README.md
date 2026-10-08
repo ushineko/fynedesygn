@@ -264,6 +264,14 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: a glance window snapped to an edge on Windows comes off it as soon
+  as the drag carries it past the snap distance, under the point it was
+  grabbed by; it stuck to the edge until released and dragged again (spec
+  058). An edge pushed past the work area goes with the pointer, part way off
+  the screen or on to the next monitor.
+
 ### 0.1.87 (2026-10-08)
 
 - **Change**: a glance window dragged on Windows snaps to the edges of its

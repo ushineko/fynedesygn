@@ -28,19 +28,25 @@ func snapDistance(dpi uint32) int32 {
 snapToWork is where a window being dragged to r should go, given the work area
 it is over and the snap distance.
 
-Each axis is decided alone: an edge of the window within dist of the same
-edge of the work area is moved onto it, the window keeping its size, so a
+Each axis is decided alone: an edge of the window inside the work area and
+within dist of the same edge is moved onto it, the window keeping its size, so a
 window near a corner snaps on both axes. Near the left and the right at once
 (a window as wide as the work area, near enough), the left wins, and the top
 over the bottom, so the window's start is the edge that stays put. Anywhere
 else r is returned as it is and the window follows the pointer exactly.
+
+**Only from inside.** An edge already past the work area's is left where the
+pointer put it: pushing on through an edge takes the window part way off the
+screen, or on to the next monitor, as the person dragging it meant. Pulling it
+back in from outside, as the first version did, fought every drag across a
+monitor's edge.
 */
 func snapToWork(r, work edges, dist int32) edges {
 	shift := func(lo, hi, workLo, workHi int32) int32 {
 		switch {
-		case abs32(lo-workLo) <= dist:
+		case lo >= workLo && lo-workLo <= dist:
 			return workLo - lo
-		case abs32(hi-workHi) <= dist:
+		case hi <= workHi && workHi-hi <= dist:
 			return workHi - hi
 		default:
 			return 0
@@ -51,9 +57,16 @@ func snapToWork(r, work edges, dist int32) edges {
 	return edges{left: r.left + dx, top: r.top + dy, right: r.right + dx, bottom: r.bottom + dy}
 }
 
-func abs32(v int32) int32 {
-	if v < 0 {
-		return -v
-	}
-	return v
+// point is a position in screen pixels: the pointer, or an offset from a
+// window's top-left.
+type point struct {
+	x, y int32
+}
+
+// freeRect is r moved, keeping its size, so the point it was grabbed by
+// (grabbed, an offset from its top-left) is under the pointer: where a drag
+// puts the window before any snapping (spec 058).
+func freeRect(r edges, pointer, grabbed point) edges {
+	left, top := pointer.x-grabbed.x, pointer.y-grabbed.y
+	return edges{left: left, top: top, right: left + (r.right - r.left), bottom: top + (r.bottom - r.top)}
 }

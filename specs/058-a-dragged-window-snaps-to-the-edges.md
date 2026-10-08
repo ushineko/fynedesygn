@@ -93,3 +93,31 @@ the test and dragged with the real pointer (`FYNEDESYGN_WINDOW_TEST=1`):
   (-48, 143), off the edge, and the test failed.
 - With the snap distance raised to 2000 px: the middle drop ended at (0, 0)
   and the test failed.
+
+### Addendum: a snapped window stuck to the edge
+
+Found in hayami's 0.9.2 sit test: once the panel snapped onto the top or the
+bottom edge it stayed there whatever the drag did, and came off only after
+being released and dragged again, several times.
+
+- **Cause.** The first version snapped the rectangle `WM_MOVING` proposed.
+  Windows builds each proposal from the rectangle as the last message left it,
+  plus the pointer's movement since, so after a snap every small movement
+  started from the edge, stayed within the snap distance and was snapped back.
+  The test missed it because its synthetic drag moved about 33 px a step, past
+  the snap distance in one message; a hand moves a few.
+- **Fix.** The window's place is worked out from the pointer: the point it is
+  grabbed by is taken from the move's first `WM_MOVING` (whose proposal is
+  still Windows' own), and every later message puts the window there relative
+  to the pointer's position for that message (`GetMessagePos`), then snaps it.
+  The pull is now from inside only: an edge pushed past the work area's goes
+  with the pointer, part way off the screen or on to the next monitor, as
+  asked for in the sit test.
+- **Tests.** `TestASnappedGlanceWindowComesOffTheEdgeInTheSameDrag` drags onto
+  the top edge and on to the middle of the screen in one drag, in steps of at
+  most 3 px. Before the fix it ended at (1695, 0), stuck on the edge; after,
+  at (1695, 1025), under the pointer. The table tests gain pushing past an
+  edge and a corner and crossing to the next monitor; restoring the symmetric
+  pull fails three of them. The corner and middle drops still land at (0, 0)
+  and (1695, 1025). Not tested on two monitors (one on the desk); the
+  crossing is covered by the arithmetic.

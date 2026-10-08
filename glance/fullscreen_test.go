@@ -82,7 +82,7 @@ func TestWhatIsNotAReasonToHide(t *testing.T) {
 // a window passing through full screen does not flicker the panel.
 func TestTheWindowHidesAndShowsOnlyOnTwoLooksInARow(t *testing.T) {
 	var s settle
-	step := func(fs bool) (bool, bool) { return s.next(fs) }
+	step := s.next
 
 	hidden, changed := step(true)
 	assert.False(t, hidden)

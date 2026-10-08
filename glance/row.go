@@ -44,7 +44,27 @@ type Row struct {
 
 	reading Reading
 	shown   bool
+
+	// id names the row within its card. Empty for a row nobody looks up.
+	id string
 }
+
+/*
+SetID names the row, so its card can find it (Card.RowByID), put a row before
+it (Card.InsertRow) and take it out (Card.RemoveRow).
+
+For a card whose rows follow what is read rather than a list fixed when the
+card was built: one row per graphics card, per temperature probe, per reason a
+source gave. Finding a row by name rather than by position is what lets a row
+be added or removed without the rows after it changing meaning.
+
+Set it before the row goes into a card. A card refuses a second row with an ID
+it already holds; an empty ID is never looked up and never collides.
+*/
+func (r *Row) SetID(id string) { r.id = id }
+
+// ID is the row's name within its card, or empty.
+func (r *Row) ID() string { return r.id }
 
 // NewRow builds a row with a label and no value yet. The value reads as blank
 // until Set is called, at the width blank implies, so the row does not change

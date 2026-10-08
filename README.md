@@ -266,6 +266,13 @@ MIT. See [LICENSE](LICENSE).
 
 ### Unreleased
 
+- **Change**: a glance window dragged on Windows snaps to the edges of its
+  monitor's work area (spec 058, #175), as KWin's border snap zone does on
+  Linux. The window answers the system move loop's `WM_MOVING`: an edge within
+  10 px (scaled for the monitor's DPI) of a work-area edge is moved onto it,
+  both axes near a corner; anywhere else the window follows the pointer
+  exactly. Linux is unchanged.
+
 - **Docs**: design-system.md, Platform: what a windowed program needs on
   Windows. Link it with `-H windowsgui`; test a launch from Explorer, not a
   shell; keep its arguments away from cobra's Explorer check (or clear

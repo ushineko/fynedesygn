@@ -798,6 +798,10 @@ and for the other documents in `docs/`.
   console program can keep the note.
 - Give the Windows executable an icon resource. Without one, the Start menu
   entry and the shortcuts the installer writes have a blank icon.
+- A window the user drags should snap to the screen's edges as it does on
+  the desktop the user knows. On Linux the window manager does this. On
+  Windows the system's move loop does not, and a glance window snaps itself
+  (spec 058).
 
 ## Numbers
 

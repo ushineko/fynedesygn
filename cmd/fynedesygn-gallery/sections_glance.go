@@ -77,6 +77,9 @@ func buildGlance(_ *shell.Shell) fyne.CanvasObject {
 		demo("Sparkline, ScaleShared, SeriesColour + Faded", sharedPlot(90)),
 
 		demo("Card + Meter", meterCard().Object()),
+		// The same three cards under the Lines arrangement (spec 057): a line per
+		// reading, the headings and the plot left out.
+		demo("Card, Lines: rows, cells, meters", linesDemo()),
 
 		demo("Row", container.NewVBox(
 			glanceRow("Coolant", glance.Known(glance.Quantity(46.6, "°C", glanceUnit), fd.StatusGood)),
@@ -348,4 +351,16 @@ func insertedCard() *glance.Card {
 	cpu.Set(glance.Measured(glance.Quantity(53.0, "°C", glanceUnit)))
 	gpu.Set(glance.Measured(glance.Quantity(41.5, "°C", glanceUnit)))
 	return c
+}
+
+// linesDemo is the cell card, the meter card and the plot card drawn as the
+// Lines arrangement draws them (spec 057): one line per reading, no headings,
+// no plot. Built from fresh cards so the demos above keep their own shape.
+func linesDemo() fyne.CanvasObject {
+	box := container.NewVBox()
+	for _, c := range []*glance.Card{plotCard(), cellCard(), meterCard()} {
+		c.SetArrangement(glance.Lines)
+		box.Add(c.Object())
+	}
+	return box
 }

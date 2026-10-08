@@ -62,6 +62,16 @@ type Meter struct {
 	stats      *fyne.Container
 
 	status fd.Status
+
+	// head is the label as laid out (pinned to its width or not), and lines
+	// whether the meter draws as one line (Lines, spec 057).
+	head  fyne.CanvasObject
+	lines bool
+
+	// peers are the meters of the same card, Lines lays their pieces out in
+	// shared columns so every bar starts and ends at the same x. Nil outside
+	// a card, where a meter is its own column.
+	peers *[]*Meter
 }
 
 // NewMeter builds a meter with a label and nothing filled. labelWidth pins the
@@ -107,6 +117,7 @@ func NewMeter(label string, labelWidth float32) *Meter {
 	m.stats = container.NewHBox(m.statsLeft, layout.NewSpacer(), m.statsRight)
 	m.stats.Hide()
 
+	m.head = head
 	m.box = container.NewVBox(top, m.bar, m.stats)
 	return m
 }
@@ -328,3 +339,102 @@ func (r *barRenderer) Objects() []fyne.CanvasObject {
 }
 
 func (r *barRenderer) Destroy() {}
+
+/*
+setLines draws the meter as one line or as its usual two.
+
+As one line (Lines, spec 057): the label at the left, the caption and the
+trailing value at the right, and the bar between them taking the slack, at its
+own height in the middle of the line. The stats row is left out: a line per
+reading has one line. The objects are the same ones in a different container,
+so the values a consumer sets land wherever the meter is drawn.
+*/
+func (m *Meter) setLines(on bool) {
+	if m.lines == on {
+		return
+	}
+	m.lines = on
+	if on {
+		m.box.Objects = []fyne.CanvasObject{
+			container.New(&meterLine{m: m}, m.head, m.bar, m.caption, m.trailing),
+		}
+	} else {
+		top := container.NewHBox(m.head, m.caption, layout.NewSpacer(), m.trailing)
+		m.box.Objects = []fyne.CanvasObject{top, m.bar, m.stats}
+	}
+	m.box.Refresh()
+}
+
+// meterLine lays a meter out as one line: head, bar, caption, trailing.
+type meterLine struct{ m *Meter }
+
+// lineGap is the space between a line's pieces, in the meter's own face.
+func (l *meterLine) lineGap() float32 { return l.m.textSize() * 0.6 }
+
+// lineBar is the narrowest the bar is drawn: enough to read as a proportion.
+func (l *meterLine) lineBar() float32 { return l.m.textSize() * 4 }
+
+// columns are the widths of the head, caption and trailing columns: the widest
+// of each among the meter's peers, so the lines of one card line up the way
+// a terminal's fixed columns do.
+func (l *meterLine) columns() (head, caption, trailing float32) {
+	peers := []*Meter{l.m}
+	if l.m.peers != nil {
+		peers = *l.m.peers
+	}
+	for _, p := range peers {
+		head = max(head, p.head.MinSize().Width)
+		caption = max(caption, p.caption.MinSize().Width)
+		trailing = max(trailing, p.trailing.MinSize().Width)
+	}
+	return head, caption, trailing
+}
+
+// MinSize is the three columns and a short bar end to end, and the tallest
+// piece.
+func (l *meterLine) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	if len(objects) < 4 {
+		return fyne.Size{}
+	}
+	head, caption, trailing := l.columns()
+	gap := l.lineGap()
+	w := head + gap + l.lineBar() + gap + caption
+	if trailing > 0 {
+		w += gap + trailing
+	}
+	h := max(objects[0].MinSize().Height, objects[2].MinSize().Height, objects[3].MinSize().Height, BarHeight)
+	return fyne.NewSize(w, h)
+}
+
+// Layout pins the label left and the figures right, and gives the bar the
+// rest, centred on the line.
+func (l *meterLine) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	if len(objects) < 4 {
+		return
+	}
+	head, bar, caption, trailing := objects[0], objects[1], objects[2], objects[3]
+	gap := l.lineGap()
+	headW, captionW, trailingW := l.columns()
+	centre := func(o fyne.CanvasObject, x, w, h float32) {
+		o.Move(fyne.NewPos(x, (size.Height-h)/2))
+		o.Resize(fyne.NewSize(w, h))
+	}
+
+	centre(head, 0, head.MinSize().Width, head.MinSize().Height)
+
+	// The trailing value ends at the right edge and the caption starts at
+	// its column's left, so a reset and a figure are in the same place on
+	// every line, as they are in a terminal's columns.
+	right := size.Width
+	if trailingW > 0 {
+		ts := trailing.MinSize()
+		centre(trailing, right-ts.Width, ts.Width, ts.Height)
+		right -= trailingW + gap
+	}
+	right -= captionW
+	cs := caption.MinSize()
+	centre(caption, right, cs.Width, cs.Height)
+
+	left := headW + gap
+	centre(bar, left, max(right-gap-left, 0), BarHeight)
+}

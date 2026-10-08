@@ -264,6 +264,18 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **New**: `glance.Lines`, a third panel arrangement: one line per reading
+  across the whole width (spec 057, #170). Card headings, plots and objects
+  added with `AddObject` are left out; rows stay as they are; a meter is its
+  label, a bar taking the slack, its caption and its trailing value; a grid of
+  cells is one cell per line, name and state left, bar, reading right. The
+  meters of a card and the cells of a grid share their columns, so every bar
+  starts and ends at the same x. `Panel.SetArrangement` hands it to every card,
+  including later ones, and resizes once; leaving it puts back exactly what it
+  hid. `Card.SetArrangement` tells a card outside a panel.
+
 ### 0.1.85 (2026-10-07)
 
 - **New**: a glance card's rows found by their names (spec 056, #168).

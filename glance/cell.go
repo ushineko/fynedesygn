@@ -106,6 +106,13 @@ type Cell struct {
 	// would eat a character each time.
 	fullName string
 	fullNote string
+
+	// lines is whether the cell draws as one line (Lines, spec 057).
+	lines bool
+
+	// grid is the grid the cell is in, whose cells share columns in Lines;
+	// nil for a cell on its own.
+	grid *CellGrid
 }
 
 // NewCell builds a cell with a name and no reading yet.
@@ -274,6 +281,11 @@ func (c *Cell) Restyle() {
 func (c *Cell) restyleText() {
 	c.name.TextSize = c.textSize()
 	c.value.TextSize = c.textSize() * CellValueScale
+	if c.lines {
+		// A line is one line high: the reading at the size of the name
+		// beside it, still bold and still the colour of its verdict.
+		c.value.TextSize = c.textSize()
+	}
 	c.note.TextSize = c.textSize()
 
 	/*
@@ -349,6 +361,9 @@ func (l *cellLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	if len(objects) < 4 {
 		return fyne.Size{}
 	}
+	if l.cell != nil && l.cell.lines {
+		return l.lineMin(objects)
+	}
 	value := objects[1].MinSize()
 
 	width := value.Width
@@ -370,6 +385,10 @@ func (l *cellLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 // full width.
 func (l *cellLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	if len(objects) < 4 {
+		return
+	}
+	if l.cell != nil && l.cell.lines {
+		l.lineLayout(objects, size)
 		return
 	}
 	// A cell that has not been given a width yet keeps its words. Eliding
@@ -474,6 +493,9 @@ type CellGrid struct {
 	cells  []*Cell
 	box    *fyne.Container
 	layout *cellGridLayout
+
+	// lines is whether the grid draws one cell per line (Lines, spec 057).
+	lines bool
 }
 
 // NewCellGrid builds an empty grid. Cells are added with Add.
@@ -498,6 +520,8 @@ func (g *CellGrid) SetTheme(th fyne.Theme) {
 func (g *CellGrid) Add(cells ...*Cell) {
 	for _, c := range cells {
 		c.SetTheme(g.th)
+		c.setLines(g.lines)
+		c.grid = g
 		g.cells = append(g.cells, c)
 		g.box.Add(c.Object())
 	}
@@ -543,6 +567,11 @@ func (l *cellGridLayout) gap() float32 {
 	if l.grid == nil {
 		return CellGridGap()
 	}
+	if l.grid.lines {
+		// Lines are read down like rows, and a block's gap between them
+		// reads as a missing line.
+		return l.grid.pad()
+	}
 	return l.grid.gridGap()
 }
 
@@ -558,7 +587,11 @@ func (l *cellGridLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	cell := cellSize(shown)
 
 	gap := l.gap()
-	lines := lineCount(len(shown), min(perLine(l.width, cell.Width, gap), len(shown)))
+	across := min(perLine(l.width, cell.Width, gap), len(shown))
+	if l.grid != nil && l.grid.lines {
+		across = 1
+	}
+	lines := lineCount(len(shown), across)
 	return fyne.NewSize(cell.Width, float32(lines)*cell.Height+float32(lines-1)*gap)
 }
 
@@ -579,6 +612,9 @@ func (l *cellGridLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	// its own window -- and on a card whose other rows stretch to the edge it
 	// is the one thing that looks unfinished.
 	across := min(perLine(size.Width, cell.Width, gap), len(shown))
+	if l.grid != nil && l.grid.lines {
+		across = 1
+	}
 
 	width := (size.Width - float32(across-1)*gap) / float32(across)
 	for i, o := range shown {
@@ -634,4 +670,112 @@ func visible(objects []fyne.CanvasObject) []fyne.CanvasObject {
 		}
 	}
 	return out
+}
+
+/*
+setLines draws the cell as one line or as its usual block (Lines, spec 057).
+
+As one line: the name at the left and the state after it, each elided to the
+name budget; the reading at the right at the name's size; and the bar, when the
+cell has one, taking the slack between. The order is the terminal's own for a
+cell in a line of readings, so the two shells read the same way.
+*/
+func (c *Cell) setLines(on bool) {
+	if c.lines == on {
+		return
+	}
+	c.lines = on
+	if !on {
+		for _, t := range []*canvas.Text{c.name, c.value, c.note} {
+			t.Alignment = fyne.TextAlignCenter
+		}
+	}
+	c.Restyle()
+}
+
+// lineGap is the space between a line's pieces, in the cell's own face.
+func (l *cellLayout) lineGap() float32 { return l.cell.textSize() * 0.6 }
+
+// lineColumns are the widths of the name, state and reading columns: the widest
+// of each among the shown cells of the grid, each name and state to its
+// budget, so every line's bar starts and ends at the same x.
+func (l *cellLayout) lineColumns() (name, note, value float32) {
+	cells := []*Cell{l.cell}
+	if g := l.cell.grid; g != nil {
+		cells = g.cells
+	}
+	for _, c := range cells {
+		if !c.shown {
+			continue
+		}
+		budget := c.nameBudget()
+		name = max(name, min(textWidth(c.name, c.fullName), budget))
+		note = max(note, min(textWidth(c.note, c.fullNote), budget))
+		value = max(value, c.value.MinSize().Width)
+	}
+	return name, note, value
+}
+
+// lineMin is the cell as one line: the three columns and room for a short bar.
+func (l *cellLayout) lineMin(objects []fyne.CanvasObject) fyne.Size {
+	c := l.cell
+	gap := l.lineGap()
+	name, note, valueW := l.lineColumns()
+	value := objects[1].MinSize()
+	w := name + gap + valueW + gap + c.textSize()*4
+	if note > 0 {
+		w += gap + note
+	}
+	h := max(objects[0].MinSize().Height, value.Height, objects[2].MinSize().Height, BarHeight)
+	return fyne.NewSize(w, h)
+}
+
+// lineLayout places the name and state in their columns at the left, the
+// reading right, and the bar between, each centred on the line.
+func (l *cellLayout) lineLayout(objects []fyne.CanvasObject, size fyne.Size) {
+	c := l.cell
+	gap, budget := l.lineGap(), c.nameBudget()
+	nameCol, noteCol, valueCol := l.lineColumns()
+	nameObj, value, noteObj, bar := objects[0], objects[1], objects[2], objects[3]
+	centre := func(o fyne.CanvasObject, x, w, h float32) {
+		o.Move(fyne.NewPos(x, (size.Height-h)/2))
+		o.Resize(fyne.NewSize(w, h))
+	}
+
+	// The reading ends at the right edge; its column is the widest reading's.
+	vs := value.MinSize()
+	centre(value, size.Width-vs.Width, vs.Width, vs.Height)
+	right := size.Width - valueCol
+
+	nw := min(textWidth(c.name, c.fullName), budget)
+	elide(c.name, c.fullName, nw)
+	nameObj.(*canvas.Text).Alignment = fyne.TextAlignLeading
+	centre(nameObj, 0, nw, nameObj.MinSize().Height)
+	x := nameCol
+
+	if noteCol > 0 {
+		x += gap
+		tw := min(textWidth(c.note, c.fullNote), budget)
+		elide(c.note, c.fullNote, tw)
+		noteObj.(*canvas.Text).Alignment = fyne.TextAlignLeading
+		centre(noteObj, x, tw, noteObj.MinSize().Height)
+		x += noteCol
+	} else {
+		centre(noteObj, x, 0, 0)
+	}
+
+	centre(bar, x+gap, max(right-gap-(x+gap), 0), BarHeight)
+}
+
+// setLines draws one cell per line, each cell as a line (Lines, spec 057), or
+// the grid as it was built.
+func (g *CellGrid) setLines(on bool) {
+	if g.lines == on {
+		return
+	}
+	g.lines = on
+	for _, c := range g.cells {
+		c.setLines(on)
+	}
+	g.box.Refresh()
 }

@@ -113,6 +113,15 @@ type Card struct {
 	stale     bool
 	drawn     bool
 
+	// lines is whether the card draws one line per reading (Lines), and
+	// tucked is what it hid to do so, so leaving Lines shows exactly that
+	// and not something its consumer had hidden itself.
+	lines  bool
+	tucked []fyne.CanvasObject
+
+	// meters are the card's meters, which share columns in Lines.
+	meters []*Meter
+
 	// OnDrawnChanged is called when the card starts or stops being drawn, so
 	// the owner can start and stop its poll. It is called on the UI thread.
 	OnDrawnChanged func(drawn bool)
@@ -287,6 +296,10 @@ func (c *Card) AddObject(o fyne.CanvasObject) {
 	c.themeOne(o)
 	c.objects = append(c.objects, o)
 	c.body.Add(o)
+	if c.lines && o.Visible() {
+		o.Hide()
+		c.tucked = append(c.tucked, o)
+	}
 }
 
 /*
@@ -313,7 +326,19 @@ func (c *Card) Add(pieces ...Piece) {
 	for _, p := range pieces {
 		p.SetTheme(c.th)
 		c.pieces = append(c.pieces, p)
+		if m, ok := p.(*Meter); ok {
+			c.meters = append(c.meters, m)
+			m.peers = &c.meters
+		}
 		c.body.Add(p.Object())
+		if c.lines {
+			if l, ok := p.(liner); ok {
+				l.setLines(true)
+			} else if _, isRow := p.(*Row); !isRow && p.Object().Visible() {
+				p.Object().Hide()
+				c.tucked = append(c.tucked, p.Object())
+			}
+		}
 	}
 }
 
@@ -529,3 +554,65 @@ func (c *Card) SetTip(text string) { widgets.SetTip(c.frame, text) }
 // Tip is what the card says on hover, for a test that would otherwise have to
 // hover to find out.
 func (c *Card) Tip() string { return widgets.TipText(c.frame) }
+
+// liner is a piece that draws itself differently as one line per reading: a
+// Meter, a CellGrid.
+type liner interface{ setLines(on bool) }
+
+/*
+SetArrangement draws the card for a panel arrangement. A panel calls it for
+each of its cards; a card shown outside a panel (the gallery) can be told
+directly. Stack and Grid draw the card as it was built.
+
+Lines (spec 057) draws one line per reading: the heading is left out, rows
+stay as they are, a meter and a grid of cells draw as lines, and everything
+else -- a plot, anything added with AddObject -- is hidden, because a line per
+reading has no room for what is not a reading. It is a change of shape: call
+the panel's Resize afterwards, as Panel.SetArrangement does. Rows are not
+touched, so their IDs (spec 056) and the consumer's handles survive the switch.
+
+The marker GoneMarker lives in the heading and goes with it; the rows of a
+stale card are still dimmed, which is how the card says it in Lines.
+*/
+func (c *Card) SetArrangement(a Arrangement) {
+	lines := a == Lines
+	if c.lines == lines {
+		return
+	}
+	c.lines = lines
+	if lines {
+		c.header.Hide()
+		c.tucked = c.tucked[:0]
+		tuck := func(o fyne.CanvasObject) {
+			if o.Visible() {
+				o.Hide()
+				c.tucked = append(c.tucked, o)
+			}
+		}
+		for _, o := range c.objects {
+			tuck(o)
+		}
+		for _, p := range c.pieces {
+			if l, ok := p.(liner); ok {
+				l.setLines(true)
+				continue
+			}
+			if _, isRow := p.(*Row); !isRow {
+				tuck(p.Object())
+			}
+		}
+	} else {
+		c.header.Show()
+		for _, o := range c.tucked {
+			o.Show()
+		}
+		c.tucked = c.tucked[:0]
+		for _, p := range c.pieces {
+			if l, ok := p.(liner); ok {
+				l.setLines(false)
+			}
+		}
+	}
+	c.body.Refresh()
+	c.inner.Refresh()
+}

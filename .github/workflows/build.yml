@@ -52,9 +52,16 @@ jobs:
     # the latest stable Go instead, because govulncheck also reports standard
     # library findings and the minimum's stdlib is behind on patches by
     # design; `make lint` pins its own toolchain regardless.
+    # "stable" in setup-go comes from the actions/go-versions manifest, which
+    # can trail a patch release by days, and a standard-library fix is
+    # exactly what this job exists to see. go.dev lists the release the day
+    # it ships; setup-go downloads from go.dev a version its manifest lacks.
+    - name: Newest stable Go
+      id: go
+      run: echo "version=$(curl -fsSL 'https://go.dev/dl/?mode=json' | jq -r '.[0].version' | sed 's/^go//')" >> "$GITHUB_OUTPUT"
     - uses: actions/setup-go@v6
       with:
-        go-version: stable
+        go-version: ${{ steps.go.outputs.version }}
     - name: Install Fyne build dependencies
       run: |
         sudo apt-get update

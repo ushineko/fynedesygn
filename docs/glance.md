@@ -484,6 +484,14 @@ left a space beside the wider bandwidth card. In a translucent window that
 space was a hole in the panel. In an opaque window it is an uneven right edge,
 which is the same fault and less visible.
 
+### A panel whose cards change order
+
+`Panel.SetOrder(cards ...)` puts the cards in a new order while the panel is
+shown (spec 060): the cards named first, the rest after them in their own
+order. Nothing is rebuilt; every card keeps its rows, state and arrangement,
+and the window is resized once. A card the panel does not hold, or one named
+twice, is `ErrCardOrder`.
+
 ### A card whose rows follow what is read
 
 Most cards have rows fixed when they are built: a bandwidth card has a row per

@@ -1,7 +1,9 @@
 package glance
 
 import (
+	"errors"
 	"image/color"
+	"slices"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -178,6 +180,65 @@ func (p *Panel) SetArrangement(a Arrangement) {
 
 // Arrangement is how the cards are currently laid out.
 func (p *Panel) Arrangement() Arrangement { return p.arrangement }
+
+// ErrCardOrder is an order SetOrder cannot take: a card the panel does not
+// hold, or one card named twice.
+var ErrCardOrder = errors.New("glance: an order must name the panel's own cards, each once")
+
+/*
+SetOrder puts the panel's cards in a new order while it is shown (spec 060).
+
+The cards named come first, in the order given; any card not named follows
+them, in the order it already had, so a caller that orders only the cards it
+knows about never loses one. A card the panel does not hold, or a card named
+twice, is ErrCardOrder, and the order is left as it was.
+
+The cards themselves are not rebuilt: each keeps its rows (and the handles a
+consumer holds by Card.RowByID), its theme, whether it is allowed, available
+or stale, and the arrangement, which carries on with the new order in Stack,
+Grid and Lines alike. A new order is a change of shape like a card appearing,
+so the window is resized once, here; an order that is the one the panel has
+already does nothing at all.
+
+Call it on the UI thread, as the panel's other setters are: from a callback
+the toolkit runs, or through fyne.Do.
+*/
+func (p *Panel) SetOrder(cards ...*Card) error {
+	held := make(map[*Card]bool, len(p.cards))
+	for _, c := range p.cards {
+		held[c] = true
+	}
+	named := make(map[*Card]bool, len(cards))
+	for _, c := range cards {
+		if !held[c] || named[c] {
+			return ErrCardOrder
+		}
+		named[c] = true
+	}
+
+	order := make([]*Card, 0, len(p.cards))
+	order = append(order, cards...)
+	for _, c := range p.cards {
+		if !named[c] {
+			order = append(order, c)
+		}
+	}
+	if slices.Equal(order, p.cards) {
+		return nil
+	}
+
+	p.cards = order
+	objects := make([]fyne.CanvasObject, len(order))
+	for i, c := range order {
+		objects[i] = c.Object()
+	}
+	p.stack.Objects = objects
+	p.stack.Refresh()
+	if p.win != nil {
+		p.Resize()
+	}
+	return nil
+}
 
 // Cards are the panel's cards in order, for tests and for a context menu
 // building a toggle per card.

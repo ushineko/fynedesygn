@@ -264,6 +264,14 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **New**: `Panel.SetOrder(cards ...*Card) error` puts a panel's cards in a new
+  order while it is shown (spec 060, #173): the cards named first, the rest
+  after in their own order; every card keeps its rows, state and arrangement;
+  one resize. `ErrCardOrder` for a card the panel does not hold or one named
+  twice.
+
 ### 0.1.89 (2026-10-08)
 
 - **New API**: `Window.SetHideForFullscreen` (spec 059, #178). On Windows a

@@ -46,8 +46,32 @@ type ConfirmOptions struct {
 	// Done is the message line's text when the job succeeds.
 	Done string
 	// SkipQuestion runs the job as soon as the window is shown, for a
-	// caller's --yes: the window then shows only the result.
+	// caller's --yes: the window then shows only the result. It does not
+	// skip Then, which is a separate decision.
 	SkipQuestion bool
+	// Then is an optional second question, asked in the same window after
+	// the job succeeds and built from what it found (spec 066).
+	Then *ConfirmStep
+}
+
+// ConfirmStep is a confirm window's second question, such as "Remove the
+// files the program left too?" after an uninstall. By the time it is asked
+// the first job's work is done, so leaving without it is Finished.
+type ConfirmStep struct {
+	// Action labels the button that runs Job; Destructive styles it.
+	Action      string
+	Destructive bool
+	// Decline labels the button that leaves without the step, such as
+	// "Keep them". The default is Close.
+	Decline string
+	// Ask is called on the UI thread after the first job succeeds, and
+	// returns the bold question and its Markdown detail. ok false skips the
+	// step. It must not block: the job works out what the question needs.
+	Ask func() (question, detail string, ok bool)
+	// Job is the step's work, with the same rules as ConfirmOptions.Job.
+	Job func(ctx context.Context) error
+	// Done is the message line's text when Job succeeds.
+	Done string
 }
 
 // The confirm window's default size.
@@ -70,20 +94,24 @@ type ConfirmWindow struct {
 	// Window is nil for a HeadlessConfirm.
 	Window fyne.Window
 
-	o         ConfirmOptions
-	stage     int
+	o     ConfirmOptions
+	stage int
+	// inThen is true from the moment the step is asked.
+	inThen    bool
 	jobCancel context.CancelFunc
 	closing   bool
 	closed    bool
 	result    Result
 	err       error
 
-	bar     *widget.ProgressBarInfinite
-	message *widget.Label
-	action  *widget.Button
-	cancel  *widget.Button
-	buttons *fyne.Container
-	root    fyne.CanvasObject
+	question *widget.Label
+	detail   *container.Scroll
+	bar      *widget.ProgressBarInfinite
+	message  *widget.Label
+	action   *widget.Button
+	cancel   *widget.Button
+	buttons  *fyne.Container
+	root     fyne.CanvasObject
 
 	confirm func(title, detail, ok string, do func())
 	do      func(fn func())
@@ -141,9 +169,12 @@ func newConfirm(a fyne.App, o ConfirmOptions) *ConfirmWindow {
 	if o.Job == nil {
 		panic("wizard: ConfirmOptions.Job is nil")
 	}
+	if o.Then != nil && (o.Then.Ask == nil || o.Then.Job == nil) {
+		panic("wizard: ConfirmStep needs Ask and Job")
+	}
 	c := &ConfirmWindow{App: a, o: o}
-	question := widget.NewLabelWithStyle(o.Question, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	question.Wrapping = fyne.TextWrapWord
+	c.question = widget.NewLabelWithStyle(o.Question, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	c.question.Wrapping = fyne.TextWrapWord
 	c.bar = widget.NewProgressBarInfinite()
 	c.bar.Stop()
 	c.bar.Hide()
@@ -155,17 +186,25 @@ func newConfirm(a fyne.App, o ConfirmOptions) *ConfirmWindow {
 		c.action.Importance = widget.DangerImportance
 	}
 	c.cancel = widget.NewButton(LabelCancel, c.Cancel)
+	// The widths cover every label the buttons take, the step's too, so
+	// nothing moves between stages (spec 062 R5, spec 066 R5).
+	cancels, actions := []string{LabelCancel}, []string{o.Action, LabelClose}
+	if o.Then != nil {
+		cancels = append(cancels, o.Then.decline())
+		actions = append(actions, o.Then.Action)
+	}
 	c.buttons = container.NewHBox(
-		widgets.FixedWidth(c.cancel, widest(LabelCancel)),
-		widgets.FixedWidth(c.action, widest(o.Action, LabelClose)),
+		widgets.FixedWidth(c.cancel, widest(cancels...)),
+		widgets.FixedWidth(c.action, widest(actions...)),
 	)
 	// The bar's region has a fixed height, so showing the bar moves nothing.
 	barRegion := widgets.FixedHeight(container.NewStack(c.bar), c.bar.MinSize().Height)
+	c.detail = container.NewVScroll(document(o.Detail))
 	c.root = container.NewBorder(
-		container.NewPadded(container.NewVBox(question, widget.NewSeparator())),
+		container.NewPadded(container.NewVBox(c.question, widget.NewSeparator())),
 		container.NewVBox(widget.NewSeparator(), container.NewPadded(container.NewBorder(nil, nil, nil, c.buttons, c.message))),
 		nil, nil,
-		container.NewPadded(container.NewBorder(nil, barRegion, nil, nil, container.NewVScroll(document(o.Detail)))),
+		container.NewPadded(container.NewBorder(nil, barRegion, nil, nil, c.detail)),
 	)
 	return c
 }
@@ -180,6 +219,9 @@ func (c *ConfirmWindow) start() *ConfirmWindow {
 // Content is the window's content; a HeadlessConfirm's test drives it.
 func (c *ConfirmWindow) Content() fyne.CanvasObject { return c.root }
 
+// Question is the bold question being asked.
+func (c *ConfirmWindow) Question() string { return c.question.Text }
+
 // Message is the text on the message line.
 func (c *ConfirmWindow) Message() string { return c.message.Text }
 
@@ -187,8 +229,8 @@ func (c *ConfirmWindow) Message() string { return c.message.Text }
 func (c *ConfirmWindow) Result() Result { return c.result }
 
 /*
-Act is the action button. While asking, it runs the job. On the result, it
-is Close.
+Act is the action button. While asking, it runs the job, or the step's job
+when the step is asked. On the result, it is Close.
 */
 func (c *ConfirmWindow) Act() {
 	switch c.stage {
@@ -205,12 +247,18 @@ func (c *ConfirmWindow) Act() {
 
 /*
 Cancel is the Cancel button and the title bar's close. While asking, it
-closes. While the job runs, it asks, cancels the job, and closes when the
-job returns. On the result, closing is the same as Close.
+closes: as Cancelled before the first job, as Finished when the step is
+asked, since the first job's work is done. While a job runs, it asks,
+cancels the job, and closes when the job returns. On the result, closing is
+the same as Close.
 */
 func (c *ConfirmWindow) Cancel() {
 	switch c.stage {
 	case stageAsking:
+		if c.inThen {
+			c.finish(Finished, nil)
+			return
+		}
 		c.finish(Cancelled, nil)
 	case stageRunning:
 		c.confirm("Stop?", "The work in progress stops and is undone where it can be. The window closes when it has stopped.",
@@ -232,8 +280,12 @@ func (c *ConfirmWindow) run() {
 	c.action.Disable()
 	c.bar.Show()
 	c.bar.Start()
+	run := c.o.Job
+	if c.inThen {
+		run = c.o.Then.Job
+	}
 	job := func() {
-		err := c.o.Job(ctx)
+		err := run(ctx)
 		c.do(func() { c.jobDone(err) })
 		cancel()
 	}
@@ -248,20 +300,32 @@ func (c *ConfirmWindow) jobDone(err error) {
 	c.bar.Stop()
 	c.bar.Hide()
 	// The job's own error decides (R4): one that finished as Cancel
-	// arrived returns nil, and its work is done.
+	// arrived returns nil, and its work is done. A cancelled step leaves
+	// the first job's work standing, so it ends as Finished (spec 066 R4).
 	if errors.Is(err, context.Canceled) {
-		c.finish(Cancelled, nil)
+		if c.inThen {
+			c.finish(Finished, nil)
+		} else {
+			c.finish(Cancelled, nil)
+		}
 		return
 	}
-	c.stage = stageResult
 	c.err = err
 	if err != nil {
 		c.message.Importance = widgets.ImportanceFor(fd.StatusBad)
 		c.message.SetText(fmt.Sprintf("Failed: %v", err))
 	} else {
 		c.message.Importance = widgets.ImportanceFor(fd.StatusGood)
-		c.message.SetText(c.o.Done)
+		if c.inThen {
+			c.message.SetText(c.o.Then.Done)
+		} else {
+			c.message.SetText(c.o.Done)
+		}
 	}
+	if err == nil && !c.inThen && !c.closing && c.askThen() {
+		return
+	}
+	c.stage = stageResult
 	c.action.SetText(LabelClose)
 	c.action.Importance = widget.HighImportance
 	c.action.Enable()
@@ -269,6 +333,40 @@ func (c *ConfirmWindow) jobDone(err error) {
 	if c.closing {
 		c.Act()
 	}
+}
+
+// askThen asks the step, if there is one and its Ask says so, and reports
+// whether it did. The message line keeps the first job's Done.
+func (c *ConfirmWindow) askThen() bool {
+	if c.o.Then == nil {
+		return false
+	}
+	q, d, ok := c.o.Then.Ask()
+	if !ok {
+		return false
+	}
+	c.inThen = true
+	c.stage = stageAsking
+	c.question.SetText(q)
+	c.detail.Content = document(d)
+	c.detail.Refresh()
+	c.detail.ScrollToTop()
+	c.action.SetText(c.o.Then.Action)
+	c.action.Importance = widget.HighImportance
+	if c.o.Then.Destructive {
+		c.action.Importance = widget.DangerImportance
+	}
+	c.action.Enable()
+	c.cancel.SetText(c.o.Then.decline())
+	c.cancel.Enable()
+	return true
+}
+
+func (s *ConfirmStep) decline() string {
+	if s.Decline != "" {
+		return s.Decline
+	}
+	return LabelClose
 }
 
 func (c *ConfirmWindow) finish(o Outcome, err error) {

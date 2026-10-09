@@ -49,6 +49,18 @@ func TestARelativeDirectoryIsRefused(t *testing.T) {
 	require.Equal(t, "Location", w.Current().Title(), "Next is disabled")
 }
 
+func TestTheConfirmWindowOffersToRemoveTheLeftovers(t *testing.T) {
+	o := confirmOptions(0, false)
+	o.Then = leftoversStep(0)
+	c := wizard.HeadlessConfirm(fynetest.App(t), o)
+	c.Act()
+	require.Equal(t, "Example left 3 files it made.", c.Question())
+	c.Act()
+	require.Equal(t, "Example 1.0 was removed, with the files it made.", c.Message())
+	c.Act()
+	require.Equal(t, wizard.Finished, c.Result().Outcome)
+}
+
 func TestTheConfirmWindowAsksThenRemoves(t *testing.T) {
 	c := wizard.HeadlessConfirm(fynetest.App(t), confirmOptions(0, false))
 	c.Act()

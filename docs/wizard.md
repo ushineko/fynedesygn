@@ -194,3 +194,37 @@ result, for a program's `--yes`.
 
 This is `examples/installer-wizard -confirm`, before the question is
 answered.
+
+### A second question
+
+Sometimes the job finds something that needs its own decision. After an
+uninstall, the program may have left files that the install did not create.
+An uninstaller lists them and asks whether to remove them too, and only the
+uninstall knows what they are. `Then` is that question:
+
+```go
+var left []string
+o.Job = func(ctx context.Context) error { left, err = uninstall(ctx); return err }
+o.Then = &wizard.ConfirmStep{
+	Action: "Remove them too", Destructive: true, Decline: "Keep them",
+	Ask: func() (string, string, bool) {
+		return fmt.Sprintf("%d files are left.", len(left)), list(left), len(left) > 0
+	},
+	Job:  func(ctx context.Context) error { return remove(ctx, left) },
+	Done: "Removed, with the files it made.",
+}
+```
+
+After the job succeeds, `Ask` runs on the UI thread and returns the
+question and its Markdown detail; `false` shows the plain result instead.
+The question and detail replace the first ones, the message line keeps the
+first job's `Done`, and the buttons read `Decline` and `Action`. The labels
+are fields, not part of `Ask`, so the buttons are wide enough for them from
+the start and nothing moves.
+
+The first job's work is done by the time the step is asked. So `Decline`,
+the title bar's close, and a step cancelled while it runs all end with
+Finished. A step whose job fails ends with Failed. `SkipQuestion` skips only
+the first question: the step is a separate decision.
+
+`examples/installer-wizard -confirm -leftovers` shows it.

@@ -5,7 +5,8 @@ progress and finish) to install nothing. The job is fake and slow enough to
 cancel; -fail makes it fail at its third step, and -scheme chooses the colour
 scheme, for tools/screenshot.sh. -confirm shows the other shape instead: a
 window that asks once ("Uninstall Example 1.0?"), runs, and reports.
--yes with -confirm skips the question.
+-yes with -confirm skips the question. -leftovers with -confirm asks a
+second question after it: whether to remove the files the program left.
 
 Not a shell program: wizard.Run owns its window.
 */
@@ -34,6 +35,7 @@ func main() {
 	scheme := flag.String("scheme", "", "colour scheme; default the platform's")
 	confirm := flag.Bool("confirm", false, "show the confirm window, as an uninstaller would")
 	yes := flag.Bool("yes", false, "with -confirm, do not ask")
+	leftovers := flag.Bool("leftovers", false, "with -confirm, ask to remove the files the program left")
 	flag.Parse()
 	var ap *fdtheme.Appearance
 	if *scheme != "" {
@@ -44,6 +46,9 @@ func main() {
 	if *confirm {
 		o := confirmOptions(400*time.Millisecond, *fail)
 		o.Appearance, o.SkipQuestion = ap, *yes
+		if *leftovers {
+			o.Then = leftoversStep(400 * time.Millisecond)
+		}
 		r := wizard.RunConfirm(o)
 		fmt.Println("outcome:", r.Outcome)
 		return
@@ -121,6 +126,38 @@ func confirmOptions(tick time.Duration, fail bool) wizard.ConfirmOptions {
 			}
 			return nil
 		},
+	}
+}
+
+// leftovers are the files the pretend program made, which the pretend
+// uninstall did not remove because the install did not create them.
+var leftovers = []string{ //nolint:gochecknoglobals // a fixed list
+	"~/.local/share/example/cache/thumbnails.db",
+	"~/.local/share/example/cache/index.json",
+	"~/.local/share/example/plugins/user-theme/",
+}
+
+// leftoversStep asks, after the uninstall, whether to remove the files the
+// program made too, as fynstall's uninstaller does.
+func leftoversStep(tick time.Duration) *wizard.ConfirmStep {
+	return &wizard.ConfirmStep{
+		Action: "Remove them too", Destructive: true, Decline: "Keep them",
+		Ask: func() (string, string, bool) {
+			detail := "The install did not create these, so they were left:\n\n"
+			for _, l := range leftovers {
+				detail += "- `" + l + "`\n"
+			}
+			return fmt.Sprintf("Example left %d files it made.", len(leftovers)), detail, true
+		},
+		Job: func(ctx context.Context) error {
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("removing: %w", ctx.Err())
+			case <-time.After(tick):
+				return nil
+			}
+		},
+		Done: "Example 1.0 was removed, with the files it made.",
 	}
 }
 

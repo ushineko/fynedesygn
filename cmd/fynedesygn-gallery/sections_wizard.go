@@ -49,6 +49,7 @@ func buildWizard(s *shell.Shell) fyne.CanvasObject {
 		),
 		widgets.Card("One question",
 			widgets.PlainRow("wizard.RunConfirm", "ask once, run the job, report: an uninstaller's shape"),
+			widgets.PlainRow("wizard.ConfirmStep", "a second question after the job, built from what it found"),
 		),
 	)
 }
@@ -59,14 +60,23 @@ func sampleConfirm() wizard.ConfirmOptions {
 		Name: "Sample confirm window", Question: "Remove the sample?",
 		Detail: "A sample from the gallery. It **removes nothing**.",
 		Action: "Remove", Destructive: true, Done: "The sample was removed.",
-		Job: func(ctx context.Context) error {
-			select {
-			case <-ctx.Done():
-				return fmt.Errorf("removing: %w", ctx.Err())
-			case <-time.After(time.Second):
-				return nil
-			}
+		Job: sampleJob,
+		Then: &wizard.ConfirmStep{
+			Action: "Remove it too", Decline: "Keep it",
+			Ask: func() (string, string, bool) {
+				return "The sample left a file it made.", "- `sample-cache.db` (nothing is removed)", true
+			},
+			Job: sampleJob, Done: "The sample was removed, with the file it made.",
 		},
+	}
+}
+
+func sampleJob(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("removing: %w", ctx.Err())
+	case <-time.After(time.Second):
+		return nil
 	}
 }
 

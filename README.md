@@ -272,6 +272,15 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **New**: `ConfirmOptions.Then` and `ConfirmStep` (spec 066, #193). A
+  confirm window can ask a second question after its job succeeds, built
+  from what the job found, with its own action and job and a button to
+  leave without it. fynstall's uninstaller uses it to offer removing the
+  files a program left. `examples/installer-wizard -confirm -leftovers`
+  shows it.
+
 ### 0.1.94 (2026-10-08)
 
 - **Fix**: the log pane's line counter no longer widens the pane (spec 065,

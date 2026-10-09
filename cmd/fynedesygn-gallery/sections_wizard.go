@@ -81,6 +81,7 @@ func sampleWizard(fail bool) wizard.Options {
 				return []wizard.Fact{{Label: "Steps", Value: fmt.Sprint(len(stepNames))}}
 			}),
 			wizard.Progress("Working", stepNames, "Done.", func(ctx context.Context, r *wizard.Reporter) error {
+				defer r.Progress(1, fmt.Sprintf("%d of %d steps", len(stepNames), len(stepNames)), "")
 				for i, name := range stepNames {
 					r.Advance(i, "")
 					select {
@@ -89,13 +90,14 @@ func sampleWizard(fail bool) wizard.Options {
 					case <-time.After(700 * time.Millisecond):
 					}
 					r.Log(logpane.Info, name+" done")
+					r.Progress(float64(i+1)/float64(len(stepNames)), fmt.Sprintf("%d of %d steps", i+1, len(stepNames)), name)
 					if fail && i == 1 {
 						return errors.New("the sample was told to fail")
 					}
 					r.Finish(i, "ok")
 				}
 				return nil
-			}),
+			}).WithBar(),
 			wizard.Finish("Finished", "The sample is finished.", widget.NewCheck("Open the gallery again", nil)),
 		},
 	}

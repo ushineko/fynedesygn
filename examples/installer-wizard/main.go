@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2/widget"
@@ -90,7 +91,7 @@ func options(tick time.Duration, fail bool) wizard.Options {
 				v := opts.Values()
 				return []wizard.Fact{{Label: "Directory", Value: dir.Value()}, {Label: "Launcher entry", Value: v["menu"]}, {Label: "Link", Value: v["path"]}}
 			}),
-			wizard.Progress("Installing", stepNames, "Example is installed.", job(tick, fail)),
+			wizard.Progress("Installing", stepNames, "Example is installed.", job(tick, fail)).WithBar(),
 			wizard.Finish("Done", "Example 1.0 is installed.", widget.NewCheck(launchNow, nil)),
 		},
 	}
@@ -123,9 +124,17 @@ func confirmOptions(tick time.Duration, fail bool) wizard.ConfirmOptions {
 	}
 }
 
-// job pretends to install: each step logs three parts, a tick apart.
+// pretendFiles is how many files the job pretends to copy, for the bar.
+const pretendFiles = 3072
+
+// job pretends to install: each step logs three parts, a tick apart, and
+// the bar counts pretend files through all of them, once per file, as a
+// real installer reports.
 func job(tick time.Duration, fail bool) wizard.Job {
 	return func(ctx context.Context, r *wizard.Reporter) error {
+		parts := len(stepNames) * 3
+		perPart := pretendFiles / parts
+		done := 0
 		for i, name := range stepNames {
 			r.Advance(i, "working")
 			for k := range 3 {
@@ -134,6 +143,12 @@ func job(tick time.Duration, fail bool) wizard.Job {
 					r.Log(logpane.Warn, "stopped during "+name)
 					return fmt.Errorf("%s: %w", name, ctx.Err())
 				case <-time.After(tick):
+				}
+				for range perPart {
+					done++
+					r.Progress(float64(done)/pretendFiles,
+						fmt.Sprintf("%d of %d files · %d KB of %d KB", done, pretendFiles, done*12, pretendFiles*12),
+						fmt.Sprintf("lib/example/%s/module_%04d.py", strings.ToLower(strings.Fields(name)[0]), done))
 				}
 				r.Log(logpane.Info, fmt.Sprintf("%s: part %d of 3", name, k+1))
 			}

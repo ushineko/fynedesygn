@@ -55,6 +55,9 @@ jobs:
     - uses: actions/setup-go@v6
       with:
         go-version: stable
+        # The runner's cached "stable" can trail a patch release by days, and
+        # a standard-library fix is exactly what this job exists to see.
+        check-latest: true
     - name: Install Fyne build dependencies
       run: |
         sudo apt-get update

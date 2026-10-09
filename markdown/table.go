@@ -152,7 +152,7 @@ func tableRow(cells []string, weights []float32, header bool, l linkFixer) fyne.
 		if header {
 			embolden(rt)
 		}
-		drawn = append(drawn, rt)
+		drawn = append(drawn, draw(rt))
 	}
 	return container.New(&columns{weights: weights}, drawn...)
 }

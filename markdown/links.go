@@ -1,12 +1,15 @@
 package markdown
 
 import (
+	"image/color"
 	"net/url"
 	"strconv"
 	"strings"
 	"unicode"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	fynetheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -206,4 +209,113 @@ func plainText(segs []widget.RichTextSegment) string {
 		}
 	}
 	return b.String()
+}
+
+/*
+linkText is a RichText whose links take a click over their own text.
+
+**Fyne's link widgets overlap on consecutive lines.** A hyperlink in a
+RichText is a Hyperlink widget the inner padding bigger than its text on
+every side, pulled back over the text by the padding (unpadTextWidgetLayout),
+so with the theme's 8-point inner padding a link one line tall is two lines
+tall. In a list of links -- a README's contents -- each link's box covers the
+lower half of the one above it, and Fyne gives a click to the topmost box: a
+click on the lower half of "Platform notes" reached "Architecture", whose own
+test (is the point over my text?) said no, and nothing happened. Only the top
+of each entry worked. A headless tap on the widget itself never sees this; a
+click on the window did (hayami's About page, spec 064).
+
+So each link widget is drawn under a theme whose inner padding is zero, which
+makes its box its text's box and leaves its text where it was. Fyne applies a
+theme override to the objects that exist when it is applied, and a RichText
+makes new link widgets on every refresh -- it keeps those inside a list or a
+paragraph only until the next one -- so the override is applied by the
+renderer, to the links each refresh made, before they are laid out again.
+*/
+type linkText struct {
+	widget.RichText
+}
+
+// newLinkText is rt's content, drawn as a linkText.
+func newLinkText(rt *widget.RichText) *linkText {
+	t := &linkText{}
+	t.Segments = rt.Segments
+	t.Wrapping = rt.Wrapping
+	t.Scroll = rt.Scroll
+	t.ExtendBaseWidget(t)
+	return t
+}
+
+// CreateRenderer implements fyne.Widget.
+func (t *linkText) CreateRenderer() fyne.WidgetRenderer {
+	return &linkRenderer{WidgetRenderer: t.RichText.CreateRenderer()}
+}
+
+// linkRenderer is the RichText's renderer, which unpads each link it makes.
+type linkRenderer struct {
+	fyne.WidgetRenderer
+}
+
+func (r *linkRenderer) Refresh() {
+	r.WidgetRenderer.Refresh()
+	for _, o := range r.Objects() {
+		c, ok := o.(*fyne.Container)
+		if !ok || len(c.Objects) != 1 {
+			continue
+		}
+		hl, ok := c.Objects[0].(*widget.Hyperlink)
+		if !ok || hl.Theme().Size(fynetheme.SizeNameInnerPadding) == 0 {
+			continue
+		}
+		// The override is the point; the container it returns is not used.
+		container.NewThemeOverride(hl, unpadded{})
+		c.Refresh() // lays the link out again, under the padding it now has
+	}
+}
+
+// unpadded is the running theme with no inner padding.
+type unpadded struct{}
+
+func (unpadded) current() fyne.Theme { return fyne.CurrentApp().Settings().Theme() }
+
+func (u unpadded) Color(n fyne.ThemeColorName, v fyne.ThemeVariant) color.Color {
+	return u.current().Color(n, v)
+}
+
+func (u unpadded) Font(s fyne.TextStyle) fyne.Resource { return u.current().Font(s) }
+
+func (u unpadded) Icon(n fyne.ThemeIconName) fyne.Resource { return u.current().Icon(n) }
+
+func (u unpadded) Size(n fyne.ThemeSizeName) float32 {
+	if n == fynetheme.SizeNameInnerPadding {
+		return 0
+	}
+	return u.current().Size(n)
+}
+
+// live reports whether rt still holds a link a reader can tap.
+func live(segs []widget.RichTextSegment) bool {
+	for _, seg := range segs {
+		switch s := seg.(type) {
+		case *widget.HyperlinkSegment:
+			return true
+		case *widget.ParagraphSegment:
+			if live(s.Texts) {
+				return true
+			}
+		case *widget.ListSegment:
+			if live(s.Items) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// draw is a block's or a cell's RichText, as a linkText when it holds a link.
+func draw(rt *widget.RichText) fyne.CanvasObject {
+	if live(rt.Segments) {
+		return newLinkText(rt)
+	}
+	return rt
 }

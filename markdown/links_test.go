@@ -11,6 +11,7 @@ import (
 	"fyne.io/fyne/v2/test"
 	fynetheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ushineko/fynedesygn/fynetest"
@@ -166,4 +167,78 @@ func TestAnAnchorOutsideAPaneIsPlainText(t *testing.T) {
 func tapMiddle(h *widget.Hyperlink) {
 	text := fyne.MeasureText(h.Text, fynetheme.TextSize(), fyne.TextStyle{})
 	test.TapAt(h, fyne.NewPos(fynetheme.InnerPadding()+text.Width/2, h.Size().Height/2))
+}
+
+/*
+Every part of a link's text takes a click, in a list of links one under
+another (spec 064). Fyne's link boxes are bigger than their text and overlap
+the line below, and before tight a click on the lower half of an entry went to
+the next entry's box, which ignored it.
+
+The click goes through the window's canvas, which finds the topmost tappable
+object under the point as a real click does; tapping the widget directly
+would skip the very step that was wrong.
+*/
+func TestEveryPartOfAListedLinkTakesTheClick(t *testing.T) {
+	fynetest.App(t)
+	var got []string
+	entries := []string{"One", "Two two", "Three", "Four four four", "Five"}
+	var src strings.Builder
+	for _, e := range entries {
+		src.WriteString("- [" + e + "](#" + Slug(e) + ")\n")
+	}
+	o := renderBlock(src.String(), Options{}, linkFixer{anchor: func(f string) { got = append(got, f) }})
+	w := test.NewWindow(o)
+	defer w.Close()
+	w.Resize(fyne.NewSize(400, 300))
+	d := fyne.CurrentApp().Driver()
+
+	for _, e := range entries {
+		var text *canvas.Text
+		fynetest.WalkRendered(hyperlink(t, o, e), func(c fyne.CanvasObject) bool {
+			text, _ = c.(*canvas.Text)
+			return text != nil
+		})
+		require.NotNil(t, text, "no text drawn for %q", e)
+		at, size := d.AbsolutePositionForObject(text), text.Size()
+		for _, fy := range []float32{0.2, 0.5, 0.8} {
+			got = nil
+			test.TapCanvas(w.Canvas(), at.Add(fyne.NewPos(size.Width/2, size.Height*fy)))
+			assert.Equal(t, []string{Slug(e)}, got, "a click %.0f%% down %q", fy*100, e)
+		}
+	}
+}
+
+/*
+Canary for quirk 47: Fyne's own RichText, unchanged, still does not give a
+click on the lower part of a listed link to that link when another link is
+below it. Here the next link takes it; on a real window it was dropped. When
+this fails, Fyne no longer overlaps the boxes and linkText can go.
+*/
+func TestFyneStillOverlapsListedLinkBoxes(t *testing.T) {
+	fynetest.App(t)
+	rt := widget.NewRichTextFromMarkdown("- [One](#one)\n- [Two](#two)\n")
+	var got []string
+	for _, item := range rt.Segments[0].(*widget.ListSegment).Items {
+		for _, seg := range item.(*widget.ParagraphSegment).Texts {
+			if h, ok := seg.(*widget.HyperlinkSegment); ok {
+				name := h.Text
+				h.OnTapped = func() { got = append(got, name) }
+			}
+		}
+	}
+	w := test.NewWindow(rt)
+	defer w.Close()
+	w.Resize(fyne.NewSize(400, 300))
+
+	var text *canvas.Text
+	fynetest.WalkRendered(hyperlink(t, rt, "One"), func(c fyne.CanvasObject) bool {
+		text, _ = c.(*canvas.Text)
+		return text != nil
+	})
+	require.NotNil(t, text)
+	at := fyne.CurrentApp().Driver().AbsolutePositionForObject(text)
+	test.TapCanvas(w.Canvas(), at.Add(fyne.NewPos(text.Size().Width/2, text.Size().Height*0.8)))
+	assert.NotEqual(t, []string{"One"}, got,
+		"Fyne gave the click to the link under it: the boxes no longer overlap (quirk 47)")
 }

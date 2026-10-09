@@ -375,25 +375,44 @@ whether there was such a heading and a scroller to move. It is what a tapped
 `#fragment` link does.
 */
 func (p *Pane) ScrollToAnchor(fragment string) bool {
-	y, ok := p.AnchorY(fragment)
-	if !ok || p.view == nil {
+	if _, ok := p.anchors[fragment]; !ok || p.view == nil {
 		return false
 	}
-	p.view.ScrollToOffset(fyne.NewPos(p.view.Offset.X, y))
-	p.sync()
+	/*
+		Twice at most. Scrolling renders the blocks around the heading, and a
+		block drawn before a pending re-measure can be taller than its
+		spacer, which moves everything below it; the second pass finds the
+		heading where it now is.
+	*/
+	for range 2 {
+		y, _ := p.AnchorY(fragment)
+		if y == p.view.Offset.Y {
+			break
+		}
+		p.view.ScrollToOffset(fyne.NewPos(p.view.Offset.X, y))
+		p.sync()
+		p.body.Refresh()
+	}
 	return true
 }
 
 /*
 AnchorY is where the heading whose slug is fragment starts, in the followed
-scroller's content: the offset that puts it at the top of the viewport. The
-same arithmetic as sync, so the block it names is the block that is drawn
-there.
+scroller's content: the offset that puts it at the top of the viewport.
+
+Where the column has been laid out, the block's cell is where it is, and that
+is the answer. A cell can be taller than its measured spacer -- a block drawn
+while a width change waits out Options.SettleResize is as tall as it needs to
+be at the new width -- and summing the spacers then lands short of the
+heading by the difference. Before any layout, the spacers are all there is.
 */
 func (p *Pane) AnchorY(fragment string) (float32, bool) {
 	i, ok := p.anchors[fragment]
 	if !ok {
 		return 0, false
+	}
+	if p.body.Size().Height > 0 {
+		return p.top() + p.cells[i].Position().Y, true
 	}
 	y := p.top()
 	for j := range i {
@@ -477,7 +496,7 @@ func renderBlock(src string, o Options, l linkFixer) fyne.CanvasObject {
 	}
 	rt := l.fix(drawable(widget.NewRichTextFromMarkdown(src)))
 	rt.Wrapping = fyne.TextWrapWord
-	return rt
+	return draw(rt)
 }
 
 // renderTable draws a pipe table as a grid of cells with a bold header row,

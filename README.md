@@ -279,7 +279,9 @@ MIT. See [LICENSE](LICENSE).
   absolute `http` or `https` link opens in the browser, through the new
   `Options.OpenURL` when it is set; any other link is drawn as plain text
   instead of a hyperlink that handed a relative path to the desktop and did
-  nothing. New: `Pane.ScrollToAnchor`, `Pane.AnchorY`, `Pane.Anchors`,
+  nothing. A click anywhere over a link's text now reaches it: Fyne's link
+  boxes overlapped the line below, so in a list of links the lower half of
+  each entry but the last did nothing. New: `Pane.ScrollToAnchor`, `Pane.AnchorY`, `Pane.Anchors`,
   `markdown.Slug` and `markdown.Anchors`. The pane now finds its own place in
   the scroller from the canvas, so a pane nested below a header renders the
   right blocks. docs/markdown.md says how to embed a README's images.

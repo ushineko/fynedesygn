@@ -96,6 +96,11 @@ you can remove the panel.
   drawn as plain text: the pane has nothing to resolve a path against, and a
   link that looks clickable and does nothing is worse than none. Write
   `https://github.com/you/project/blob/main/docs/architecture.md` instead.
+- A block holding a link is drawn so each link's tap area is its text. Fyne
+  makes a link's box larger than its text by the inner padding on every
+  side, and in a list of links the boxes overlapped and the lower half of an
+  entry clicked nothing. See [fyne-quirks.md](fyne-quirks.md), entries 46
+  and 47.
 - `Pane.ScrollToAnchor(slug)` does what a tapped anchor does, and
   `Pane.AnchorY(slug)` says where that heading starts in the scroller, for a
   test that checks where a tap went.

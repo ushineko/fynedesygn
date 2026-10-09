@@ -9,8 +9,11 @@
 A link in a `markdown.Pane` either works or is not a link. A `#fragment`
 scrolls the pane to the heading with that GitHub slug, an absolute http(s)
 address opens in the browser, and anything else is drawn as plain text.
-Reviewers should look first at `markdown/links.go` (`linkFixer.link`, `Slug`,
-`Anchors`) and `Pane.AnchorY` and `Pane.top` in `markdown/pane.go`.
+A link also takes a click anywhere over its text: Fyne's link boxes overlapped
+the line below, and in a list of links a click on the lower half of an entry
+did nothing. Reviewers should look first at `markdown/links.go`
+(`linkFixer.link`, `linkRenderer.Refresh`, `Slug`, `Anchors`) and
+`Pane.AnchorY` and `Pane.top` in `markdown/pane.go`.
 
 ## Context
 
@@ -47,7 +50,11 @@ keep in step with a branch.
   docs/markdown.md says how to embed a README's images.
 - R6. The pane's position in the scroller's content is measured from the
   canvas, so a pane nested under a header scrolls to, and renders, the right
-  blocks.
+  blocks. A heading's offset is its cell's laid-out position when the column
+  has been laid out, since a block drawn while a re-measure waits out
+  SettleResize can be taller than its spacer.
+- R7. A click anywhere over a link's text reaches that link, including in a
+  list of links one under another.
 
 ## Acceptance Criteria
 
@@ -60,10 +67,36 @@ keep in step with a branch.
   and its text is still drawn.
 - [x] `RenderBlock` draws an anchor as text and an absolute link as a link.
 - [x] Slug and anchor tables pass, including duplicates and fences.
+- [x] A click through the window's canvas at 20%, 50% and 80% of the height of
+  each entry in a five-link list reaches that entry.
 - [x] `go test -race ./...`, golangci-lint (windows and linux) and gofmt are
   clean.
 
+## The overlapping link boxes
+
+Found by hayami's real-window test, not by any headless one. Fyne draws a
+link in a RichText as a Hyperlink widget the theme's inner padding (8) larger
+than its text on every side, pulled back over the text by
+`unpadTextWidgetLayout`. A Contents list's lines are about 16 points apart,
+so each link's box covered the lower half of the line above, and Fyne gives a
+click to the topmost box: the next entry's. That link either took the click
+(headless, the test driver) or, its own check finding the point above its
+text, dropped it (on the window). Only the top of an entry worked, and the
+last entry of a list worked everywhere.
+
+`linkText` draws a block that holds a live link. Its renderer applies a theme
+override with an inner padding of zero to each link widget the RichText made,
+then lays the widget out again: the box becomes the text's box and the text
+does not move. It has to happen in the renderer's Refresh because a RichText
+recreates the link widgets inside a list or paragraph on every refresh (its
+visual cache keeps only top-level segments), and an override applies only to
+objects that exist when it is applied.
+
 ## Risks & Assumptions
+
+- `linkText` depends on how Fyne 2.8 draws a hyperlink segment (a container
+  holding one Hyperlink). If that changes, the loop finds no links and the
+  overlap returns; `TestEveryPartOfAListedLinkTakesTheClick` says so.
 
 - GitHub's slug drops emoji and most symbols; this one drops anything that is
   not a Unicode letter or number. A heading made only of symbols gets an empty
@@ -83,4 +116,10 @@ screenshots (hayami spec for its About links).
 Headless suite as in the acceptance criteria. Falsified: with the link fixer
 switched off, the anchor, opener, relative-link and RenderBlock tests fail;
 with `top` reduced to `Position`, the tap test fails by the 4-pixel padding
-the nesting adds.
+the nesting adds; with `linkRenderer` not unpadding, the list-click test fails
+at 80% of every entry but the last.
+
+hayami's real-window test (its spec 055) clicks three Contents entries by
+posted mouse messages and reads the page from screenshots. Passing with this
+change; with the unpadding off, the clicks on "Platform notes" and
+"Installing" did nothing and the one on "Changelog", the last entry, worked.

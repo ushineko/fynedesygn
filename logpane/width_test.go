@@ -14,7 +14,7 @@ import (
 )
 
 /*
-The pane's width must not follow its log (spec 064). The counter in its
+The pane's width must not follow its log (spec 065). The counter in its
 header said "1000 line(s), 19000 older dropped" by the end of a 20,000-file
 install, and the header, the pane and fynstall's fixed-size wizard window
 grew with it, from 820 px to 977 px in steps.

@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.89
+**Version**: 0.1.90
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -264,13 +264,16 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.90 (2026-10-08)
 
 - **New**: `Panel.SetOrder(cards ...*Card) error` puts a panel's cards in a new
   order while it is shown (spec 060, #173): the cards named first, the rest
   after in their own order; every card keeps its rows, state and arrangement;
   one resize. `ErrCardOrder` for a card the panel does not hold or one named
   twice.
+- **Dependencies**: `golang.org/x/net` v0.60.0 (GO-2026-6612). The lint job
+  reads the newest stable Go from go.dev, since setup-go's own list trailed
+  go1.27.2 and its standard-library fix.
 
 ### 0.1.89 (2026-10-08)
 

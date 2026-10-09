@@ -7,6 +7,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/test"
+	fynetheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/stretchr/testify/require"
 
@@ -146,7 +147,7 @@ func TestAnEmptyHeaderCellIsNotAHorizontalRule(t *testing.T) {
 	*/
 	test.NewTempApp(t)
 
-	row := tableRow([]string{"", ""}, []float32{0.5, 0.5}, true, linkFixer{})
+	row := tableRow([]string{"", ""}, &grid{weights: []float32{0.5, 0.5}}, true, linkFixer{})
 	box, ok := row.(*fyne.Container)
 	require.True(t, ok)
 
@@ -163,7 +164,7 @@ func TestAnEmptyHeaderCellIsNotAHorizontalRule(t *testing.T) {
 func TestAHeaderIsBoldWithoutBeingRewritten(t *testing.T) {
 	test.NewTempApp(t)
 
-	row := tableRow([]string{"Key"}, []float32{1}, true, linkFixer{})
+	row := tableRow([]string{"Key"}, &grid{weights: []float32{1}}, true, linkFixer{})
 	box, _ := row.(*fyne.Container)
 	rt, ok := box.Objects[0].(*widget.RichText)
 	require.True(t, ok)
@@ -215,7 +216,7 @@ func TestATableIsRuledOnEverySideAReaderFollows(t *testing.T) {
 func TestTheOutermostRulesAreTheTablesEdges(t *testing.T) {
 	test.NewTempApp(t)
 
-	frame := &framed{weights: []float32{0.3, 0.7}}
+	frame := &framed{grid: &grid{weights: []float32{0.3, 0.7}}}
 	at := frame.verticals(1000)
 
 	require.Len(t, at, 3)
@@ -227,7 +228,7 @@ func TestTheOutermostRulesAreTheTablesEdges(t *testing.T) {
 
 func TestASingleColumnTableIsStillBoxed(t *testing.T) {
 	// One column has no interior boundary and two sides.
-	frame := &framed{weights: []float32{1}}
+	frame := &framed{grid: &grid{weights: []float32{1}}}
 	require.Len(t, frame.verticals(500), 2)
 }
 
@@ -281,4 +282,62 @@ func drawnRows(t *testing.T, drawn fyne.CanvasObject) int {
 		}
 	}
 	return rows
+}
+
+// readmeShaped is hayami's sections table: a column of one-word labels beside
+// two columns of paragraphs, which is what broke "Section" in two (#194).
+func readmeShaped() [][]string {
+	prose := strings.Repeat("battery level and charging state of mice and keyboards ", 4)
+	return [][]string{
+		{"Section", "What it shows", "Where it reads from"},
+		{"Peripherals", prose, prose},
+		{"Bandwidth", prose, prose},
+	}
+}
+
+func TestANarrowColumnDoesNotBreakAWord(t *testing.T) {
+	/*
+		The weights count characters, and an eleven-character column beside
+		two clamped at ninety came out narrower than "Section" in bold and its
+		padding: Fyne's word wrap broke it as "Sectio" / "n". A cell holding
+		one word is one line tall when its column fits the word.
+	*/
+	test.NewTempApp(t)
+
+	drawn := renderTable(readmeShaped())
+	win := test.NewWindow(drawn)
+	t.Cleanup(win.Close)
+	win.Resize(fyne.NewSize(1000, 900))
+
+	oneLine := widget.NewRichTextFromMarkdown("x").MinSize().Height
+	stacked := drawn.(*fyne.Container).Objects[0].(*fyne.Container)
+	for _, i := range []int{1, 3, 5} {
+		row := stacked.Objects[i].(*fyne.Container)
+		label := row.Objects[0]
+		require.InDelta(t, oneLine, label.Size().Height, 1,
+			"the label in row %d is broken over more than one line at %v wide", i, label.Size().Width)
+	}
+}
+
+func TestTheFloorsLeaveTheRestToTheWeights(t *testing.T) {
+	test.NewTempApp(t)
+
+	// Where nothing is under its floor, the weights decide as they did.
+	g := &grid{weights: []float32{0.25, 0.75}, floors: []float32{10, 10}, floorsAt: fynetheme.TextSize()}
+	widths := g.widths(400)
+	require.InDelta(t, 100, widths[0], 0.01)
+	require.InDelta(t, 300, widths[1], 0.01)
+
+	// One under its floor is held there, and the others share what is left.
+	g = &grid{weights: []float32{0.05, 0.5, 0.45}, floors: []float32{80, 10, 10}, floorsAt: fynetheme.TextSize()}
+	widths = g.widths(1000)
+	require.InDelta(t, 80, widths[0], 0.01)
+	require.InDelta(t, 1000, widths[0]+widths[1]+widths[2], 0.01)
+	require.InDelta(t, 0.5/0.45, widths[1]/widths[2], 0.001)
+
+	// Floors that cannot all fit are shared in proportion to themselves.
+	g = &grid{weights: []float32{0.5, 0.5}, floors: []float32{300, 100}, floorsAt: fynetheme.TextSize()}
+	widths = g.widths(200)
+	require.InDelta(t, 150, widths[0], 0.01)
+	require.InDelta(t, 50, widths[1], 0.01)
 }

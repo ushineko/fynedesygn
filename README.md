@@ -47,6 +47,7 @@ hand-synced copies.
 | [`glance/kwin`](https://pkg.go.dev/github.com/ushineko/fynedesygn/glance/kwin) | The KDE Plasma window rule a glance window needs — above, no border, and the opacity Fyne cannot draw itself. |
 | [`dragout`](https://pkg.go.dev/github.com/ushineko/fynedesygn/dragout) | A wrapper that drags files out of the window into another program — a file manager, a browser's upload field — through the platform's own drag. Wayland and X11; Windows and macOS report it unsupported for now. |
 | [`steps`](https://pkg.go.dev/github.com/ushineko/fynedesygn/steps) | The step list a job shows beside its log, updated in place. |
+| [`wizard`](https://pkg.go.dev/github.com/ushineko/fynedesygn/wizard) | The third window archetype: pages in a fixed order with Back, Next and Cancel, Next held until a page is valid, a progress page that is the point of no return, and a message line and fixed-width buttons so nothing moves. Standard pages for welcome, licence, directory, options, summary, progress and finish. |
 | [`fynetest`](https://pkg.go.dev/github.com/ushineko/fynedesygn/fynetest) | Headless test helpers: tree walking, finders, text extraction, scrollable detection. |
 | [`cmd/fynedesygn-gallery`](https://pkg.go.dev/github.com/ushineko/fynedesygn/cmd/fynedesygn-gallery) | The reference program. Every component in every scheme, with `--section` and `--scheme` for screenshots. |
 | [`cmd/fynedesygn-mermaid`](https://pkg.go.dev/github.com/ushineko/fynedesygn/cmd/fynedesygn-mermaid) | The `go generate` helper that renders missing diagrams; `-check` in CI fails on stale ones. |
@@ -56,8 +57,9 @@ hand-synced copies.
 | `tools/` | The screenshot harness for KDE/Wayland. |
 
 The rules the components follow are in
-[docs/design-system.md](docs/design-system.md) for application windows and
-[docs/glance.md](docs/glance.md) for glance windows.
+[docs/design-system.md](docs/design-system.md) for application windows,
+[docs/glance.md](docs/glance.md) for glance windows and
+[docs/wizard.md](docs/wizard.md) for wizard windows.
 
 ## Screenshots
 
@@ -86,6 +88,8 @@ with the same command and check the alt text still matches.
 
 ![The Glance section: the always-on-top panel vocabulary drawn at the width a real glance window uses, each piece captioned with its Go name — a live card, a card of four peripheral cells with a bar under each battery level — green, green and red — and none under the keyboard that has no reading, a card whose source has gone with its header marked "(unavailable)" and its values dimmed, a card with a two-trace sparkline under its rows, a bare sparkline of two interfaces' down and up rates on one shared scale, one interface in the scheme's link blue and the other in violet, each with its upload a faded copy of it and the quieter interface a low line along the floor, a card of four quota meters whose bars run green, green, amber and red as they approach their limits, a column of rows in four states, and each value formatter shown at three magnitudes in a monospace column.](docs/img/gallery-glance.png)
 
+![The Wizard section: a heading and a paragraph saying what the third window archetype is, a highlighted "Open a sample wizard" button beside "Open one whose job fails", and a Pages card listing the seven standard pages by Go name, wizard.Welcome to wizard.Finish, each with one line on what it is built from.](docs/img/gallery-wizard.png)
+
 ![The Tabs section: one entry in the navigation and a strip of three buttons above the content — Economy, highlighted, then Movement and Ships — with the Economy page drawn beneath, a heading and one line saying what shell.Tabs is.](docs/img/gallery-tabs.png)
 
 ## Examples
@@ -100,10 +104,11 @@ Each example is a complete program with a headless test, in `examples/`, on
 | `job-runner` | A `steps.List` beside a `logpane.Pane`, a job run through `PerformCancellable` that advances steps and logs, and one banner for the result. |
 | `document-viewer` | `markdown.Section` over an embedded guide with a mermaid diagram rendered by `go generate`. |
 | `glance-monitor` | Not a shell program: a `glance` panel of four cards — peripherals, bandwidth, a two-trace sparkline over thermals, and two quota meters — with a context menu as its only interface and the KDE window rule offered behind `-kwin`. |
+| `installer-wizard` | Not a shell program: a `wizard` through every standard page, installing nothing, with a fake job slow enough to cancel and `-fail` to make it fail at its third step. |
 
 ## Used by
 
-Seven programs, all by the same author and all public. The first three
+Eight programs, all by the same author and all public. The first three
 carried this design system as hand-synced copies before it was extracted,
 and are the reason it exists; the others were built on the library.
 
@@ -116,6 +121,7 @@ and are the reason it exists; the others were built on the library.
 | [hayami](https://github.com/ushineko/hayami) | Glance panel for Linux: peripheral batteries, bandwidth, cooler thermals, Claude Code and Codex usage, on the desktop and in a terminal | The `glance` package exists for it (specs 016, 017, 038–048, 051): the frameless always-on-top window, cards, rows in coloured parts with pinned labels, cells with bars, meters, the shared-scale sparkline and series colours, and the restyle fix. Also `settings`, `markdown` and `glance/kwin` |
 | [hotaru](https://github.com/ushineko/hotaru) | RGB lighting and AIO cooler control for Linux, with a live dashboard on the cooler's LCD | Drove `settings` (spec 011) and the shell's program-settings, section-arrival and affixed-controls work (specs 019–028); uses `steps`, `logpane` and `dialogs` |
 | [ototo](https://github.com/ushineko/ototo) | Audio-output switcher that lives in the tray and follows the best connected output | A shell-and-widgets consumer; spec 035 came from it |
+| [fynstall](https://github.com/ushineko/fynstall) | Installer framework for Go and Fyne programs: one self-contained installer per target, a wizard from the desktop or a CLI from a terminal | The `wizard` package exists for it (spec 061) |
 
 A component is done when one of these can delete its copy, which is why their
 feedback has its own specs (006, 007) rather than being folded into the
@@ -228,6 +234,8 @@ detail pane, a settings form, a job with a log, and a frameless status panel.
   one of them was wrong, where the profile took a minute.
 - [Glance windows](docs/glance.md): the rules for frameless, always-on-top
   status panels, and the desktop integration they need.
+- [Wizard windows](docs/wizard.md): the rules for a window that goes through
+  pages in order, such as an installer.
 - [Rendering Markdown](docs/markdown.md).
 - [Mermaid diagrams](docs/mermaid.md).
 - [Fyne quirks](docs/fyne-quirks.md): what the module works around and the
@@ -263,6 +271,18 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### Unreleased
+
+- **New**: package `wizard`, the third window archetype (spec 061, #172):
+  pages in a fixed order with Back, Next and Cancel; optional `Validator`,
+  `Enterer`, `Leaver`, `Skipper`, `Labeller`, `PointOfNoReturn` and
+  `Changer` interfaces; a message line and fixed-width buttons so nothing
+  moves; a progress page whose job reports through a goroutine-safe
+  `Reporter` and whose own error decides the outcome; and standard pages for
+  welcome, licence, directory, options, summary, progress and finish.
+  `docs/wizard.md`, `examples/installer-wizard`, and a Wizard section in the
+  gallery. fynstall is its first consumer.
 
 ### 0.1.90 (2026-10-08)
 

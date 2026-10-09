@@ -19,6 +19,7 @@ written](style.md).
 - [The two binding rules](#the-two-binding-rules)
 - [Window skeleton](#window-skeleton)
 - [Glance windows](glance.md) (separate document)
+- [Wizard windows](wizard.md) (separate document)
 - [Sections](#sections)
 - [Colour, type and spacing](#colour-type-and-spacing)
 - [Fonts](#fonts)
@@ -111,7 +112,9 @@ Border{
 - This skeleton is the application window. A small panel that stays above
   other windows, and that a person reads without touching, is a different
   shape with its own rules: it has no header, no navigation and no scroller.
-  See [glance.md](glance.md).
+  See [glance.md](glance.md). A window that takes a person through pages in
+  a fixed order, such as an installer, is the third shape. See
+  [wizard.md](wizard.md).
 
 ## Sections
 

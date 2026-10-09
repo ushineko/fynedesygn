@@ -36,7 +36,8 @@ func buildWizard(s *shell.Shell) fyne.CanvasObject {
 			"The third window archetype: pages in a fixed order with Back, Next and Cancel. Next waits for a "+
 				"valid page, the progress page is the point of no return, and the message line and fixed-width "+
 				"buttons keep the window still while a job runs. See docs/wizard.md."),
-		container.NewHBox(run, widget.NewButton("Open one whose job fails", open(true))),
+		container.NewHBox(run, widget.NewButton("Open one whose job fails", open(true)),
+			widget.NewButton("Open a confirm window", func() { wizard.NewConfirmIn(s.App, sampleConfirm()).Window.Show() })),
 		widgets.Card("Pages",
 			widgets.PlainRow("wizard.Welcome", "Markdown that says what will happen"),
 			widgets.PlainRow("wizard.Licence", "Markdown and an \"I accept\" check that Next waits for"),
@@ -46,7 +47,27 @@ func buildWizard(s *shell.Shell) fyne.CanvasObject {
 			widgets.PlainRow("wizard.Progress", "a step list beside a log, with a cancellable job"),
 			widgets.PlainRow("wizard.Finish", "Markdown and checks that the Result reports"),
 		),
+		widgets.Card("One question",
+			widgets.PlainRow("wizard.RunConfirm", "ask once, run the job, report: an uninstaller's shape"),
+		),
 	)
+}
+
+// sampleConfirm is the wizard package's other shape: ask once, run, report.
+func sampleConfirm() wizard.ConfirmOptions {
+	return wizard.ConfirmOptions{
+		Name: "Sample confirm window", Question: "Remove the sample?",
+		Detail: "A sample from the gallery. It **removes nothing**.",
+		Action: "Remove", Destructive: true, Done: "The sample was removed.",
+		Job: func(ctx context.Context) error {
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("removing: %w", ctx.Err())
+			case <-time.After(time.Second):
+				return nil
+			}
+		},
+	}
 }
 
 func sampleWizard(fail bool) wizard.Options {

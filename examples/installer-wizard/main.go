@@ -3,7 +3,9 @@ Command installer-wizard is a fynedesygn example: a wizard that goes through
 every standard page (welcome, licence, directory, options, summary,
 progress and finish) to install nothing. The job is fake and slow enough to
 cancel; -fail makes it fail at its third step, and -scheme chooses the colour
-scheme, for tools/screenshot.sh.
+scheme, for tools/screenshot.sh. -confirm shows the other shape instead: a
+window that asks once ("Uninstall Example 1.0?"), runs, and reports.
+-yes with -confirm skips the question.
 
 Not a shell program: wizard.Run owns its window.
 */
@@ -29,13 +31,24 @@ import (
 func main() {
 	fail := flag.Bool("fail", false, "make the job fail at its third step")
 	scheme := flag.String("scheme", "", "colour scheme; default the platform's")
+	confirm := flag.Bool("confirm", false, "show the confirm window, as an uninstaller would")
+	yes := flag.Bool("yes", false, "with -confirm, do not ask")
 	flag.Parse()
-	o := options(400*time.Millisecond, *fail)
+	var ap *fdtheme.Appearance
 	if *scheme != "" {
-		ap := fdtheme.DefaultAppearance()
-		ap.Scheme = *scheme
-		o.Appearance = &ap
+		a := fdtheme.DefaultAppearance()
+		a.Scheme = *scheme
+		ap = &a
 	}
+	if *confirm {
+		o := confirmOptions(400*time.Millisecond, *fail)
+		o.Appearance, o.SkipQuestion = ap, *yes
+		r := wizard.RunConfirm(o)
+		fmt.Println("outcome:", r.Outcome)
+		return
+	}
+	o := options(400*time.Millisecond, *fail)
+	o.Appearance = ap
 	r := wizard.Run(o)
 	fmt.Println("outcome:", r.Outcome, "launch:", r.Checks[launchNow])
 }
@@ -79,6 +92,33 @@ func options(tick time.Duration, fail bool) wizard.Options {
 			}),
 			wizard.Progress("Installing", stepNames, "Example is installed.", job(tick, fail)),
 			wizard.Finish("Done", "Example 1.0 is installed.", widget.NewCheck(launchNow, nil)),
+		},
+	}
+}
+
+// confirmOptions are a pretend uninstaller: one question, a short job, a
+// result.
+func confirmOptions(tick time.Duration, fail bool) wizard.ConfirmOptions {
+	return wizard.ConfirmOptions{
+		AppID:    "io.ushineko.fynedesygn.example.installerwizard.uninstall",
+		Name:     "Uninstall Example",
+		Question: "Uninstall Example 1.0?",
+		Detail: "It removes `~/.local/share/example` and puts back anything the install replaced.\n\n" +
+			"Your settings in `~/.config/example` are left where they are.",
+		Action: "Uninstall", Destructive: true,
+		Done: "Example 1.0 was removed.",
+		Job: func(ctx context.Context) error {
+			for range 3 {
+				select {
+				case <-ctx.Done():
+					return fmt.Errorf("removing: %w", ctx.Err())
+				case <-time.After(tick):
+				}
+			}
+			if fail {
+				return errors.New("the launcher directory is read-only")
+			}
+			return nil
 		},
 	}
 }

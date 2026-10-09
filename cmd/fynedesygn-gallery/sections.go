@@ -48,6 +48,7 @@ func sectionsWith(demo *jobDemo) []shell.Section {
 		shell.NewSection("Log", fynetheme.ListIcon, logs.build).OnDetach(logs.detach).WideContent(),
 		shell.NewSection("Forms", fynetheme.SettingsIcon, form.build),
 		shell.NewSection("Glance", fynetheme.VisibilityIcon, buildGlance),
+		shell.NewSection("Wizard", fynetheme.NavigateNextIcon, buildWizard),
 		tabsDemo(),
 		markdown.Section("Documents", fynetheme.DocumentCreateIcon, mustDoc("markdown.md"), docOptions(), func(*shell.Shell) fyne.CanvasObject {
 			return widgets.Heading("Documents",

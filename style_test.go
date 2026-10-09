@@ -28,6 +28,7 @@ var converted = []string{
 	filepath.Join("docs", "markdown.md"),
 	filepath.Join("docs", "performance.md"),
 	filepath.Join("docs", "glance.md"),
+	filepath.Join("docs", "wizard.md"),
 	filepath.Join("docs", "design-system.md"),
 }
 

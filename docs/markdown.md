@@ -86,12 +86,42 @@ you can remove the panel.
   its own, which is `![alt](path)` on a line of its own. An image in a
   paragraph goes to the image segment of Fyne, which cannot read an embedded
   file system.
+- **Links to other documents must be absolute URLs.** The pane opens an
+  absolute `http` or `https` link in the browser, through `Options.OpenURL`
+  or, when that is nil, the app's `OpenURL`. A link to a heading in the same
+  document, `[Installing it](#installing-it)`, scrolls the pane so that heading
+  is at the top; the slug is GitHub's (lower case, spaces made hyphens,
+  punctuation dropped, `-1`, `-2` for a repeated heading), so the anchors that
+  work on GitHub work here. Any other link, such as `docs/architecture.md`, is
+  drawn as plain text: the pane has nothing to resolve a path against, and a
+  link that looks clickable and does nothing is worse than none. Write
+  `https://github.com/you/project/blob/main/docs/architecture.md` instead.
+- A block holding a link is drawn so each link's tap area is its text. Fyne
+  makes a link's box larger than its text by the inner padding on every
+  side, and in a list of links the boxes overlapped and the lower half of an
+  entry clicked nothing. See [fyne-quirks.md](fyne-quirks.md), entries 46
+  and 47.
+- `Pane.ScrollToAnchor(slug)` does what a tapped anchor does, and
+  `Pane.AnchorY(slug)` says where that heading starts in the scroller, for a
+  test that checks where a tap went.
+- To show the screenshots a README has, embed them with the README and give
+  the pane that file system:
+
+  ```go
+  //go:embed README.md docs/img/*.png
+  var docs embed.FS
+
+  pane := markdown.New(readme, markdown.Options{FS: docs})
+  ```
+
+  A path in the README such as `docs/img/panel.png` is then read from the
+  embedded copy. Without an FS the pane draws the image's alt text, dimmed.
 - Use a code fence with a language rather than indented code. Both draw the
   same, but the fence names the language for a person who reads the source.
 - A mermaid fence must have an image in the diagram set of the program. If it
   has none, the pane shows the source. `make generate` makes the images.
-- The `RichText` of Fyne supports headings, lists, emphasis, links and inline
-  code. The pane draws a pipe table itself, as a grid of cells, because the
+- The `RichText` of Fyne supports headings, lists, emphasis, links (as above)
+  and inline code. The pane draws a pipe table itself, as a grid of cells, because the
   table segment of Fyne is in a scroller that would receive the wheel. For
   data that a program calculates, use the detail table instead.
 

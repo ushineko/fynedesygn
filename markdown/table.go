@@ -54,6 +54,11 @@ a word of it, and the version without them read as two columns of floating
 text.
 */
 func renderTable(rows [][]string) fyne.CanvasObject {
+	return tableWith(rows, linkFixer{open: opener(Options{})})
+}
+
+// tableWith is renderTable with the cells' links wired to l.
+func tableWith(rows [][]string, l linkFixer) fyne.CanvasObject {
 	if len(rows) == 0 {
 		return widget.NewLabel("")
 	}
@@ -75,13 +80,13 @@ func renderTable(rows [][]string) fyne.CanvasObject {
 	*/
 	if header := rows[0]; titled(header) {
 		out = append(out,
-			tableRow(header, weights, true),
+			tableRow(header, weights, true, l),
 			rule(fynetheme.ColorNameSeparator, headerRule))
 	}
 	body := rows[1:]
 
 	for _, row := range body {
-		out = append(out, tableRow(row, weights, false),
+		out = append(out, tableRow(row, weights, false, l),
 			rule(fynetheme.ColorNameInputBorder, rowRule))
 	}
 
@@ -139,15 +144,15 @@ Editing somebody's Markdown to change how it looks is the fault; a cell that
 already carried emphasis, or a pipe, or nothing at all, was going to produce
 something nobody wrote.
 */
-func tableRow(cells []string, weights []float32, header bool) fyne.CanvasObject {
+func tableRow(cells []string, weights []float32, header bool, l linkFixer) fyne.CanvasObject {
 	drawn := make([]fyne.CanvasObject, 0, len(cells))
 	for _, cell := range cells {
-		rt := drawable(widget.NewRichTextFromMarkdown(cell))
+		rt := l.fix(drawable(widget.NewRichTextFromMarkdown(cell)))
 		rt.Wrapping = fyne.TextWrapWord
 		if header {
 			embolden(rt)
 		}
-		drawn = append(drawn, rt)
+		drawn = append(drawn, draw(rt))
 	}
 	return container.New(&columns{weights: weights}, drawn...)
 }

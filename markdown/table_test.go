@@ -146,7 +146,7 @@ func TestAnEmptyHeaderCellIsNotAHorizontalRule(t *testing.T) {
 	*/
 	test.NewTempApp(t)
 
-	row := tableRow([]string{"", ""}, []float32{0.5, 0.5}, true)
+	row := tableRow([]string{"", ""}, []float32{0.5, 0.5}, true, linkFixer{})
 	box, ok := row.(*fyne.Container)
 	require.True(t, ok)
 
@@ -163,7 +163,7 @@ func TestAnEmptyHeaderCellIsNotAHorizontalRule(t *testing.T) {
 func TestAHeaderIsBoldWithoutBeingRewritten(t *testing.T) {
 	test.NewTempApp(t)
 
-	row := tableRow([]string{"Key"}, []float32{1}, true)
+	row := tableRow([]string{"Key"}, []float32{1}, true, linkFixer{})
 	box, _ := row.(*fyne.Container)
 	rt, ok := box.Objects[0].(*widget.RichText)
 	require.True(t, ok)

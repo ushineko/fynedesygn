@@ -3,6 +3,7 @@ package markdown
 import (
 	"image/color"
 	"io/fs"
+	"net/url"
 	"path"
 	"sync"
 	"time"
@@ -61,6 +62,10 @@ type Options struct {
 		logpane's redraw timer is started by the program rather than by itself.
 	*/
 	SettleResize time.Duration
+	// OpenURL opens an absolute http or https link that was tapped; nil
+	// means the app's own, which hands it to the desktop's browser. Tests
+	// set it so a tap is observed rather than opening a browser.
+	OpenURL func(*url.URL) error
 }
 
 // Pane is a Markdown document rendered per block, only near the viewport.
@@ -68,6 +73,8 @@ type Pane struct {
 	widget.BaseWidget
 
 	opts Options
+	// anchors maps a heading's slug to its block, for #fragment links.
+	anchors map[string]int
 	// blocks is the document split into paragraph-sized pieces, in order.
 	blocks []string
 	// vis[i] is block i rendered; built by the measuring pass and kept, so a
@@ -115,6 +122,7 @@ governs the document and whatever the section puts above it.
 */
 func New(src string, o Options) *Pane {
 	p := &Pane{opts: o, blocks: Blocks(src)}
+	p.anchors = Anchors(p.blocks)
 	n := len(p.blocks)
 	p.vis = make([]fyne.CanvasObject, n)
 	p.spacers = make([]*canvas.Rectangle, n)
@@ -196,7 +204,7 @@ func (p *Pane) IsLive(i int) bool { return i >= 0 && i < len(p.live) && p.live[i
 // what a block became.
 func (p *Pane) Visual(i int) fyne.CanvasObject {
 	if p.vis[i] == nil {
-		p.vis[i] = RenderBlock(p.blocks[i], p.opts)
+		p.vis[i] = renderBlock(p.blocks[i], p.opts, linkFixer{anchor: p.anchorTapped, open: opener(p.opts)})
 	}
 	return p.vis[i]
 }
@@ -348,8 +356,9 @@ func (p *Pane) sync() {
 	// over the scroll's content, which also holds whatever is above the pane.
 	viewH := p.view.Size().Height
 	over := viewH * Overscan
-	top := p.view.Offset.Y - p.Position().Y - over
-	bottom := p.view.Offset.Y - p.Position().Y + viewH + over
+	at := p.top()
+	top := p.view.Offset.Y - at - over
+	bottom := p.view.Offset.Y - at + viewH + over
 
 	var y float32
 	for i := range p.blocks {
@@ -357,6 +366,86 @@ func (p *Pane) sync() {
 		p.render(i, y+h >= top && y <= bottom)
 		y += h + fynetheme.Padding()
 	}
+}
+
+/*
+ScrollToAnchor scrolls the followed scroller so the heading whose slug is
+fragment is at the top, as far as the document's length allows, and reports
+whether there was such a heading and a scroller to move. It is what a tapped
+`#fragment` link does.
+*/
+func (p *Pane) ScrollToAnchor(fragment string) bool {
+	if _, ok := p.anchors[fragment]; !ok || p.view == nil {
+		return false
+	}
+	/*
+		Twice at most. Scrolling renders the blocks around the heading, and a
+		block drawn before a pending re-measure can be taller than its
+		spacer, which moves everything below it; the second pass finds the
+		heading where it now is.
+	*/
+	for range 2 {
+		y, _ := p.AnchorY(fragment)
+		if y == p.view.Offset.Y {
+			break
+		}
+		p.view.ScrollToOffset(fyne.NewPos(p.view.Offset.X, y))
+		p.sync()
+		p.body.Refresh()
+	}
+	return true
+}
+
+/*
+AnchorY is where the heading whose slug is fragment starts, in the followed
+scroller's content: the offset that puts it at the top of the viewport.
+
+Where the column has been laid out, the block's cell is where it is, and that
+is the answer. A cell can be taller than its measured spacer -- a block drawn
+while a width change waits out Options.SettleResize is as tall as it needs to
+be at the new width -- and summing the spacers then lands short of the
+heading by the difference. Before any layout, the spacers are all there is.
+*/
+func (p *Pane) AnchorY(fragment string) (float32, bool) {
+	i, ok := p.anchors[fragment]
+	if !ok {
+		return 0, false
+	}
+	if p.body.Size().Height > 0 {
+		return p.top() + p.cells[i].Position().Y, true
+	}
+	y := p.top()
+	for j := range i {
+		y += p.spacers[j].MinSize().Height + fynetheme.Padding()
+	}
+	return y, true
+}
+
+// Anchors is the document's heading slugs, each with the block it is in.
+func (p *Pane) Anchors() map[string]int { return p.anchors }
+
+// anchorTapped is a #fragment link's tap.
+func (p *Pane) anchorTapped(fragment string) { p.ScrollToAnchor(fragment) }
+
+/*
+top is where the pane starts in the followed scroller's content.
+
+The pane is often not the content itself but one item in a column with a
+header above it, so its own Position is relative to that column. When both
+are on a canvas the driver answers in window coordinates and the difference
+is exact; otherwise Position is the best there is, and is right whenever the
+pane is the content or the column's first item.
+*/
+func (p *Pane) top() float32 {
+	if p.view != nil && p.view.Content != nil {
+		if a := fyne.CurrentApp(); a != nil {
+			d := a.Driver()
+			if d.CanvasForObject(p) != nil && d.CanvasForObject(p.view.Content) != nil {
+				return d.AbsolutePositionForObject(p).Y - d.AbsolutePositionForObject(p.view.Content).Y
+			}
+		}
+	}
+	return p.Position().Y
 }
 
 // render puts block i's rendering in the tree, or takes it out. The spacer
@@ -387,6 +476,12 @@ vertical wheel notch into a horizontal one. A README is mostly commands, so
 the section stopped dead wherever the pointer happened to rest on one.
 */
 func RenderBlock(src string, o Options) fyne.CanvasObject {
+	return renderBlock(src, o, linkFixer{open: opener(o)})
+}
+
+// renderBlock is RenderBlock with the links wired to l: a pane's blocks scroll
+// to their anchors, a block rendered on its own has nowhere to scroll.
+func renderBlock(src string, o Options, l linkFixer) fyne.CanvasObject {
 	if lang, code, ok := CodeBlock(src); ok {
 		if lang == "mermaid" {
 			return renderDiagram(code, o)
@@ -397,11 +492,11 @@ func RenderBlock(src string, o Options) fyne.CanvasObject {
 		return renderImage(alt, p, o)
 	}
 	if rows, ok := TableBlock(src); ok {
-		return renderTable(rows)
+		return tableWith(rows, l)
 	}
-	rt := drawable(widget.NewRichTextFromMarkdown(src))
+	rt := l.fix(drawable(widget.NewRichTextFromMarkdown(src)))
 	rt.Wrapping = fyne.TextWrapWord
-	return rt
+	return draw(rt)
 }
 
 // renderTable draws a pipe table as a grid of cells with a bold header row,

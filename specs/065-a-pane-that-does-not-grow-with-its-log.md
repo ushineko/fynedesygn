@@ -1,4 +1,7 @@
-# Spec 064: a pane that does not grow with its log
+# Spec 065: a pane that does not grow with its log
+
+First numbered 064, which `064-links-that-do-what-they-say.md` had taken
+while this was in flight.
 
 **Issue**: [#190](https://github.com/ushineko/fynedesygn/issues/190)
 

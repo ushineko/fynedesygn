@@ -274,7 +274,7 @@ MIT. See [LICENSE](LICENSE).
 
 ### Unreleased
 
-- **Fix**: the log pane's line counter no longer widens the pane (spec 064,
+- **Fix**: the log pane's line counter no longer widens the pane (spec 065,
   #190). It said "1000 line(s), 19000 older dropped" by the end of a long
   job, and a fixed-size window around the pane grew with it; it now takes
   the header's spare width and truncates when there is none.

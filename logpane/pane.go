@@ -174,7 +174,7 @@ func (p *Pane) Widget(o Options) fyne.CanvasObject {
 	p.counter.Importance = widget.LowImportance
 	// The counter's text grows with the log ("1000 line(s), 19000 older
 	// dropped"), so it takes the header's spare width and truncates rather
-	// than widening the pane (spec 064).
+	// than widening the pane (spec 065).
 	p.counter.Alignment = fyne.TextAlignTrailing
 	p.counter.Truncation = fyne.TextTruncateEllipsis
 	p.stamp = widget.NewLabel("")

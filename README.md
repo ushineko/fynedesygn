@@ -272,6 +272,18 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fixed**: links in a `markdown.Pane` do what they say (spec 064, #187). A
+  `#fragment` link scrolls the pane to the heading with that GitHub slug; an
+  absolute `http` or `https` link opens in the browser, through the new
+  `Options.OpenURL` when it is set; any other link is drawn as plain text
+  instead of a hyperlink that handed a relative path to the desktop and did
+  nothing. New: `Pane.ScrollToAnchor`, `Pane.AnchorY`, `Pane.Anchors`,
+  `markdown.Slug` and `markdown.Anchors`. The pane now finds its own place in
+  the scroller from the canvas, so a pane nested below a header renders the
+  right blocks. docs/markdown.md says how to embed a README's images.
+
 ### 0.1.92 (2026-10-08)
 
 - **New**: `wizard.RunConfirm`, a window that asks once, runs a job and

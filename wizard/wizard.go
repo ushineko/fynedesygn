@@ -217,20 +217,26 @@ func Run(o Options) Result {
 // New creates the app, applies the appearance, and builds the window
 // without showing it.
 func New(o Options) *Wizard {
-	// Before the toolkit starts: GLFW reads the cursor theme at init.
-	fdtheme.ApplyCursorTheme()
-	a := app.NewWithID(o.AppID)
-	ap := fdtheme.DefaultAppearance()
-	if o.Appearance != nil {
-		ap = *o.Appearance
-	}
-	ap.Apply(a)
-	if o.Icon != nil {
-		a.SetIcon(o.Icon)
-	}
-	w := NewIn(a, o)
+	w := NewIn(newApp(o.AppID, o.Appearance, o.Icon), o)
 	w.Window.SetMaster()
 	return w
+}
+
+// newApp creates the app a wizard or a confirm window runs in, with the
+// appearance applied.
+func newApp(id string, appearance *fdtheme.Appearance, icon fyne.Resource) fyne.App {
+	// Before the toolkit starts: GLFW reads the cursor theme at init.
+	fdtheme.ApplyCursorTheme()
+	a := app.NewWithID(id)
+	ap := fdtheme.DefaultAppearance()
+	if appearance != nil {
+		ap = *appearance
+	}
+	ap.Apply(a)
+	if icon != nil {
+		a.SetIcon(icon)
+	}
+	return a
 }
 
 /*

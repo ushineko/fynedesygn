@@ -48,3 +48,11 @@ func TestARelativeDirectoryIsRefused(t *testing.T) {
 	w.Next()
 	require.Equal(t, "Location", w.Current().Title(), "Next is disabled")
 }
+
+func TestTheConfirmWindowAsksThenRemoves(t *testing.T) {
+	c := wizard.HeadlessConfirm(fynetest.App(t), confirmOptions(0, false))
+	c.Act()
+	require.Equal(t, "Example 1.0 was removed.", c.Message())
+	c.Act()
+	require.Equal(t, wizard.Finished, c.Result().Outcome)
+}

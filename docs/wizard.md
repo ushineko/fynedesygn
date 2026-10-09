@@ -32,6 +32,7 @@ below. The first program on the package is
 - [Leaving](#leaving)
 - [Standard pages](#standard-pages)
 - [Testing](#testing)
+- [A window that asks once](#a-window-that-asks-once)
 
 ## The window
 
@@ -154,3 +155,32 @@ has.
 inline, and Cancel's confirmation is accepted at once, so a test is
 deterministic. A test drives the wizard with `Next`, `Back` and `Cancel`, and
 finds controls in `Content` with `fynetest`.
+
+## A window that asks once
+
+Some tasks need one decision and not a sequence of pages. An uninstaller
+asks "Uninstall Hello 0.1.0?", runs, and reports. A wizard with a page list
+is too much for that, and a dialog needs a window to sit over, which an
+uninstaller started from the launcher does not have.
+
+`RunConfirm` shows a small window of its own in three stages. The layout
+does not change between them:
+
+1. **Asking.** The question in bold, Markdown detail under it, and Cancel
+   beside the action button. The detail says what will happen and what is
+   left alone.
+2. **Running.** The action button is disabled and an indeterminate bar
+   runs in a region of fixed height.
+3. **Result.** The message line shows the `Done` text or the error. The
+   action button becomes Close and Cancel is disabled.
+
+The rules are the wizard's. The job's own error decides the outcome, so a
+job that finished as Cancel arrived is Finished. Cancel or the title bar's
+close while the job runs asks, cancels the job's context, and closes when
+the job returns. `SkipQuestion` runs the job at once and shows only the
+result, for a program's `--yes`.
+
+![A small fixed window titled "Uninstall Example". At the top, in bold, "Uninstall Example 1.0?" over a rule. Under it, two lines of Markdown: "It removes ~/.local/share/example and puts back anything the install replaced." and "Your settings in ~/.config/example are left where they are." Along the bottom, under a rule, Cancel and a red Uninstall button.](img/confirm-window.png)
+
+This is `examples/installer-wizard -confirm`, before the question is
+answered.

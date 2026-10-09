@@ -272,6 +272,13 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: the log pane's line counter no longer widens the pane (spec 064,
+  #190). It said "1000 line(s), 19000 older dropped" by the end of a long
+  job, and a fixed-size window around the pane grew with it; it now takes
+  the header's spare width and truncates when there is none.
+
 ### 0.1.93 (2026-10-08)
 
 - **Fixed**: links in a `markdown.Pane` do what they say (spec 064, #187). A

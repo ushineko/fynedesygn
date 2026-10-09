@@ -172,6 +172,11 @@ func (p *Pane) Widget(o Options) fyne.CanvasObject {
 
 	p.counter = widget.NewLabel("")
 	p.counter.Importance = widget.LowImportance
+	// The counter's text grows with the log ("1000 line(s), 19000 older
+	// dropped"), so it takes the header's spare width and truncates rather
+	// than widening the pane (spec 064).
+	p.counter.Alignment = fyne.TextAlignTrailing
+	p.counter.Truncation = fyne.TextTruncateEllipsis
 	p.stamp = widget.NewLabel("")
 	p.stamp.Importance = widget.LowImportance
 
@@ -184,7 +189,7 @@ func (p *Pane) Widget(o Options) fyne.CanvasObject {
 	follow.SetChecked(p.follow)
 	p.followBox = follow
 
-	controls := container.NewHBox(p.counter, follow)
+	controls := container.NewHBox(follow)
 	if o.Clipboard != nil {
 		controls.Add(widget.NewButtonWithIcon("Copy", fynetheme.ContentCopyIcon(), func() {
 			o.Clipboard.SetContent(log.Text())
@@ -202,7 +207,7 @@ func (p *Pane) Widget(o Options) fyne.CanvasObject {
 	}
 	bar := container.NewBorder(nil, nil,
 		widget.NewLabelWithStyle(o.Title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		controls, widget.NewLabel(""))
+		controls, p.counter)
 	p.Draw()
 	// The list inside a container whose layout notices the width. A layout's
 	// Layout runs on every resize, which is the only resize callback Fyne

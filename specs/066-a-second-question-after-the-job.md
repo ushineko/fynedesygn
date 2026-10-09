@@ -2,11 +2,17 @@
 
 **Issue**: [#193](https://github.com/ushineko/fynedesygn/issues/193)
 
-## Status: INCOMPLETE
+## Status: COMPLETE
 
 ## Executive Summary
 
-Written when the work is done.
+`ConfirmOptions.Then` takes a `ConfirmStep`: a second question asked in the
+same window after the job succeeds. Its question and detail come from `Ask`,
+which runs after the job, so they can show what the job found. Its button
+labels are fields, so nothing moves. Declining it, or cancelling its job,
+ends as Finished, because the first job's work is done. fynstall's
+uninstaller uses it to offer removing the files a program left. Reviewers
+should look first at `jobDone` and `askThen` in `wizard/confirm.go`.
 
 ## Context
 
@@ -92,7 +98,7 @@ and closing during a job asks and waits.
       step (headless).
 - [x] R6 `SkipQuestion` runs the first job at once and then asks the step
       (headless).
-- [ ] R7 At the desk: `examples/installer-wizard -confirm -leftovers` in
+- [x] R7 At the desk: `examples/installer-wizard -confirm -leftovers` in
       Breeze Dark and Breeze Light, through the step with Decline and with
       the action, and with `-yes`.
 - [x] R7 `docs/wizard.md`, the example and the changelog.
@@ -126,3 +132,23 @@ and closing during a job asks and waits.
   too", with no movement; Decline leaves the files, the action removes
   them.
 - Coverage: R1–R7.
+
+### Results (2026-10-09)
+
+On CachyOS with KDE Plasma 6 on Wayland. `make test`, `make lint` (0
+issues) and `govulncheck` (no vulnerabilities) pass.
+
+- Headless tests: `TestTheStepIsAskedAfterTheJobWithWhatItFound`,
+  `TestDecliningTheStepFinishesWithoutRunningIt`,
+  `TestAFailingStepClosesAsFailed`, `TestACancelledStepAsksWaitsAndFinishes`,
+  `TestAStepThatAsksNothingShowsThePlainResult`,
+  `TestAFailingFirstJobNeverAsksTheStep` and
+  `TestSkipQuestionStillAsksTheStep`; spec 062's tests pass unchanged. A
+  mutation that made a cancelled step end as Cancelled failed
+  `TestACancelledStepAsksWaitsAndFinishes`.
+- The user ran `examples/installer-wizard -confirm -leftovers` through the
+  step and reports that it works and the buttons do not move.
+- fynstall's uninstaller, built against this branch, asked about a file
+  the program had left (`TestTheUninstallWindowOffersToRemoveTheLeftovers`
+  in fynstall, and its spec 002 phase 3 desk check).
+- `docs/img/gallery-wizard.png` was refreshed for the new row.

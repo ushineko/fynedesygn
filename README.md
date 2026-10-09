@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.93
+**Version**: 0.1.94
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -272,7 +272,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.94 (2026-10-08)
 
 - **Fix**: the log pane's line counter no longer widens the pane (spec 065,
   #190). It said "1000 line(s), 19000 older dropped" by the end of a long

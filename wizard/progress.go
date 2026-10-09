@@ -27,6 +27,16 @@ type ProgressPage struct {
 	list  *steps.List
 	pane  *logpane.Pane
 	ran   bool
+	// count is the bar region; nil without WithBar.
+	count *counter
+}
+
+// WithBar adds a determinate bar, a status line and the current item under
+// the step list and the log (spec 063). The job reports to it through
+// Reporter.Progress. Call it before the wizard is built.
+func (p *ProgressPage) WithBar() *ProgressPage {
+	p.count = newCounter()
+	return p
 }
 
 // Progress makes a progress page whose job has the named steps. done is
@@ -53,12 +63,20 @@ func (p *ProgressPage) Steps() *steps.List { return p.list }
 
 // Build implements Page.
 func (p *ProgressPage) Build(w *Wizard) fyne.CanvasObject {
-	return container.NewBorder(nil, nil,
+	height := float32(300)
+	var bottom fyne.CanvasObject
+	if p.count != nil {
+		bottom = p.count.widget()
+		// The log gives up the bar's height, so the page is no taller with
+		// the bar than without it.
+		height -= bottom.MinSize().Height
+	}
+	return container.NewBorder(nil, bottom,
 		widgets.FixedWidth(container.NewVBox(
 			widget.NewLabelWithStyle("Steps", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 			p.list.Widget()), 220),
 		nil,
-		p.pane.Widget(logpane.Options{Title: "Output", Height: 300, Clipboard: w.App.Clipboard()}))
+		p.pane.Widget(logpane.Options{Title: "Output", Height: height, Clipboard: w.App.Clipboard()}))
 }
 
 // Enter implements Enterer: the first time, it starts the job.
@@ -72,6 +90,10 @@ func (p *ProgressPage) Enter(w *Wizard) {
 		if w.Window != nil {
 			stop := p.pane.Pump()
 			defer stop()
+			if p.count != nil {
+				stopCount := p.count.pump(w.do)
+				defer stopCount()
+			}
 		}
 		return p.job(ctx, r)
 	})
@@ -92,6 +114,20 @@ func (r *Reporter) Advance(i int, note string) {
 // Finish marks step i done with a note.
 func (r *Reporter) Finish(i int, note string) {
 	r.w.do(func() { r.p.list.Finish(i, note) })
+}
+
+// Progress sets the bar to fraction (0 to 1), the status line, and the item
+// line (spec 063). It is safe to call from the job's goroutine as often as
+// once per file: the page draws the latest values on a timer. It does
+// nothing on a page without WithBar.
+func (r *Reporter) Progress(fraction float64, status, item string) {
+	if r.p.count == nil {
+		return
+	}
+	r.p.count.set(fraction, status, item)
+	if r.w.Window == nil {
+		r.p.count.draw()
+	}
 }
 
 // Log adds a line to the log.

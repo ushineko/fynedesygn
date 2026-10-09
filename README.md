@@ -280,6 +280,11 @@ MIT. See [LICENSE](LICENSE).
   outcome, closing during the job asks and waits, and nothing moves.
   `SkipQuestion` serves a caller's `--yes`. `examples/installer-wizard
   -confirm` and a gallery button show it.
+- **New**: `ProgressPage.WithBar` and `Reporter.Progress` (spec 063, #185):
+  a determinate bar, a status line such as "2,914 of 5,603 files · 61 MB of
+  118 MB", and the current item shortened in the middle. A job can report
+  once per file; the page draws the latest values every 100 ms, so 10,000
+  reports cost a few draws.
 
 ### 0.1.91 (2026-10-08)
 

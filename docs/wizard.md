@@ -113,6 +113,16 @@ to call from the job's goroutine; they move to the UI thread with `fyne.Do`.
 - When the job fails, the current step is marked failed, the message line
   shows the error, the log stays visible, and Cancel becomes Close.
 
+**A bar for a long job.** `Progress(...).WithBar()` adds a determinate bar,
+a status line and the current item under the step list and the log. The
+job calls `Reporter.Progress(fraction, status, item)`, as often as once per
+file: an installer of thousands of files reports each one. The page keeps
+the latest values and draws them every 100 ms, and once more when the job
+ends, so thousands of reports cost a few draws. The item line is shortened
+in the middle, so a long path keeps its start and its file name. The region
+is there from the start, so nothing moves when counting begins, and it is
+opt-in, because a job with no counts would show an empty bar.
+
 **The job's error decides the outcome.** A job that was stopped returns an
 error that wraps `context.Canceled`. A job that finished its work as Cancel
 arrived returns nil, and the wizard reports it as finished. An installer

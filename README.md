@@ -272,6 +272,15 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: a markdown table's column is never narrower than the longest word
+  in it (spec 067, #194). Columns were proportioned by character count, so a
+  column of one-word labels beside two of paragraphs could come out narrower
+  than a label in bold, and the word was broken: "Sectio n". The floor is
+  measured in the face, size and padding the word is drawn with; the weights
+  share what is left.
+
 ### 0.1.95 (2026-10-09)
 
 - **New**: `ConfirmOptions.Then` and `ConfirmStep` (spec 066, #193). A

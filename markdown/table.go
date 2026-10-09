@@ -62,7 +62,8 @@ func tableWith(rows [][]string, l linkFixer) fyne.CanvasObject {
 	if len(rows) == 0 {
 		return widget.NewLabel("")
 	}
-	weights := columnWeights(rows)
+	g := &grid{weights: columnWeights(rows)}
+	weights := g.weights
 
 	/*
 		A roof, because a table is closed.
@@ -80,13 +81,13 @@ func tableWith(rows [][]string, l linkFixer) fyne.CanvasObject {
 	*/
 	if header := rows[0]; titled(header) {
 		out = append(out,
-			tableRow(header, weights, true, l),
+			tableRow(header, g, true, l),
 			rule(fynetheme.ColorNameSeparator, headerRule))
 	}
 	body := rows[1:]
 
 	for _, row := range body {
-		out = append(out, tableRow(row, weights, false, l),
+		out = append(out, tableRow(row, g, false, l),
 			rule(fynetheme.ColorNameInputBorder, rowRule))
 	}
 
@@ -104,7 +105,7 @@ func tableWith(rows [][]string, l linkFixer) fyne.CanvasObject {
 	for range len(weights) + 1 {
 		lines = append(lines, vertical())
 	}
-	return container.New(&framed{weights: weights}, append([]fyne.CanvasObject{stacked}, lines...)...)
+	return container.New(&framed{grid: g}, append([]fyne.CanvasObject{stacked}, lines...)...)
 }
 
 /*
@@ -144,17 +145,18 @@ Editing somebody's Markdown to change how it looks is the fault; a cell that
 already carried emphasis, or a pipe, or nothing at all, was going to produce
 something nobody wrote.
 */
-func tableRow(cells []string, weights []float32, header bool, l linkFixer) fyne.CanvasObject {
+func tableRow(cells []string, g *grid, header bool, l linkFixer) fyne.CanvasObject {
 	drawn := make([]fyne.CanvasObject, 0, len(cells))
-	for _, cell := range cells {
+	for i, cell := range cells {
 		rt := l.fix(drawable(widget.NewRichTextFromMarkdown(cell)))
 		rt.Wrapping = fyne.TextWrapWord
 		if header {
 			embolden(rt)
 		}
+		g.add(i, rt)
 		drawn = append(drawn, draw(rt))
 	}
-	return container.New(&columns{weights: weights}, drawn...)
+	return container.New(&columns{grid: g}, drawn...)
 }
 
 // embolden makes every piece of text in a cell bold, leaving what it is --
@@ -185,7 +187,7 @@ the full height of it, in the gap between two columns. Over rather than
 between, so a row does not have to know how many lines are in the table or
 where they go.
 */
-type framed struct{ weights []float32 }
+type framed struct{ grid *grid }
 
 func (f *framed) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	if len(objects) == 0 {
@@ -214,13 +216,13 @@ against either one, so a line is equally far from the text on both sides of
 it.
 */
 func (f *framed) verticals(w float32) []float32 {
-	inner := &columns{weights: f.weights}
-	out := make([]float32, 0, len(f.weights)+1)
+	cols := len(f.grid.weights)
+	out := make([]float32, 0, cols+1)
 	out = append(out, 0)
 
 	x := float32(0)
-	for i := range max(len(f.weights)-1, 0) {
-		x += inner.width(i, w)
+	for i := range max(cols-1, 0) {
+		x += f.grid.width(i, w)
 		out = append(out, x+tableGap/2-rowRule/2)
 		x += tableGap
 	}
@@ -317,7 +319,7 @@ wrapping RichText answers that question with the height of one line. Every row
 came out 47 pixels tall whether it held a word or a paragraph.
 */
 type columns struct {
-	weights []float32
+	grid *grid
 	// at is the width the measurement was taken at, and tall is what it came
 	// to. Zero means never laid out.
 	at, tall float32
@@ -329,7 +331,7 @@ func (c *columns) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	}
 	x := float32(0)
 	for i, o := range objects {
-		w := c.width(i, size.Width)
+		w := c.grid.width(i, size.Width)
 		o.Move(fyne.NewPos(x, tableRowPad))
 		o.Resize(fyne.NewSize(w, o.MinSize().Height))
 		x += w + tableGap
@@ -340,7 +342,7 @@ func (c *columns) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 func (c *columns) measure(objects []fyne.CanvasObject, w float32) {
 	var tall float32
 	for i, o := range objects {
-		o.Resize(fyne.NewSize(c.width(i, w), o.MinSize().Height))
+		o.Resize(fyne.NewSize(c.grid.width(i, w), o.MinSize().Height))
 		tall = max(tall, o.MinSize().Height)
 	}
 	c.at, c.tall = w, tall+2*tableRowPad
@@ -357,16 +359,6 @@ func (c *columns) MinSize(objects []fyne.CanvasObject) fyne.Size {
 		height = max(height, o.MinSize().Height)
 	}
 	return fyne.NewSize(0, height+2*tableRowPad)
-}
-
-// width is column i's share of w, after the gaps between columns are taken
-// out. A row with no weights -- one longer than its header -- divides evenly.
-func (c *columns) width(i int, w float32) float32 {
-	gaps := float32(len(c.weights)-1) * tableGap
-	if len(c.weights) == 0 || i >= len(c.weights) {
-		return w
-	}
-	return (w - gaps) * c.weights[i]
 }
 
 /*

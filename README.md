@@ -272,6 +272,14 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: a glance window no longer grows a pixel wider each time its drawer
+  opens and closes. At a display scale that is not a whole number, the width
+  a window has differs from the width asked for by a fraction of a pixel,
+  and `Panel.Resize` kept that fraction as a width somebody had chosen. A
+  difference under one device pixel is now nobody's choice.
+
 ### 0.1.97 (2026-10-12)
 
 - **New**: a drawer beside a glance panel's cards (spec 068, #198).

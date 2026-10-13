@@ -161,6 +161,44 @@ func TestADraggedWidthSurvivesTheDrawer(t *testing.T) {
 		"the user's width was lost to the drawer")
 }
 
+// A window is a whole number of pixels wide, so the width it has is rarely
+// the width asked for to the last fraction. That fraction is nobody's choice
+// of width: it is not kept, and a drawer opened and closed any number of
+// times leaves the cards the width they were.
+func TestAFractionOfAPixelIsNotAWidthSomebodyChose(t *testing.T) {
+	w, _, _ := drawerWindow(t, glance.Options{Title: "drawer", Resizable: true})
+	p, d := w.Panel(), w.Panel().Drawer()
+	cards := p.Size().Width
+	height := p.Size().Height
+
+	// The system rounds the window to its pixels, as it does at a scale that
+	// is not a whole number.
+	rounded := func() {
+		s := w.Window().Canvas().Size()
+		w.Window().Resize(fyne.NewSize(s.Width+0.4, s.Height))
+	}
+	rounded()
+	p.Resize() // a reading arrives
+	require.InDelta(t, cards, w.Window().Canvas().Size().Width, 0.01, "the rounding was kept as a width")
+
+	for range 3 {
+		d.SetOpen(true)
+		rounded()
+		p.Resize()
+		d.SetOpen(false)
+		rounded()
+		p.Resize()
+	}
+	assert.InDelta(t, cards, w.Window().Canvas().Size().Width, 0.01,
+		"the cards grew with each opening of the drawer")
+	assert.InDelta(t, height, w.Window().Canvas().Size().Height, 0.01)
+
+	// A whole pixel and more is still a width somebody chose.
+	w.Window().Resize(fyne.NewSize(cards+40, height))
+	p.Resize()
+	assert.InDelta(t, cards+40, w.Window().Canvas().Size().Width, 0.01)
+}
+
 // R8. A drawer that chooses by room takes the right if it fits there, the
 // left if it fits only there, and the roomier side if it fits on neither.
 func TestADrawerChoosesTheSideWithRoom(t *testing.T) {

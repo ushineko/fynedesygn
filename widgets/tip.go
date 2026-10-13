@@ -319,6 +319,14 @@ on every widget in the window -- which *builds* one, a whole parallel tree, ever
 time a tip is about to be shown.
 */
 func findTipLayer(o fyne.CanvasObject) *fyne.Container {
+	// A theme override is a widget, and the one widget looked inside: it is
+	// how a window gives its content a theme of its own, and what it holds is
+	// a field, not something its renderer builds. A glance panel with its own
+	// theme is one, and without this its tips were popups, which swallowed
+	// the first click after the pointer came to rest.
+	if over, ok := o.(*container.ThemeOverride); ok {
+		return findTipLayer(over.Content)
+	}
 	box, ok := o.(*fyne.Container)
 	if !ok {
 		return nil

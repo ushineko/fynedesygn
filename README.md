@@ -272,6 +272,15 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: a tip in a glance panel with a theme of its own no longer takes
+  the next click. The panel's content is wrapped in a theme override, the
+  search for the window's tip layer did not look inside one, and the tip fell
+  back to a popup, which is an overlay that swallows a click to dismiss
+  itself. With a drawer, the click after the pointer had rested a second was
+  lost, and on Plasma the cards could keep the open window's width.
+
 ### 0.1.98 (2026-10-12)
 
 - **Fix**: a glance window no longer grows a pixel wider each time its drawer

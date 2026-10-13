@@ -321,6 +321,38 @@ func TestAWindowWithoutALayerFallsBackToAPopup(t *testing.T) {
 }
 
 /*
+A tip layer inside a theme override is found, and the tip is drawn in it.
+
+A window that gives its content a theme of its own wraps it in a theme
+override, which is a widget, and the search for the layer looked inside
+containers only. A glance panel with its own theme is such a window: its tips
+were popups, and a popup is an overlay that takes the next click and
+dismisses itself with it (quirk 26). Nobody saw it while a click on a panel
+did nothing; once a click opened a drawer, the click after the pointer had
+rested a second was lost.
+*/
+func TestATipLayerInsideAThemeOverrideIsFound(t *testing.T) {
+	a := test.NewApp()
+	btn := widget.NewButton("Go", func() {})
+	area := &tipArea{text: "in the layer", under: btn}
+	area.ExtendBaseWidget(area)
+	layer := NewTipLayer()
+	themed := container.NewThemeOverride(container.NewStack(btn, area, layer), a.Settings().Theme())
+	win := test.NewWindow(themed)
+	defer win.Close()
+	win.Resize(fyne.NewSize(400, 200))
+
+	require.Same(t, layer, tipLayerIn(win.Canvas()))
+	area.MouseIn(&desktop.MouseEvent{})
+	require.Eventually(t, func() bool { return area.tip() != nil }, 2*time.Second, 20*time.Millisecond)
+	require.Nil(t, win.Canvas().Overlays().Top(), "the tip is a popup, which takes the next click")
+	require.Len(t, layer.Objects, 1)
+
+	area.MouseOut()
+	require.Nil(t, area.tip())
+}
+
+/*
 Canary for quirk 26: an overlay takes every pointer event in the window.
 
 FindObjectAtPositionMatching walks the top overlay *instead of* the content when

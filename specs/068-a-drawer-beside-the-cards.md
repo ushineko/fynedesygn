@@ -92,9 +92,10 @@ decide the requirements below.
   everywhere (quirk 50).
 - R14 After the compositor moves the window under a pointer that has not
   moved, the next click is read at the pointer's true place (quirk 48). The
-  panel knows how far its content moved; a click at exactly the position of
-  the last one is a pointer that did not move, and is read that much further
-  along.
+  panel knows how far its content moved and tells Fyne, by calling Fyne's own
+  GLFW cursor callback with the position GLFW last heard moved by that much
+  (`repoint`). Where there is no GLFW window to reach, a click at exactly the
+  position of the last one is read that much further along.
 - R15 The library does not decide what a click means. Opening on a click,
   changing what is shown on a click elsewhere and closing on a second click of
   the same thing are the program's, and the example does them.
@@ -208,11 +209,25 @@ take the pointer):
   (`TestTheKeyboardGoesBackToTheWindowThatHadIt`).
 - [ ] Windows: a filter typed does not resize the window
   (`TestAFilterTypedDoesNotResizeTheWindow`).
-- [ ] Plasma Wayland, with the three scripts run by a scratch program: a left
-  drawer keeps its right edge; a second click without moving the pointer
-  closes it (R14); a press that moves is not a click (R13); the side follows
-  the room; the keyboard goes back after closing, Return and Escape.
-- [ ] Plasma Wayland: `make test` and `make lint`.
+On Plasma 6.7.5 on Wayland, with the three scripts as the library returns
+them, run by a scratch program:
+
+- [x] A left drawer keeps its right edge, open and closed; without the edge
+  held it opens on the right and the cards do not jump.
+- [x] A press that moves 3 px or more is not a click; one that moves 0, 1 or
+  2 px is (R13).
+- [x] The side follows the room: right mid-screen, left 40 px from the right
+  edge of the placement area.
+- [x] The keyboard goes back after the closing click, after Return and after
+  Escape.
+- [x] A filter typed with real keys; the window's size does not change.
+- [x] Translucent with the rule: the drawer is the cards' height and the gap
+  beside it is clear, on both sides.
+- [x] `make test` (race on) and `make lint`.
+- [ ] R14 after the pointer has moved while the drawer was open: the click
+  that follows a close was lost (below). `repoint` is the fix and is not yet
+  checked on Plasma.
+- [ ] Closing and reopening at the right edge with the side chosen by room.
 
 ## Risks & Assumptions
 
@@ -228,10 +243,14 @@ take the pointer):
   moves two pixels is a drag: on Windows the window moves by that much and
   the drawer does not open. Not seen by hand; a hand that is unsteady on the
   button would see it.
-- R14's correction reads "the same position as the last click" as "the
-  pointer has not moved". A pointer moved away and brought back to the same
-  unit between two clicks would be corrected wrongly. It applies only where
-  the compositor moves the window, and only for a drawer on the left.
+- R14 makes up the motion event the compositor did not send. It reaches
+  Fyne's GLFW window by reflection, as the tips' leave watcher does (quirk
+  42), and assumes a GLFW coordinate is a Fyne one times the canvas's scale,
+  which is how Fyne reads one. A pointer that GLFW reports at the same place
+  twice is taken not to have moved; one moved away and brought back to the
+  same coordinate between two openings would be put wrong by the drawer's
+  width until it next moves. It applies only where the compositor moves the
+  window, and only for a drawer on the left.
 - Every glance window now has the catcher, so on Linux a window with no menu
   takes primary clicks it used to let through. Nothing under the catcher was
   ever clickable where there was a menu, and the package draws no controls.
@@ -278,6 +297,10 @@ take the pointer):
   opens on the right instead (R9).
 - **Reading the pointer afresh at each click** for R14. GLFW's position on
   Wayland is the last motion event's too, so there is nothing fresher to read.
+- **Correcting the click when it arrives**, which was the first build. It
+  helps only while the place Fyne believes the pointer to be is inside the
+  window. After a left drawer closes it can be past the narrower window's
+  edge, where Fyne finds nothing and no click arrives to correct.
 
 ## Gaps found
 
@@ -349,3 +372,32 @@ Windows 11, Go 1.27:
   1130..1430 to 1130..1729 and back; by room 40 px from the right edge
   2220..2520 to 1921..2520 and back; a named left 1130..1430 to 831..1430 and
   back. A filter typed and cleared leaves the window 599x376.
+
+Plasma 6.7.5 on Wayland, the first commit, by the Linux desk's session, with
+clicks and keys injected and the library's scripts run by a scratch program:
+
+- Left, edge held: 1130, 300 wide, to 830.67, 599.33 wide, and back; two
+  geometry events each time, the resize and then the move.
+- A second click without moving the pointer closes, a third reopens; after a
+  move, the CPU row and the Coolant row are each read as themselves.
+- **A lost click.** Open, move the pointer, click, click in place (closes),
+  click in place: nothing reached `OnTapped`. The place Fyne believed the
+  pointer to be was about x=449 on a window now 300 wide. This is what the
+  second commit (`repoint`) is for.
+- Left without the edge held: opens on the right, x unchanged.
+- A press, 36 px and a release: no click. 0 px: a click; 1 px, three of
+  three; 2 px, two of two; 3, 4 and 6 px: none.
+- Room: mid-screen 1130 and 1130, right, in 1.5 and 1.9 ms; 40 px from the
+  right edge 2220 and 40, left, in 3.0 ms with the hold script loaded, and the
+  window opened with its right edge at 2520.
+- The keyboard goes back after Return, Escape and the closing click; the
+  script took 1.5 to 2.7 ms.
+- Filter by real keys: `z`, `zs`, Backspace, Return, then Escape; the window
+  stays 599.33x376 with no geometry event.
+- Translucent with the rule: the drawer is opaque over the full 376, with 13
+  to 14 px clear beside it, on both sides.
+- The run stopped part-way through the room check because the desk was in
+  use.
+
+Linux (CachyOS), both commits, in a scratch clone: `make lint`, 0 issues;
+`make test`, with the race detector, every package passes.

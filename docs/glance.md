@@ -998,9 +998,9 @@ exception, and it has one meaning: the person wants more of this reading.
   drawer also opens to the left.
 - **A drawer that cannot open to the left opens on the right.** The other
   result is a set of cards that jumps sideways under the pointer.
-- After the compositor moves the window, the next click has the old pointer
-  position (quirk 48). The panel corrects a click that arrives at the same
-  position as the last one.
+- After the compositor moves the window, Fyne has the old pointer position
+  (quirk 48). The panel gives Fyne the new position, so the next click is on
+  the reading under the pointer.
 
 ### A filter from the keyboard
 

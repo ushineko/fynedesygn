@@ -422,7 +422,7 @@ func (p *Panel) resize(fit bool) {
 		switch {
 		case fit:
 			p.chosen = 0
-		case p.sized && current != p.asked:
+		case p.sized && !p.sameWidth(current, p.asked):
 			p.chosen = current
 		}
 		want.Width = max(want.Width, p.chosen)
@@ -435,6 +435,33 @@ func (p *Panel) resize(fit bool) {
 	if p.hook != nil {
 		p.hook()
 	}
+}
+
+/*
+sameWidth reports whether a width the window has is the one this panel asked
+for, to within a device pixel.
+
+A window is a whole number of pixels wide and a width asked for is not: at a
+scale of 1.5 a panel that asks for 169.33 gets 254 pixels, which the canvas
+reports as 169.33 and a little. Read as a width somebody chose, that little
+was kept, and with a drawer it grew: the drawer's width is not a whole number
+of pixels either, so each opening rounded the sum up and each closing left the
+cards a pixel wider than before. Measured on Windows 11 at 150 %: 254 pixels,
+then 255, 256 and 257 after three openings.
+
+A person dragging a window moves it by whole pixels, so a difference under one
+is never theirs.
+*/
+func (p *Panel) sameWidth(have, asked float32) bool {
+	pixel := float32(1)
+	if scale := p.win.Canvas().Scale(); scale > 0 {
+		pixel = 1 / scale
+	}
+	diff := have - asked
+	if diff < 0 {
+		diff = -diff
+	}
+	return diff < pixel
 }
 
 // Restyle repaints the panel and every card in the current theme, after a

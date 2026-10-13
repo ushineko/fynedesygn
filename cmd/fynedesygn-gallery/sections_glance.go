@@ -90,6 +90,13 @@ func buildGlance(_ *shell.Shell) fyne.CanvasObject {
 
 		demo("Row, Parted + NewRowWidth", partsCard().Object()),
 
+		// A panel with its drawer out (spec 068): beside the cards, in the
+		// same window, and as tall as them. Wider than a panel, so it is not
+		// held to the panel width.
+		wide("Panel.Drawer, Right: SetTitle, SetContent, Fit", drawerDemo(glance.Right)),
+		wide("Panel.Drawer, Left", drawerDemo(glance.Left)),
+		demo("Filter: empty, typed, kept, not an expression", filterDemo()),
+
 		// The formatters are the opinionated half of the package and the place
 		// the no-reflow rule is enforced, so they are shown as a column of
 		// values rather than described. Every line is the same width.
@@ -363,4 +370,74 @@ func linesDemo() fyne.CanvasObject {
 		box.Add(c.Object())
 	}
 	return box
+}
+
+// drawerProcesses is the list the demonstration drawers show, greatest
+// first, as a program would have sorted it.
+var drawerProcesses = []struct {
+	name string
+	rate float64
+}{
+	{"firefox", 6.2 * (1 << 20)}, {"steam", 1.4 * (1 << 20)}, {"syncthing", 512.4 * (1 << 10)},
+	{"tailscaled", 88.1 * (1 << 10)}, {"spotify", 31.7 * (1 << 10)}, {"gopls", 2.2 * (1 << 10)},
+	{"dropbox", 870}, {"pipewire", 96},
+}
+
+/*
+drawerDemo is a panel of two cards with its drawer open on a side.
+
+The window is what grows when a drawer opens, and there is no window here, so
+the panel is drawn at the size it would ask a window for. The list is as long
+as Drawer.Fit says the cards' height has room for, which is the rule a drawer
+exists to show: it takes the cards' height and never sets it.
+*/
+func drawerDemo(side glance.Side) fyne.CanvasObject {
+	p := glance.NewPanel(panelWidth)
+	p.Add(liveCard(), plotCard())
+
+	d := p.Drawer()
+	d.SetTitle("Bandwidth by process")
+	filter := glance.NewFilter()
+	pieces := []glance.Piece{filter}
+	line := glance.NewRowWidth("", glance.NoRate(), 130)
+	fit := d.Fit(line, filter)
+	for i, proc := range drawerProcesses {
+		if i >= fit {
+			break
+		}
+		r := glance.NewRowWidth(proc.name, glance.NoRate(), 130)
+		r.Set(glance.Measured(glance.Rate(proc.rate)))
+		pieces = append(pieces, r)
+	}
+	d.SetContent(pieces...)
+
+	// A side asked for by name. Where a window cannot move itself the edge
+	// has to be held for a drawer to open on the left; there is no window
+	// here to move, so the gallery says it is.
+	d.SetEdgeHeld(true)
+	d.SetSide(side)
+	d.SetOpen(true)
+
+	return container.NewHBox(container.NewGridWrap(p.Size(), p.Content()), layout.NewSpacer())
+}
+
+// filterDemo is a filter in each state its line has: the hint, a filter
+// being typed, one that was kept, and text that is not an expression and is
+// matched as it is written.
+func filterDemo() fyne.CanvasObject {
+	hint := glance.NewFilter()
+
+	typed := glance.NewFilter()
+	typed.TypedRune(glance.DefaultFilterKey)
+	for _, r := range "fire" {
+		typed.TypedRune(r)
+	}
+
+	kept := glance.NewFilter()
+	kept.SetText("^(k|z)|fox$")
+
+	plain := glance.NewFilter()
+	plain.SetText("fire(")
+
+	return container.NewVBox(hint.Object(), typed.Object(), kept.Object(), plain.Object())
 }

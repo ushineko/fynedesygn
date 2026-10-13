@@ -69,7 +69,8 @@ type monitorInfo struct {
 }
 
 // snapEdges wraps the window's procedure, once, so a drag snaps to the edges
-// of its work area. It runs on the window's thread, from startMove.
+// of its work area and a click that activates the window is seen. It runs on
+// the window's thread, from startMove and from hookWindow.
 func snapEdges(hwnd uintptr) {
 	snapMu.Lock()
 	defer snapMu.Unlock()
@@ -91,6 +92,7 @@ func snapWindowProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 	if msg == wmNCDestroy {
 		delete(snapping, hwnd)
 		delete(grabs, hwnd)
+		delete(before, hwnd)
 	}
 	snapMu.Unlock()
 	if prev == 0 {
@@ -100,6 +102,10 @@ func snapWindowProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 		_, _, _ = setWindowLongPtr.Call(hwnd, uintptr(gwlpWndProc), prev)
 	}
 	switch {
+	case msg == wmMouseActivate:
+		// A click is about to make this the active window: the one in the
+		// foreground now is where the keyboard goes back to (spec 068).
+		noteForeground(hwnd)
 	case msg == wmEnterSizeMove:
 		grab(hwnd)
 	case msg == wmExitSizeMove:

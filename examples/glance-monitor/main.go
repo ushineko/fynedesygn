@@ -1,14 +1,15 @@
 /*
 Command glance-monitor is a fynedesygn example: an always-on-top status panel
 in the shape of a peripheral and sensor monitor, with a bandwidth card, a
-thermal card carrying a two-trace sparkline, and a context menu that is the
-only interface it has.
+thermal card carrying a two-trace sparkline, a context menu for its settings,
+and a drawer beside the cards that a click on a card opens.
 
 The readings are generated, not measured. The point of the example is the
 shape: how cards appear and disappear, how a source that stops answering dims
 rather than blanks, how values are formatted so the window never resizes
 because a number changed magnitude, and how the KDE window rule is offered
-rather than installed.
+rather than installed. The drawer is in drawer.go: a list of generated
+processes as long as the cards are tall, filtered with f.
 
 Run it with -kwin to print the rule it would install, and -kwin-install to
 write it.
@@ -61,6 +62,11 @@ func main() {
 		"ask for a window the desktop shows through, where the driver allows it")
 	hideFullscreen := flag.Bool("hide-fullscreen", false,
 		"hide while a full-screen window is in front on this monitor (Windows)")
+	drawerSide := flag.String("drawer", "auto",
+		"the side the drawer opens on: auto (where the screen has room), right or left")
+	edgeHeld := flag.Bool("drawer-edge-held", false,
+		"say the compositor holds the window's right edge (kwin.HoldRightEdgeScript is loaded), "+
+			"which a left drawer needs where a window cannot move itself")
 	flag.Parse()
 
 	if *show || *install || *remove {
@@ -77,6 +83,13 @@ func main() {
 	m := newMonitor()
 	m.translucent = *translucent
 	w := m.build(a)
+	w.Panel().Drawer().SetEdgeHeld(*edgeHeld)
+	switch *drawerSide {
+	case "left":
+		w.Panel().Drawer().SetSide(glance.Left)
+	case "right":
+		w.Panel().Drawer().SetSide(glance.Right)
+	}
 	w.SetHideForFullscreen(*hideFullscreen)
 	go m.poll()
 	w.ShowAndRun()
@@ -167,6 +180,9 @@ type monitor struct {
 	spend   *glance.Meter
 
 	ticks int
+
+	// drawer is what the drawer beside the cards shows; see drawer.go.
+	drawer *drawer
 }
 
 // unitColumn is the width reserved for a temperature's unit, so the CPU and
@@ -215,10 +231,10 @@ func (m *monitor) build(a fyne.App) *glance.Window {
 	m.usage = glance.NewCard("Usage")
 	m.session = glance.NewMeter("5h", meterLabel)
 	m.spend = glance.NewMeter("month", meterLabel)
-	m.usage.AddObject(m.session.Object())
-	m.usage.AddObject(m.spend.Object())
+	m.usage.Add(m.session, m.spend)
 
 	m.win.Panel().Add(m.battery, m.bandwidth, m.thermal, m.usage)
+	m.buildDrawer()
 	return m.win
 }
 
@@ -250,8 +266,23 @@ func (m *monitor) menu() *fyne.Menu {
 	show := fyne.NewMenuItem("Show", nil)
 	show.ChildMenu = fyne.NewMenu("", items...)
 
+	dr := m.win.Panel().Drawer()
+	side := func(name string, checked bool, set func()) *fyne.MenuItem {
+		item := fyne.NewMenuItem(name, set)
+		item.Checked = checked
+		return item
+	}
+	// The current value is ticked: a menu is read as often as it is used.
+	left := fyne.NewMenuItem("Drawer", nil)
+	left.ChildMenu = fyne.NewMenu("",
+		side("Where there is room", dr.Auto(), dr.SetAuto),
+		side("Right", !dr.Auto() && dr.Side() == glance.Right, func() { dr.SetSide(glance.Right) }),
+		side("Left", !dr.Auto() && dr.Side() == glance.Left, func() { dr.SetSide(glance.Left) }),
+	)
+
 	return fyne.NewMenu("",
 		show,
+		left,
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Quit", func() { m.win.Window().Close() }),
 	)
@@ -316,6 +347,9 @@ func (m *monitor) sample() sample {
 
 // render draws a sample. It runs on the UI thread.
 func (m *monitor) render(s sample) {
+	// The drawer's list is a reading like the cards' and is drawn with them.
+	// After them, because how many of its rows fit follows the cards' height.
+	defer m.renderDrawer()
 	m.bandwidth.SetAvailable(true)
 	m.down.Set(glance.Measured(glance.Rate(s.down)))
 	m.up.Set(glance.Measured(glance.Rate(s.up)))

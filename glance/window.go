@@ -162,14 +162,14 @@ func NewWindow(a fyne.App, o Options) *Window {
 	w.panel.resizable = o.Resizable
 	w.panel.Attach(w.win)
 
-	if o.Menu != nil || (frameless && dragsToMove) {
-		// Over the whole panel, not beside the cards. A catcher in the card
-		// stack would take up a card's worth of height and would only see
-		// taps inside its own strip; stacked over, it sees the window. On
-		// Windows it is also what a frameless window is dragged by
-		// (move_windows.go), so it is there with or without a menu.
-		w.panel.Overlay(newMenuCatcher(w))
-	}
+	// Over the whole panel, not beside the cards. A catcher in the card
+	// stack would take up a card's worth of height and would only see taps
+	// inside its own strip; stacked over, it sees the window. It opens the
+	// menu, reports a click to the panel (Panel.OnTapped), and on Windows is
+	// what a frameless window is dragged by (move_windows.go), so it is
+	// there whether or not the window has a menu.
+	w.panel.Overlay(newMenuCatcher(w))
+	w.panel.hook = func() { hookWindow(w.win) }
 	return w
 }
 
@@ -321,23 +321,37 @@ func (w *Window) ShowMenu(pos fyne.Position) {
 	widget.ShowPopUpMenuAtPosition(w.menu(), w.win.Canvas(), pos)
 }
 
-// menuCatcher is a transparent object stacked over the panel that turns a
-// secondary tap anywhere in the window into the context menu, and on Windows
-// a primary press into a move of the window (move_windows.go).
-//
-// It is a widget rather than a handler on the panel because Fyne routes
-// pointer events to objects and there is no window-level tap callback, and it
-// is stacked over the content rather than placed beside it because a pointer
-// event goes to the last match in the tree walk (quirk 24). It is not
-// Tappable, so an ordinary click walks past it to whatever is underneath.
-//
-// Its rectangle is filled with color.Transparent rather than left nil: a nil
-// fill is invisible under the GL painter and a nil dereference under the
-// software one, which would make the window impossible to render to an image
-// (quirk 25).
+/*
+menuCatcher is a transparent object stacked over the panel. It turns a
+secondary tap anywhere in the window into the context menu, a primary tap into
+a report of what was clicked (Panel.OnTapped), and on Windows a drag into a
+move of the window (move_windows.go).
+
+It is a widget rather than a handler on the panel because Fyne routes pointer
+events to objects and there is no window-level tap callback, and it is
+stacked over the content rather than placed beside it because a pointer event
+goes to the last match in the tree walk (quirk 24). That walk matches a
+SecondaryTappable for a primary click too, so nothing under the catcher is
+ever clicked directly: the catcher finds what is under the pointer itself.
+
+**It is Draggable so that a drag is not a tap.** Fyne reports a tap on
+release unless a drag began, and a drag begins only on something Draggable.
+Without it a press, any amount of movement and a release was a click, which
+on a panel moved by Meta-drag or by its own surface is not what the hand
+meant.
+
+Its rectangle is filled with color.Transparent rather than left nil: a nil
+fill is invisible under the GL painter and a nil dereference under the
+software one, which would make the window impossible to render to an image
+(quirk 25).
+*/
 type menuCatcher struct {
 	widget.BaseWidget
 	owner *Window
+
+	// moving is set while a drag is in hand, so the move it starts is
+	// started once.
+	moving bool
 }
 
 func newMenuCatcher(owner *Window) *menuCatcher {
@@ -346,11 +360,28 @@ func newMenuCatcher(owner *Window) *menuCatcher {
 	return c
 }
 
-// TappedSecondary opens the menu. The catcher is deliberately not Tappable, so
-// an ordinary click walks past it to whatever is underneath (quirk 24).
+// TappedSecondary opens the menu.
 func (c *menuCatcher) TappedSecondary(e *fyne.PointEvent) {
 	c.owner.ShowMenu(e.AbsolutePosition)
 }
+
+// Tapped hands a primary tap to the panel, which finds the card and the row
+// under it.
+func (c *menuCatcher) Tapped(e *fyne.PointEvent) { c.owner.panel.tapped(e.AbsolutePosition) }
+
+// Dragged is the first movement of a press and every one after it. The first
+// moves the window where the window moves itself (Windows); elsewhere the
+// desktop moves it and there is nothing to do but not be a tap.
+func (c *menuCatcher) Dragged(*fyne.DragEvent) {
+	if c.moving {
+		return
+	}
+	c.moving = true
+	beginMove(c.owner.win)
+}
+
+// DragEnd is the button's release.
+func (c *menuCatcher) DragEnd() { c.moving = false }
 
 func (c *menuCatcher) CreateRenderer() fyne.WidgetRenderer {
 	return widget.NewSimpleRenderer(canvas.NewRectangle(color.Transparent))
@@ -360,4 +391,8 @@ func (c *menuCatcher) CreateRenderer() fyne.WidgetRenderer {
 // reason the window is a pixel bigger than its cards.
 func (c *menuCatcher) MinSize() fyne.Size { return fyne.Size{} }
 
-var _ fyne.SecondaryTappable = (*menuCatcher)(nil)
+var (
+	_ fyne.SecondaryTappable = (*menuCatcher)(nil)
+	_ fyne.Tappable          = (*menuCatcher)(nil)
+	_ fyne.Draggable         = (*menuCatcher)(nil)
+)

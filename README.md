@@ -43,8 +43,8 @@ hand-synced copies.
 | [`settings`](https://pkg.go.dev/github.com/ushineko/fynedesygn/settings) | A program's settings in one file the user can read: one section per top-level key, each decoded into the caller's own type, written a second after the last change. The file extension chooses the format. |
 | [`settings/yamlcodec`](https://pkg.go.dev/github.com/ushineko/fynedesygn/settings/yamlcodec) | YAML for `.yaml` and `.yml`, imported for its effect so a program that writes JSON carries no YAML parser. |
 | [`shell`](https://pkg.go.dev/github.com/ushineko/fynedesygn/shell) | The window skeleton: header, section nav and navigation groups, `Tabs` (a section made of sections), content pane, status bar, busy indicator, banners, `Perform`, section lifecycle, plus the standard Appearance and About sections. |
-| [`glance`](https://pkg.go.dev/github.com/ushineko/fynedesygn/glance) | The other window archetype: a frameless, always-on-top status panel sized to its content, with cards that hide when their source is silent, fixed-width value formatting, a sparkline and a quota meter. |
-| [`glance/kwin`](https://pkg.go.dev/github.com/ushineko/fynedesygn/glance/kwin) | The KDE Plasma window rule a glance window needs — above, no border, and the opacity Fyne cannot draw itself. |
+| [`glance`](https://pkg.go.dev/github.com/ushineko/fynedesygn/glance) | The other window archetype: a frameless, always-on-top status panel sized to its content, with cards that hide when their source is silent, fixed-width value formatting, a sparkline and a quota meter, and a drawer beside the cards for the detail of a reading, with a filter typed from the keyboard. |
+| [`glance/kwin`](https://pkg.go.dev/github.com/ushineko/fynedesygn/glance/kwin) | The KDE Plasma window rule a glance window needs — above, no border, and the opacity Fyne cannot draw itself — and the KWin scripts for what only the compositor can do: place the window, report where it is, hold its right edge, and give the keyboard back. |
 | [`dragout`](https://pkg.go.dev/github.com/ushineko/fynedesygn/dragout) | A wrapper that drags files out of the window into another program — a file manager, a browser's upload field — through the platform's own drag. Wayland and X11; Windows and macOS report it unsupported for now. |
 | [`steps`](https://pkg.go.dev/github.com/ushineko/fynedesygn/steps) | The step list a job shows beside its log, updated in place. |
 | [`wizard`](https://pkg.go.dev/github.com/ushineko/fynedesygn/wizard) | The third window archetype: pages in a fixed order with Back, Next and Cancel, Next held until a page is valid, a progress page that is the point of no return, and a message line and fixed-width buttons so nothing moves. Standard pages for welcome, licence, directory, options, summary, progress and finish. `RunConfirm` is the smaller shape beside it: one question, the job, the result, for an uninstaller. |
@@ -103,7 +103,7 @@ Each example is a complete program with a headless test, in `examples/`, on
 | `settings` | A `forms.Form` over a JSON file, saved a second after the last change through `forms.Saver`, with Revert and the standard Appearance section. |
 | `job-runner` | A `steps.List` beside a `logpane.Pane`, a job run through `PerformCancellable` that advances steps and logs, and one banner for the result. |
 | `document-viewer` | `markdown.Section` over an embedded guide with a mermaid diagram rendered by `go generate`. |
-| `glance-monitor` | Not a shell program: a `glance` panel of four cards — peripherals, bandwidth, a two-trace sparkline over thermals, and two quota meters — with a context menu as its only interface and the KDE window rule offered behind `-kwin`. |
+| `glance-monitor` | Not a shell program: a `glance` panel of four cards — peripherals, bandwidth, a two-trace sparkline over thermals, and two quota meters — with a context menu for its settings, a drawer of processes that a click on a card opens and `f` filters, and the KDE window rule offered behind `-kwin`. |
 | `installer-wizard` | Not a shell program: a `wizard` through every standard page, installing nothing, with a fake job slow enough to cancel and `-fail` to make it fail at its third step. |
 
 ## Used by
@@ -271,6 +271,44 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### Unreleased
+
+- **New**: a drawer beside a glance panel's cards (spec 068, #198).
+  `Panel.Drawer()` is a surface in the same window, as tall as the card stack,
+  for the detail a card has no room for. The window grows sideways to show it
+  and comes back when it closes, and the cards do not move on the screen.
+  `Drawer.Fit` says how many lines the cards' height has room for; the drawer
+  never sets the height and nothing scrolls. `SetSide(Right | Left)` names a
+  side; a new drawer chooses by the room on the screen at each opening. A
+  width the user dragged is a width of the cards and survives it.
+- **New**: `Panel.OnTapped` reports a primary click on a card as a `Tap`: the
+  card, and the row or the meter under the pointer. What a click does is the
+  program's.
+- **New**: `glance.Filter`, a line in a drawer that narrows a list from the
+  keyboard in the manner of btop: `f` starts it, typing narrows, Return keeps
+  it, Escape clears it. The text is a regular expression matched without
+  regard to case, and text that is not one is matched as written.
+  `Drawer.SetFilter` points the window's keys at it.
+- **New**: `Drawer.YieldFocus` gives the keyboard back to the window a person
+  was in before they clicked the panel: when the drawer closes and when a
+  filter ends. Windows does it itself; elsewhere `Drawer.SetYield` takes the
+  program's way.
+- **New**: `kwin.HoldRightEdgeScript`, `kwin.ReportRoomScript` and
+  `kwin.YieldFocusScript`, for the three things a drawer needs that only the
+  compositor can do on Wayland: grow a window leftwards, say how much room is
+  beside it, and give the keyboard to another window.
+- **Change**: on Windows a glance window's move starts on the first movement
+  of a press and not on the press, so a press that does not move is a click.
+  A drag moves and snaps the window as before.
+- **Change**: a press that moves before its release is no longer a tap on a
+  glance window, on any desktop (quirk 50). Every glance window now has the
+  catcher that reports clicks, with or without a menu.
+- **Change**: `glance-monitor` adds its meters with `Card.Add`, has a drawer
+  of generated processes with a filter, and takes `-drawer auto|right|left`
+  and `-drawer-edge-held`.
+- Quirks 48 to 50: a click after the compositor moved the window, a window
+  hidden and shown, and a press that moves.
 
 ### 0.1.96 (2026-10-09)
 

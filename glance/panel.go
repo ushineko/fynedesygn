@@ -47,6 +47,29 @@ type Panel struct {
 	bg    *canvas.Rectangle
 	root  *fyne.Container
 
+	// body is the cards and the drawer side by side.
+	body   *fyne.Container
+	drawer *Drawer
+
+	// OnTapped is called, on the UI thread, for a primary click on a card
+	// that is drawn, with what the click landed on. See Tap. A press that
+	// moves before its release is a drag and is not reported.
+	OnTapped func(Tap)
+
+	// stale is how far the window's content has moved under a pointer that
+	// was not told, and staleAt where that pointer last clicked. See
+	// tapped.
+	stale   float32
+	staleAt fyne.Position
+
+	// selfMoving is whether the window can move itself (movesItself). It is
+	// a field so that both answers are tested on one system.
+	selfMoving bool
+
+	// hook is run after each resize, for the window to do what needs a
+	// native window to exist. Nil for a panel with no glance window.
+	hook func()
+
 	win      fyne.Window
 	minWidth float32
 
@@ -83,6 +106,9 @@ type Panel struct {
 	// panel's own request and dropped it -- a window that could be dragged
 	// wider and snapped back a second later.
 	chosen float32
+
+	// drawerShown is the drawer's share of the width last asked for.
+	drawerShown float32
 }
 
 // NewPanel builds an empty panel. minWidth of 0 means MinWidth.
@@ -95,8 +121,9 @@ func NewPanel(minWidth float32) *Panel {
 		minWidth = MinWidth
 	}
 	p := &Panel{
-		bg:       canvas.NewRectangle(nil),
-		minWidth: minWidth,
+		bg:         canvas.NewRectangle(nil),
+		minWidth:   minWidth,
+		selfMoving: movesItself,
 	}
 	// One layout for both arrangements rather than two containers swapped
 	// under the window: the arrangement is a setting and can change while the
@@ -119,7 +146,9 @@ func NewPanel(minWidth float32) *Panel {
 	// than as an overlay -- an overlay takes every pointer event in the
 	// window while it is up (quirk 26), which on a panel means the context
 	// menu stops opening whenever a note is showing. See Card.SetTip.
-	p.root = container.NewStack(p.bg, p.stack, widgets.NewTipLayer())
+	p.drawer = newDrawer(p)
+	p.body = container.New(&drawerLayout{panel: p}, p.stack, p.drawer.frame)
+	p.root = container.NewStack(p.bg, p.body, widgets.NewTipLayer())
 	return p
 }
 
@@ -261,6 +290,7 @@ func (p *Panel) Drawn() int {
 func (p *Panel) Attach(w fyne.Window) {
 	p.win = w
 	w.SetContent(p.content())
+	p.drawer.wireKeys()
 	p.Resize()
 }
 
@@ -317,6 +347,7 @@ func (p *Panel) SetTheme(th fyne.Theme) {
 	for _, c := range p.cards {
 		c.SetTheme(th)
 	}
+	p.drawer.SetTheme(th)
 
 	if p.win != nil {
 		p.win.SetContent(p.content())
@@ -324,14 +355,12 @@ func (p *Panel) SetTheme(th fyne.Theme) {
 	p.Restyle()
 }
 
-// Size is the size the window should be: the content's minimum, widened to the
-// panel's floor. It is exported so a test can assert the window shrank without
+// Size is the size the window should be: the cards' minimum, widened to the
+// panel's floor, and the drawer beside them when it is open. It is exported so a test can assert the window shrank without
 // needing a compositor.
 func (p *Panel) Size() fyne.Size {
-	s := p.root.MinSize()
-	if s.Width < p.minWidth {
-		s.Width = p.minWidth
-	}
+	s := p.cardsSize()
+	s.Width += p.drawer.extra()
 	return s
 }
 
@@ -356,7 +385,11 @@ func (p *Panel) resize(fit bool) {
 	}
 	p.stack.Refresh()
 
-	want := p.Size()
+	// The widths below are the cards' alone: the drawer's is added at the end,
+	// so a width the user dragged is a width of the cards and survives the
+	// drawer opening and closing.
+	extra := p.drawer.extra()
+	want := p.cardsSize()
 
 	/*
 		The user's width is theirs, and the trick is telling it from a width
@@ -381,7 +414,7 @@ func (p *Panel) resize(fit bool) {
 		band.
 	*/
 	if p.resizable {
-		current := p.win.Canvas().Size().Width
+		current := p.win.Canvas().Size().Width - p.drawerShown
 		switch {
 		case fit:
 			p.chosen = 0
@@ -391,8 +424,13 @@ func (p *Panel) resize(fit bool) {
 		want.Width = max(want.Width, p.chosen)
 	}
 	p.asked, p.sized = want.Width, true
+	p.drawerShown = extra
+	want.Width += extra
 
 	p.win.Resize(want)
+	if p.hook != nil {
+		p.hook()
+	}
 }
 
 // Restyle repaints the panel and every card in the current theme, after a
@@ -419,6 +457,8 @@ func (p *Panel) Restyle() {
 	for _, c := range p.cards {
 		c.Restyle()
 	}
+	p.drawer.Restyle()
+	p.body.Refresh()
 	p.resize(true)
 }
 

@@ -64,6 +64,18 @@ is not Fyne. A program that already has a session bus connection makes the call
 itself; one that does not can tell the user to log out and back in, which has
 the same effect.
 
+# A drawer
+
+A glance drawer (glance.Drawer) asks three more things of the compositor on
+Wayland, each a script here: HoldRightEdgeScript keeps the window's right
+edge while a drawer on the left opens and closes, ReportRoomScript says how
+much room the window has on each side, and YieldFocusScript gives the keyboard
+back to the window the person was in.
+
+KWin loads a script only from an absolute path. Given a relative one,
+loadScript returns an id, run returns true, and nothing runs; there is no
+error in the journal either.
+
 # Other desktops
 
 There is no equivalent package for GNOME, Windows or macOS yet, and none is

@@ -60,7 +60,10 @@ func TestANewOrderIsTheGridsOrder(t *testing.T) {
 	p.SetArrangement(glance.Grid)
 	require.NoError(t, p.SetOrder(c[1], c[2], c[0]))
 	assert.Equal(t, []*glance.Card{c[1], c[2], c[0]}, p.Cards())
-	stack := p.Content().(*fyne.Container).Objects[1].(*fyne.Container)
+	// The cards are the first object of the body, which holds them and the
+	// drawer side by side (spec 068).
+	body := p.Content().(*fyne.Container).Objects[1].(*fyne.Container)
+	stack := body.Objects[0].(*fyne.Container)
 	require.Len(t, stack.Objects, 3)
 	assert.Same(t, c[1].Object(), stack.Objects[0])
 	assert.Same(t, c[2].Object(), stack.Objects[1])

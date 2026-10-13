@@ -53,6 +53,7 @@ decorates it anyway.
 - [Colour is the legend](#colour-is-the-legend)
 - [Trend plots](#trend-plots)
 - [The context menu is the whole interface](#the-context-menu-is-the-whole-interface)
+- [A drawer beside the cards](#a-drawer-beside-the-cards)
 - [Degradation](#degradation)
 - [Alerting is not the window's job](#alerting-is-not-the-windows-job)
 - [Cadence](#cadence)
@@ -69,7 +70,7 @@ decorates it anyway.
 | Header carries the app name and a few actions | No header, no app name, no buttons | The name is knowledge the reader already has. Chrome is the majority of a 260 px window |
 | Nav is a list of section titles | No nav. Every card is visible at once | Four cards do not need an index |
 | Nothing transient may reflow the interface | Still binding, and harder: the window itself resizes, so a card appearing moves the whole panel | See [Sizing](#sizing) |
-| A control says what it is in its label; guidance goes in a hover tip | Almost nothing is a control. Configuration is in the context menu | See [The context menu](#the-context-menu-is-the-whole-interface) |
+| A control says what it is in its label; guidance goes in a hover tip | Almost nothing is a control. Configuration is in the context menu, and a click on a reading opens its detail | See [The context menu](#the-context-menu-is-the-whole-interface) and [A drawer beside the cards](#a-drawer-beside-the-cards) |
 | A button that cannot be used is disabled, never hidden | A card with no data is **hidden**, not disabled or blanked | A disabled row still occupies a row. An absent sensor should cost nothing |
 | Every long call gets a busy indicator | Polls are silent. A stale value is dimmed, never replaced by a spinner | A busy popup over a 260 px window covers the window. See [Degradation](#degradation) |
 | Loaded data carries an explicit loaded flag | Unchanged, and load-bearing: "not read yet", "read and absent" and "was read, source has gone" are three different renderings |
@@ -118,12 +119,14 @@ cost.
   frameless glance window hands a primary press anywhere on it to Windows as
   a press on the caption (`WM_NCLBUTTONDOWN`, `HTCAPTION`) -- the system's
   own move loop, which is what `startSystemMove()` is on Qt. The press is
-  taken by the window's catcher, so on Windows a glance window has one
+  taken by the window's catcher, which every glance window has
   whether or not it has a menu. Spec 052, `glance/move_windows.go`.
 
-  The move loop takes the release too, so on Windows a primary click on a
-  glance window reaches nothing inside it. That is safe because a glance
-  window is read, not clicked; a control placed in one would not work there.
+  The move starts at the first movement of a press, not at the press
+  (spec 068). A press that does not move is therefore a click, and the panel
+  reports it; see [A drawer beside the cards](#a-drawer-beside-the-cards). A
+  control placed in a glance window still does not work on any desktop: the
+  catcher is above it and receives the click.
 
   **A drag snaps to the screen's edges on both desktops.** On KDE the
   compositor does it: its border snap zone, 10 px by default, pulls a window
@@ -923,6 +926,132 @@ changes each setting seldom and reads it never.
 - Anything that opens over the window calls `widgets.HideTips` first
   (quirk 27), as everywhere else.
 
+The menu holds the settings. It does not hold the detail of a reading: a menu
+item cannot say which row the person means. A click on the reading does that,
+and the next section is its rule.
+
+## A drawer beside the cards
+
+A card draws one reading on each line. It has no room for the detail of that
+reading: the processes that make a bandwidth rate, or a quota with all its
+parts. `Card.SetTip` shows a short note on hover, but a note cannot hold a
+list that changes or receive a key.
+
+A **drawer** is a surface beside the card stack for that detail (spec 068).
+`Panel.Drawer()` returns it. Every panel has one, and it is closed until the
+program opens it.
+
+![The glance-monitor example with its drawer open on the right: four cards on the left, and beside them a surface of the same height with the heading "Bandwidth by process", a dimmed "f  filter" line, and a list of process names, each with a rate aligned right in a monospace column and the largest rate at the top.](img/glance-drawer.png)
+
+### One window
+
+- **The drawer is in the same window as the cards.** A second window needs a
+  position beside the first, and it must keep that position during a drag.
+  On Wayland only the compositor can do that.
+- **The drawer has the height of the card stack and never sets it.** The
+  window stays the height of its cards. `Drawer.Fit` returns the number of
+  lines that fit, and the program draws that number. There is still no
+  scroller.
+- **The drawer has the surface of a card**: the same fill, border, radius and
+  margins, `CardGap` away from the cards. Its width is `DrawerWidthInEms`
+  text sizes, in the face of the panel.
+- **To open or close the drawer is a change of shape**, like a card that
+  appears. The panel resizes the window one time, in the same call. A reading
+  that changes in the drawer must not resize the window, so format each value
+  to a fixed width as in a card.
+- **A width that the user dragged is a width of the cards.** The panel keeps
+  it when the drawer opens and closes.
+
+### A click says which reading
+
+A glance window is a window that a person reads. A click is the one
+exception, and it has one meaning: the person wants more of this reading.
+
+- `Panel.OnTapped` receives a `Tap` for each primary click on a card. The
+  `Tap` names the card, and the row or the meter under the pointer.
+- **The library does not decide what a click does.** The convention is: a
+  click opens the drawer on that reading, a click on another reading changes
+  the subject, and a click on the same reading closes the drawer. The
+  glance-monitor example does this.
+- **A press that moves is a drag and not a click**, on every desktop
+  (quirk 50). On Windows the drag moves the window.
+- **Do not open the drawer on hover.** The pointer crosses a panel many times
+  a day, and a drawer that opens each time is a fault.
+
+### The side
+
+- `Drawer.SetSide` sets `Right` or `Left` and keeps it. A new drawer selects
+  the side at each opening instead: the right side when the drawer fits
+  there, the left side when it fits only there.
+- **The cards do not move on the screen on either side.** On the right the
+  window keeps its origin. On the left the window keeps its right edge, so it
+  must move as it becomes wider.
+- **On Windows the window does both itself.** It reads its position against
+  the work area of its monitor, and it moves itself.
+- **On Wayland the compositor does both.** A program cannot read the position
+  of its window (quirk 33) or move it. On Plasma `kwin.ReportRoomScript`
+  reports the room on each side in 1 to 2 ms, and the program gives the
+  answer to `Drawer.Choose`. `kwin.HoldRightEdgeScript` keeps the right edge
+  while it is loaded, and the program then calls `Drawer.SetEdgeHeld(true)`.
+- **Load the hold script only while the drawer is on the left.** The script
+  cannot know the side. If it is loaded for a drawer on the right, that
+  drawer also opens to the left.
+- **A drawer that cannot open to the left opens on the right.** The other
+  result is a set of cards that jumps sideways under the pointer.
+- After the compositor moves the window, the next click has the old pointer
+  position (quirk 48). The panel corrects a click that arrives at the same
+  position as the last one.
+
+### A filter from the keyboard
+
+`glance.Filter` is one line in the drawer that makes a list shorter, as the
+`f` key does in btop.
+
+- `Drawer.SetFilter` connects the keys of the window to the filter while the
+  drawer is open. The filter key (`f` by default) starts the filter. Each
+  character makes the list shorter immediately. Backspace removes a
+  character, Return keeps the filter, and Escape removes it.
+- **The line is always in the drawer**, so a filter that starts or stops
+  moves no row. The line shows the key as a hint, then the text with a
+  cursor, then the filter that is in effect.
+- **The text is a regular expression, and the match ignores case.** Text that
+  is not a valid expression is matched as plain text, in the warning colour.
+  An expression that is half typed therefore does not empty the list.
+- **The filter does not hold the list.** The program calls `Filter.Matches`
+  for each name, and draws again when `Filter.OnChanged` runs.
+- **The filter is not an entry widget.** The catcher receives every click, so
+  a person cannot click into an entry. A focused widget also receives the
+  keys of the whole canvas.
+
+### The keyboard goes back
+
+The click that opens the drawer makes the panel the active window. The next
+keys go to the panel and not to the program the person was in. A panel must
+not keep them.
+
+- **`Drawer.YieldFocus` gives the keyboard back** to the window that had it.
+  The drawer calls it when it closes, and the filter calls it at Return and
+  at Escape. It acts only when the panel has the keyboard.
+- **On Windows the system does it.** The window records the foreground window
+  when a click activates it (`WM_MOUSEACTIVATE`), and makes that window the
+  foreground window again.
+- **On Wayland a client cannot do it.** No request gives the focus to another
+  program. A window that is hidden and shown again gets the focus back and
+  loses its position (quirk 49). The program gives `Drawer.SetYield` a
+  function, and on Plasma that function runs `kwin.YieldFocusScript`, which
+  needs 1.3 to 1.5 ms.
+- **The Plasma script selects the window below the panel in the stacking
+  order.** That is the previous window in almost every case, but the stacking
+  order is not the focus history.
+- **A panel whose rule refuses the focus cannot have a filter.** With
+  `kwin.Rule.NoFocus` the panel is never the active window, and no key
+  arrives. A click still opens the drawer.
+- On a Wayland desktop that is not Plasma, the panel keeps the keyboard after
+  a click.
+
+KWin loads a script only from an absolute path. With a relative path
+`loadScript` returns an id, `run` returns true, and the script does not run.
+
 ## Degradation
 
 Each card decides what it shows when its source fails, and none of them shows
@@ -1046,3 +1175,5 @@ number. See design-system.md, Numbers.
 | Alert confirm / alert repeat | 3 consecutive polls (~15 s) / 10 minutes |
 | Bandwidth numeric column | 5 characters, right aligned, monospace |
 | Indicator hold after the last change | 1.5 s (`glance.DefaultHold`) |
+| Drawer width | 24 text sizes (`glance.DrawerWidthInEms`) |
+| Filter key | `f` (`glance.DefaultFilterKey`) |

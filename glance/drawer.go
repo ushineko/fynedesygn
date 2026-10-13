@@ -452,12 +452,24 @@ func (p *Panel) cardsSize() fyne.Size {
 	return s
 }
 
-// reshape resizes the window after the drawer's width changed from before,
-// moving the window's origin when the drawer is on the left.
+/*
+reshape resizes the window after the drawer's width changed from before,
+moving the window's origin when the drawer is on the left.
+
+**The window is resized before the body is laid out again.** Laid out first,
+at the size the window still had, the cards were given what was left after
+the drawer: a few units, in a window not yet widened for it. A card whose
+height depends on its width, cells that wrap to the next row, measured itself
+at that width, and the window was resized to that height: a peripherals card
+of four cells, two to a row, was measured four rows tall, and the window
+stood 141 px too tall under its cards until the next reading resized it.
+Resize measures the cards as they are, which is at the width they have had
+all along, and Fyne lays the body out at the new size.
+*/
 func (p *Panel) reshape(before float32) {
 	after := p.drawer.extra()
-	p.body.Refresh()
 	if p.win == nil {
+		p.body.Refresh()
 		return
 	}
 	// Growing leftwards moves before it grows and shrinking moves after, so
@@ -465,10 +477,11 @@ func (p *Panel) reshape(before float32) {
 	if after > before {
 		p.shift(before, after)
 		p.Resize()
-		return
+	} else {
+		p.Resize()
+		p.shift(before, after)
 	}
-	p.Resize()
-	p.shift(before, after)
+	p.body.Refresh()
 }
 
 // shift moves the window's origin for a left drawer whose width went from

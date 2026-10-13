@@ -161,6 +161,44 @@ func TestADraggedWidthSurvivesTheDrawer(t *testing.T) {
 		"the user's width was lost to the drawer")
 }
 
+// A card whose height depends on its width keeps its height when the drawer
+// opens and closes. Four cells are two to a row at the card's width and one
+// to a row at a few units; the cards were laid out at a few units on the way
+// to opening, in a window not yet widened, and the window was sized to four
+// rows of cells.
+func TestOpeningTheDrawerDoesNotMeasureTheCardsAtTheWrongWidth(t *testing.T) {
+	w := newTestWindow(t, glance.Options{Title: "drawer"})
+	w.Window().SetPadded(false)
+	devices := glance.NewCard("Peripherals")
+	grid := glance.NewCellGrid()
+	for _, name := range []string{"Mouse", "Keyboard", "Headset", "Controller"} {
+		grid.Add(glance.NewCell(name, "100 %"))
+	}
+	devices.Add(grid)
+	w.Panel().Add(devices)
+	devices.SetAvailable(true)
+	w.Window().Show()
+	w.Panel().Resize()
+	closed := w.Window().Canvas().Size()
+	d := w.Panel().Drawer()
+
+	for _, side := range []glance.Side{glance.Right, glance.Left} {
+		w.Panel().SetSelfMoving(side == glance.Left)
+		d.SetSide(side)
+		d.SetOpen(true)
+		open := w.Window().Canvas().Size()
+		assert.Greater(t, open.Width, closed.Width)
+		assert.InDelta(t, closed.Height, open.Height, 0.01,
+			"the window changed height when the drawer opened on side %d", side)
+
+		d.SetOpen(false)
+		back := w.Window().Canvas().Size()
+		assert.InDelta(t, closed.Width, back.Width, 0.01)
+		assert.InDelta(t, closed.Height, back.Height, 0.01,
+			"the window changed height when the drawer closed on side %d", side)
+	}
+}
+
 // A window is a whole number of pixels wide, so the width it has is rarely
 // the width asked for to the last fraction. That fraction is nobody's choice
 // of width: it is not kept, and a drawer opened and closed any number of

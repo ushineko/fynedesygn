@@ -113,6 +113,11 @@ type Panel struct {
 
 	// drawerShown is the drawer's share of the width last asked for.
 	drawerShown float32
+
+	// before is the whole width asked for before the one asked for now,
+	// drawer and all: the size a window is put back to by an answer from the
+	// compositor that was already on its way. See resize.
+	before float32
 }
 
 // NewPanel builds an empty panel. minWidth of 0 means MinWidth.
@@ -423,9 +428,21 @@ func (p *Panel) resize(fit bool) {
 		case fit:
 			p.chosen = 0
 		case p.sized && !p.sameWidth(current, p.asked):
-			p.chosen = current
+			// The width this panel asked for the time before is not a
+			// choice either. A compositor answers a change of focus with
+			// the size it last knew, and when that crosses a resize on its
+			// way the window is put back to the size it just left: closing
+			// a drawer and handing the keyboard back in the same moment
+			// left the window at its open width, and read as the user's
+			// that width went to the cards. It is asked for again below.
+			if !p.sameWidth(p.win.Canvas().Size().Width, p.before) {
+				p.chosen = current
+			}
 		}
 		want.Width = max(want.Width, p.chosen)
+	}
+	if total := p.asked + p.drawerShown; p.sized && !p.sameWidth(total, want.Width+extra) {
+		p.before = total
 	}
 	p.asked, p.sized = want.Width, true
 	p.drawerShown = extra

@@ -27,12 +27,18 @@ const (
 // MouseDown notes where the pointer was when the button went down, which is
 // the point the window is held by if this press becomes a drag.
 func (c *menuCatcher) MouseDown(e *desktop.MouseEvent) {
-	c.pressed = e.Button == desktop.MouseButtonPrimary
-	if c.pressed {
+	delete(presses, c)
+	if e.Button == desktop.MouseButtonPrimary {
 		// The press's own position: this runs inside the message's callback.
-		c.pressAt = messagePos()
+		presses[c] = messagePos()
 	}
 }
+
+// presses holds, for a catcher whose primary button is down, where the
+// pointer was on the screen when it went down. It is here and not a field of
+// the catcher because only Windows has a use for it. Read and written on the
+// UI thread alone.
+var presses = map[*menuCatcher]point{}
 
 // MouseUp is part of desktop.Mouseable and has nothing to do.
 func (c *menuCatcher) MouseUp(*desktop.MouseEvent) {}
@@ -60,18 +66,19 @@ there.
 */
 func beginMove(c *menuCatcher) {
 	win := c.owner.win
-	if hwnd := hwndOf(win); hwnd != 0 && c.pressed {
+	pressAt, pressed := presses[c]
+	delete(presses, c)
+	if hwnd := hwndOf(win); hwnd != 0 && pressed {
 		var now point
 		var r edges
 		_, _, _ = getCursorPos.Call(uintptr(unsafe.Pointer(&now)))
 		if ok, _, _ := getWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&r))); ok != 0 {
 			const noSize, noZOrder, noActivate = 0x0001, 0x0004, 0x0010
 			_, _, _ = setWindowPos.Call(hwnd, 0,
-				uintptr(r.left+now.x-c.pressAt.x), uintptr(r.top+now.y-c.pressAt.y),
+				uintptr(r.left+now.x-pressAt.x), uintptr(r.top+now.y-pressAt.y),
 				0, 0, noSize|noZOrder|noActivate)
 		}
 	}
-	c.pressed = false
 	startMove(win)
 }
 

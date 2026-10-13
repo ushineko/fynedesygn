@@ -498,4 +498,8 @@ type pointer struct {
 	x, y  float64
 	heard bool
 	moved float32
+
+	// watched is set once the window's focus is being watched, to say the
+	// place again when Fyne forgets it.
+	watched bool
 }

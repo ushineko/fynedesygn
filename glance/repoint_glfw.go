@@ -4,6 +4,7 @@ package glance
 
 import (
 	"fyne.io/fyne/v2"
+	"github.com/go-gl/glfw/v3.4/glfw"
 
 	"github.com/ushineko/fynedesygn/internal/glfwwin"
 )
@@ -28,6 +29,13 @@ it reported at the last call, the pointer has not moved and the moves add up;
 once it reports another, the pointer has been heard from and they start again
 from nothing.
 
+**It is said again whenever the focus changes.** Fyne forgets its pointer
+position when the window loses the focus, and at the next click asks GLFW,
+which still has the one from before the move. A panel gives the focus away as
+a matter of course (Drawer.YieldFocus), so the click after that was lost in
+the same way: measured on Plasma, an in-place click after the keyboard had
+been handed back reached nothing until the pointer moved a pixel.
+
 Fyne does not hand out its GLFW window, so it is read from the window's
 unexported field (glfwwin.ViewportOf), as the tips' leave watcher reads it.
 Where that cannot be done -- a test window, another driver, a Fyne that
@@ -46,6 +54,33 @@ func repoint(win fyne.Window, at *pointer, dx float32) bool {
 	at.x, at.y, at.heard = x, y, true
 	at.moved += dx
 
+	if !say(win, view, at) {
+		return false
+	}
+	if !at.watched {
+		at.watched = true
+		// After Fyne's own handler, which is where the position is
+		// forgotten.
+		var focus glfw.FocusCallback
+		focus = view.SetFocusCallback(func(w *glfw.Window, focused bool) {
+			if focus != nil {
+				focus(w, focused)
+			}
+			say(win, w, at)
+		})
+	}
+	return true
+}
+
+// say gives Fyne the pointer's place as it stands: where GLFW last heard it,
+// moved by what the window has moved since. It says nothing once the pointer
+// has been heard from again, because Fyne then has the truth.
+func say(win fyne.Window, view *glfw.Window, at *pointer) bool {
+	x, y := view.GetCursorPos()
+	if !at.heard || x != at.x || y != at.y {
+		at.moved = 0
+		return true
+	}
 	// The callback is Fyne's, the only one registered. Reading it means
 	// taking it off and putting it back, which is two calls on this thread
 	// with nothing between them.

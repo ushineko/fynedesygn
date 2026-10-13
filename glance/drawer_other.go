@@ -28,4 +28,4 @@ func hookWindow(fyne.Window) {}
 
 // beginMove does nothing here: the desktop moves a frameless window, with
 // Meta-drag or a window rule.
-func beginMove(fyne.Window) {}
+func beginMove(*menuCatcher) {}

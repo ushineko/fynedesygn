@@ -2,11 +2,7 @@
 
 **Issue**: [#198](https://github.com/ushineko/fynedesygn/issues/198)
 
-## Status: INCOMPLETE
-
-Built, with its headless tests passing and falsified, and checked on Plasma
-6.7.5 on Wayland. The real-window tests on Windows are written and not yet
-run against this build; see Acceptance Criteria.
+## Status: COMPLETE
 
 ## Executive Summary
 
@@ -196,20 +192,20 @@ Headless, `go test ./...` on Windows 11 with Go 1.27, each falsified
   the filter narrows it; the window is one size through twenty polls with the
   drawer open (`examples/glance-monitor/drawer_test.go`).
 
-On a real window, written and to be run (`FYNEDESYGN_WINDOW_TEST=1`; they
-take the pointer):
+On a real window on Windows 11 (`FYNEDESYGN_WINDOW_TEST=1`; they take the
+pointer):
 
-- [ ] Windows: a real click opens the drawer and a second closes it, on a
+- [x] Windows: a real click opens the drawer and a second closes it, on a
   named right, a named left, by room mid-screen and by room near the right
   edge; the edge the drawer is not on is the same pixel
   (`TestADrawerOpensBesideTheCardsOnWindows`).
-- [ ] Windows: a drag still moves the window and is not a click, and a click
+- [x] Windows: a drag still moves the window and is not a click, and a click
   after it is (`TestADragMovesTheWindowAndIsNotAClick`); spec 058's two
   real-window tests pass unchanged.
-- [ ] Windows: the foreground window is the one before the click after the
+- [x] Windows: the foreground window is the one before the click after the
   drawer closes, after Return and after Escape
   (`TestTheKeyboardGoesBackToTheWindowThatHadIt`).
-- [ ] Windows: a filter typed does not resize the window
+- [x] Windows: a filter typed does not resize the window
   (`TestAFilterTypedDoesNotResizeTheWindow`).
 On Plasma 6.7.5 on Wayland, with the three scripts as the library returns
 them, run by a scratch program:
@@ -238,10 +234,13 @@ them, run by a scratch program:
   `TestANewOrderIsTheGridsOrder` indexed into the panel's tree and now reaches
   the stack through the body.
 - Changing the Windows press from "move now" to "move on the first movement"
-  touches the path spec 052 and spec 058 depend on. The grab point is a few
-  pixels from the press; the snap code takes its own from the move loop, so
-  snapping is unaffected. Confirmed by hand on the prototype; the real-window
-  tests are the guard.
+  touches the path spec 052 and spec 058 depend on, and it broke them: the
+  toolkit reports a drag a frame or so after the pointer began to move, the
+  move loop measures from where the pointer is when it starts, and the window
+  trailed the hand by what was covered in between. Spec 058's two real-window
+  tests caught it. The window is now moved up to the hand before the loop
+  starts (`beginMove`), which is one small jump at the start of a quick
+  drag.
 - **Fyne's drag threshold is 2 units.** A click during which the pointer
   moves two pixels is a drag: on Windows the window moves by that much and
   the drawer does not open. Not seen by hand; a hand that is unsteady on the
@@ -437,3 +436,20 @@ Plasma 6.7.5 on Wayland, scale 1.5, the later commits, by the same session:
 
 Linux (CachyOS), all four commits, in a scratch clone: `make lint`, 0 issues;
 `make test`, with the race detector, every package passes.
+
+Windows 11, the real-window tests, with the real pointer:
+
+- First run: the drawer on each side and by room, the keyboard going back and
+  the filter passed. **The three drag tests failed.** A window dragged to
+  (950, 599) stopped at (959, ...); one dropped 6 px from the left edge and
+  4 px below the top was at (62, 39), a whole step of the test's drag short,
+  and so out of reach of the snap; one taken through the top edge and on to
+  y=659 was at 673. The cause and the mend are under Risks.
+- After it, all six pass: closed 1130..1430 to open 1130..1729 on a named
+  right and by room mid-screen; to 831..1430 on a named left; 2220..2520 to
+  1921..2520 by room 40 px from the right edge, and to 2220..2819 on a named
+  right there; each back to the rectangle it had on a second click without
+  moving the pointer. A window dropped at (6, 4) is at (0, 0), and one taken
+  through the top edge to (1130, 659) is at (1130, 659).
+- The keyboard test fails with the hand-back disabled, on all three of its
+  claims. The drag tests were falsified by the fault itself.

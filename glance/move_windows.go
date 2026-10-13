@@ -6,6 +6,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/driver"
+	"fyne.io/fyne/v2/driver/desktop"
 )
 
 var (
@@ -23,15 +24,56 @@ const (
 	htCaption       = 2
 )
 
-// beginMove moves the window with the drag that has just begun, as a drag on
-// a titlebar would.
-//
-// It runs on the first movement of a press and not on the press, so a press
-// that does not move is a click (spec 068). Windows has no Alt-drag and no
-// window rule to fall back on: a glance window there, with no titlebar,
-// opened in the middle of the screen, on top of everything, and stayed there
-// (spec 052).
-func beginMove(win fyne.Window) { startMove(win) }
+// MouseDown notes where the pointer was when the button went down, which is
+// the point the window is held by if this press becomes a drag.
+func (c *menuCatcher) MouseDown(e *desktop.MouseEvent) {
+	c.pressed = e.Button == desktop.MouseButtonPrimary
+	if c.pressed {
+		// The press's own position: this runs inside the message's callback.
+		c.pressAt = messagePos()
+	}
+}
+
+// MouseUp is part of desktop.Mouseable and has nothing to do.
+func (c *menuCatcher) MouseUp(*desktop.MouseEvent) {}
+
+var _ desktop.Mouseable = (*menuCatcher)(nil)
+
+/*
+beginMove moves the window with the drag that has just begun, as a drag on a
+titlebar would.
+
+It runs on the first movement of a press and not on the press, so a press
+that does not move is a click (spec 068). Windows has no Alt-drag and no
+window rule to fall back on: a glance window there, with no titlebar, opened
+in the middle of the screen, on top of everything, and stayed there
+(spec 052).
+
+**The window is first brought up to the hand.** The toolkit reports a drag a
+frame or so after the pointer began to move, and the system's move loop
+measures from where the pointer is when it starts. What the pointer covered
+in between was lost: the window trailed the point it was grabbed by, by 14 px
+in a slow drag and 56 in a quick one, and a window dropped a few pixels from
+an edge was not within the snap distance of it. So the window is moved by
+what the pointer has moved since the press, and the loop takes over from
+there.
+*/
+func beginMove(c *menuCatcher) {
+	win := c.owner.win
+	if hwnd := hwndOf(win); hwnd != 0 && c.pressed {
+		var now point
+		var r edges
+		_, _, _ = getCursorPos.Call(uintptr(unsafe.Pointer(&now)))
+		if ok, _, _ := getWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&r))); ok != 0 {
+			const noSize, noZOrder, noActivate = 0x0001, 0x0004, 0x0010
+			_, _, _ = setWindowPos.Call(hwnd, 0,
+				uintptr(r.left+now.x-c.pressAt.x), uintptr(r.top+now.y-c.pressAt.y),
+				0, 0, noSize|noZOrder|noActivate)
+		}
+	}
+	c.pressed = false
+	startMove(win)
+}
 
 /*
 startMove hands the drag to Windows as a press on the caption, which is how a

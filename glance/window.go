@@ -352,6 +352,12 @@ type menuCatcher struct {
 	// moving is set while a drag is in hand, so the move it starts is
 	// started once.
 	moving bool
+
+	// pressAt is where the pointer was, on the screen, when the primary
+	// button went down, and pressed whether it has. Windows only: it is the
+	// point a window that moves itself is held by.
+	pressAt point
+	pressed bool
 }
 
 func newMenuCatcher(owner *Window) *menuCatcher {
@@ -377,7 +383,7 @@ func (c *menuCatcher) Dragged(*fyne.DragEvent) {
 		return
 	}
 	c.moving = true
-	beginMove(c.owner.win)
+	beginMove(c)
 }
 
 // DragEnd is the button's release.

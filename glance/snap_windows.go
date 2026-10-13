@@ -92,6 +92,7 @@ func snapWindowProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 	if msg == wmNCDestroy {
 		delete(snapping, hwnd)
 		delete(grabs, hwnd)
+		delete(holds, hwnd)
 		delete(before, hwnd)
 	}
 	snapMu.Unlock()
@@ -130,7 +131,23 @@ func snapWindowProc(hwnd, msg, wparam, lparam uintptr) uintptr {
 // threshold, and the window would jump by that much.
 func grab(hwnd uintptr) {
 	snapMu.Lock()
-	grabs[hwnd] = grip{}
+	// A drag that began as a press on the window knows the point it is held
+	// by (holdBy): the first WM_MOVING is then too late to learn it from,
+	// because the pointer moved between the press and the loop starting.
+	grabs[hwnd] = holds[hwnd]
+	delete(holds, hwnd)
+	snapMu.Unlock()
+}
+
+// holds is, for a window about to be moved, the point it is held by, known
+// before the move loop starts. Guarded by snapMu.
+var holds = map[uintptr]grip{}
+
+// holdBy says where on the window the pointer is holding it, for the move
+// that is about to start.
+func holdBy(hwnd uintptr, at point) {
+	snapMu.Lock()
+	holds[hwnd] = grip{at: at, set: true}
 	snapMu.Unlock()
 }
 

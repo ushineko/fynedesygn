@@ -73,6 +73,13 @@ func beginMove(c *menuCatcher) {
 		var r edges
 		_, _, _ = getCursorPos.Call(uintptr(unsafe.Pointer(&now)))
 		if ok, _, _ := getWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&r))); ok != 0 {
+			// The window has not moved since the press, so this is the
+			// point it is held by. The move loop is told, because the
+			// pointer moves again before the loop starts and what it covers
+			// then would be lost in the same way: each WM_MOVING puts the
+			// window where the pointer is, less this.
+			snapEdges(hwnd)
+			holdBy(hwnd, point{x: pressAt.x - r.left, y: pressAt.y - r.top})
 			const noSize, noZOrder, noActivate = 0x0001, 0x0004, 0x0010
 			_, _, _ = setWindowPos.Call(hwnd, 0,
 				uintptr(r.left+now.x-pressAt.x), uintptr(r.top+now.y-pressAt.y),

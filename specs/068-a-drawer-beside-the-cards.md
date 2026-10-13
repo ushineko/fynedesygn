@@ -240,7 +240,9 @@ them, run by a scratch program:
   trailed the hand by what was covered in between. Spec 058's two real-window
   tests caught it. The window is now moved up to the hand before the loop
   starts (`beginMove`), which is one small jump at the start of a quick
-  drag.
+  drag, and the loop is told the point the window is held by (`holdBy`), so
+  what the pointer covers between that and the loop starting is not lost
+  either.
 - **Fyne's drag threshold is 2 units.** A click during which the pointer
   moves two pixels is a drag: on Windows the window moves by that much and
   the drawer does not open. Not seen by hand; a hand that is unsteady on the
@@ -453,3 +455,8 @@ Windows 11, the real-window tests, with the real pointer:
   through the top edge to (1130, 659) is at (1130, 659).
 - The keyboard test fails with the hand-back disabled, on all three of its
   claims. The drag tests were falsified by the fault itself.
+- Moving the window up to the hand was not enough by itself: the test that
+  takes a window through the top edge then failed two runs in five, 3 px
+  short, which is one step of its drag covered between the catch-up and the
+  loop starting. With the loop told the point the window is held by, the two
+  snap tests pass five runs in five.

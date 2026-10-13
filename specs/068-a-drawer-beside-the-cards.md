@@ -4,9 +4,9 @@
 
 ## Status: INCOMPLETE
 
-Built, with its headless tests passing and falsified. The real-window tests on
-Windows and the checks on Plasma are written and not yet run against this
-build; see Acceptance Criteria.
+Built, with its headless tests passing and falsified, and checked on Plasma
+6.7.5 on Wayland. The real-window tests on Windows are written and not yet
+run against this build; see Acceptance Criteria.
 
 ## Executive Summary
 
@@ -94,8 +94,10 @@ decide the requirements below.
   moved, the next click is read at the pointer's true place (quirk 48). The
   panel knows how far its content moved and tells Fyne, by calling Fyne's own
   GLFW cursor callback with the position GLFW last heard moved by that much
-  (`repoint`). Where there is no GLFW window to reach, a click at exactly the
-  position of the last one is read that much further along.
+  (`repoint`), and again whenever the window's focus changes, because Fyne
+  forgets its pointer position when the focus leaves. Where there is no GLFW
+  window to reach, a click at exactly the position of the last one is read
+  that much further along.
 - R15 The library does not decide what a click means. Opening on a click,
   changing what is shown on a click elsewhere and closing on a second click of
   the same thing are the program's, and the example does them.
@@ -224,10 +226,11 @@ them, run by a scratch program:
 - [x] Translucent with the rule: the drawer is the cards' height and the gap
   beside it is clear, on both sides.
 - [x] `make test` (race on) and `make lint`.
-- [ ] R14 after the pointer has moved while the drawer was open: the click
-  that follows a close was lost (below). `repoint` is the fix and is not yet
-  checked on Plasma.
-- [ ] Closing and reopening at the right edge with the side chosen by room.
+- [x] R14: a click in place is read on the row under the pointer after the
+  window moved, after the pointer moved while the drawer was open, and after
+  the keyboard was handed back, mid-screen and at the right edge. Two faults
+  found on the way are under Verification.
+- [x] Closing and reopening at the right edge with the side chosen by room.
 
 ## Risks & Assumptions
 
@@ -314,6 +317,13 @@ them, run by a scratch program:
   re-read it; the window stayed decorated until `reconfigure` was called.
 - `Row` has no getter for its label; the example keeps the names it drew for
   its own test.
+- **A window mapped under a pointer that has not moved reads its first click
+  at 0,0.** Fyne has no pointer position until a motion event, asks GLFW at
+  the click, and GLFW has none either. Confirmed on Plasma with no drawer and
+  no script: a click over the CPU row of a fresh panel was read as the
+  top-left card, twice, and correctly after a 3 px movement. It is Fyne's and
+  older than this spec; a panel that reports clicks now shows it. Not fixed
+  here.
 - A terminal panel has no drawer. What a consumer's terminal shows instead is
   the consumer's.
 - No gallery screenshot was retaken: the new demonstrations are below the
@@ -400,4 +410,30 @@ clicks and keys injected and the library's scripts run by a scratch program:
   use.
 
 Linux (CachyOS), both commits, in a scratch clone: `make lint`, 0 issues;
+`make test`, with the race detector, every package passes.
+
+Plasma 6.7.5 on Wayland, scale 1.5, the later commits, by the same session:
+
+- With `repoint`: open, move, click, close in place, click in place now
+  reopens on the row. Sixteen clicks 8 px inside the cards' left and right
+  edges, each after a move of the window, landed on the card clicked, so a
+  GLFW coordinate is a Fyne one times the scale at 1.5.
+- **A second lost click**, with the keyboard handed back: after a left drawer
+  closed and `YieldFocus` ran, a click in place activated the panel and
+  reached nothing until the pointer moved a pixel. Fyne sets its pointer
+  position to nothing when the window loses the focus
+  (`processFocused`) and asks GLFW at the next click, which has the position
+  from before the move. The last commit says the position again on a focus
+  change.
+- With that: after a hand-back by the closing click, by Return and by Escape,
+  the next click in place is read on the first try, mid-screen and at the
+  right edge; a right drawer with the hand-back, and a left one without it,
+  are as before.
+- At the right edge with the side by room: 1100 and 40, opens left with the
+  right edge at 3960, closes and reopens in place; back mid-screen 570 and
+  570, opens right.
+- Not checked: what Fyne takes to be hovered after a move. The example has
+  no tips to show it.
+
+Linux (CachyOS), all four commits, in a scratch clone: `make lint`, 0 issues;
 `make test`, with the race detector, every package passes.

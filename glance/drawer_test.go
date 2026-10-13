@@ -199,6 +199,44 @@ func TestOpeningTheDrawerDoesNotMeasureTheCardsAtTheWrongWidth(t *testing.T) {
 	}
 }
 
+// A window put back to the width it had with the drawer open is not a window
+// somebody widened. On Wayland the compositor answers a change of focus with
+// the size it last knew; closing a drawer and giving the keyboard back at
+// once crossed the two, the window went back to its open width, and the
+// cards took that width as the user's and kept it, growing by a drawer at
+// every opening after. The panel asks for its own width again.
+func TestAWindowPutBackToItsOpenWidthIsNotAChosenWidth(t *testing.T) {
+	w, _, _ := drawerWindow(t, glance.Options{Title: "drawer", Resizable: true})
+	p, d := w.Panel(), w.Panel().Drawer()
+	closed := w.Window().Canvas().Size()
+
+	for range 3 {
+		d.SetOpen(true)
+		p.Resize() // a reading arrives while it is open
+		open := w.Window().Canvas().Size()
+		require.Greater(t, open.Width, closed.Width)
+
+		d.SetOpen(false)
+		w.Window().Resize(open) // the compositor's answer, with the old size
+		p.Resize()              // the next reading
+		assert.InDelta(t, closed.Width, w.Window().Canvas().Size().Width, 0.01,
+			"the open width was kept as the cards' width")
+	}
+
+	// And the other way: put back to the closed width just after opening.
+	d.SetOpen(true)
+	open := w.Window().Canvas().Size()
+	w.Window().Resize(closed)
+	p.Resize()
+	assert.InDelta(t, open.Width, w.Window().Canvas().Size().Width, 0.01)
+	d.SetOpen(false)
+
+	// A width somebody did choose is still kept.
+	w.Window().Resize(fyne.NewSize(closed.Width+77, closed.Height))
+	p.Resize()
+	assert.InDelta(t, closed.Width+77, w.Window().Canvas().Size().Width, 0.01)
+}
+
 // A window is a whole number of pixels wide, so the width it has is rarely
 // the width asked for to the last fraction. That fraction is nobody's choice
 // of width: it is not kept, and a drawer opened and closed any number of

@@ -272,6 +272,15 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: a glance window put back to the width it just had is not read as a
+  width somebody chose. On Wayland a compositor answers a change of focus
+  with the size it last knew; when that crossed the resize for a closing
+  drawer, the window returned to its open width, the cards took it, and each
+  later opening added a drawer's width. `Panel.Resize` asks for its own
+  width again.
+
 ### 0.1.99 (2026-10-13)
 
 - **Fix**: a tip in a glance panel with a theme of its own no longer takes

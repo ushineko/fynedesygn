@@ -47,6 +47,13 @@ no data look the same and arrive by different paths. A card that is not drawn
 stops its poll, so a glance window on a machine without the sensor it watches
 costs what a window built without the card would.
 
+A panel has a drawer for what a card has no room to say: a surface beside the
+cards, in the same window and as tall as them. Panel.OnTapped reports a click
+on a card, with the row or meter under it; the program decides what the drawer
+shows and opens it. A Filter in the drawer narrows a list from the keyboard,
+and the keyboard goes back to the window the person was in afterwards. See
+Drawer.
+
 Transcribed from ag-scripts/peripheral-battery-monitor (PyQt6, same author),
 which carried this archetype through its 1.x series.
 */

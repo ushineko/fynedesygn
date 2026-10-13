@@ -27,6 +27,8 @@ func (p *Panel) tapped(at fyne.Position) {
 	// A click that arrives where the last one did, after the compositor
 	// moved the window under a pointer that has not moved, is read at the old
 	// place (quirk 48). The window's content has moved under it by stale.
+	// This is the fallback: where Fyne's own idea of the pointer can be put
+	// right (repoint), stale stays at nothing.
 	if at != p.staleAt {
 		p.stale = 0
 	}

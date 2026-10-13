@@ -62,6 +62,10 @@ type Panel struct {
 	stale   float32
 	staleAt fyne.Position
 
+	// pointer is what the panel remembers to tell Fyne where the pointer is
+	// after such a move. See repoint.
+	pointer pointer
+
 	// selfMoving is whether the window can move itself (movesItself). It is
 	// a field so that both answers are tested on one system.
 	selfMoving bool

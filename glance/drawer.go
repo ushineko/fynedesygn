@@ -481,9 +481,21 @@ func (p *Panel) shift(before, after float32) {
 		moveWindowBy(p.win, before-after)
 		return
 	}
-	// The compositor moved the window, and the pointer was not told: a click
-	// that follows without the pointer moving arrives at the place the
-	// pointer had on the window before (quirk 48). The cards are now further
-	// from the window's left edge by this much.
-	p.stale += after - before
+	// The compositor moved the window, and the pointer was not told (quirk
+	// 48): the cards are now further from the window's left edge by this
+	// much, under a pointer Fyne believes is where it was. Fyne is told
+	// where it is; where it cannot be told, the next click is read with the
+	// difference added (Panel.tapped).
+	if !repoint(p.win, &p.pointer, after-before) {
+		p.stale += after - before
+	}
+}
+
+// pointer is what repoint remembers between two moves of the window: where
+// GLFW last said the pointer was, and how far the window has moved under it
+// since.
+type pointer struct {
+	x, y  float64
+	heard bool
+	moved float32
 }

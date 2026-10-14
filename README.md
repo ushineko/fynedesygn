@@ -272,6 +272,15 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: closing a glance panel's drawer on Plasma no longer reflows the
+  cards for a moment (#206). While the window stands at the width it was put
+  back to, the cards keep the width and the place they had, and the panel
+  asks for its own width again once, without waiting for the consumer's next
+  `Resize`. Before, the cards were laid out across the open window's width
+  until then: in `Grid`, a second column that came and went.
+
 ### 0.1.100 (2026-10-13)
 
 - **Fix**: a glance window put back to the width it just had is not read as a

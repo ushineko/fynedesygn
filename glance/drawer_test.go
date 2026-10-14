@@ -237,6 +237,94 @@ func TestAWindowPutBackToItsOpenWidthIsNotAChosenWidth(t *testing.T) {
 	assert.InDelta(t, closed.Width+77, w.Window().Canvas().Size().Width, 0.01)
 }
 
+/*
+While the window stands at the width it was put back to, the cards are where
+they were and as wide as they were (issue #206). Given the whole width they
+reflowed, in Grid into a second column, until the next Resize: the panel
+flashed sideways at every close on Plasma. Then the panel asks for its own
+width again without being told to.
+*/
+func TestTheCardsDoNotReflowInAWindowPutBackToItsOpenWidth(t *testing.T) {
+	for _, side := range []glance.Side{glance.Right, glance.Left} {
+		w, cards, _ := drawerWindow(t, glance.Options{Title: "drawer", Resizable: true})
+		p, d := w.Panel(), w.Panel().Drawer()
+		p.SetArrangement(glance.Grid)
+		p.SetSelfMoving(true)
+		d.SetSide(side)
+		// A panel a little wider than one column, as a consumer's is whose
+		// cards are wider than the least: with a drawer's width added it has
+		// room for two.
+		w.Window().Resize(fyne.NewSize(glance.MinCardWidth()+60, p.Size().Height))
+		p.Resize()
+		closed := w.Window().Canvas().Size()
+		width, below := p.CardsWidth(), cards[1].Object().Position()
+		require.Zero(t, below.X, "the two cards are not one column to begin with")
+
+		d.SetOpen(true)
+		open := w.Window().Canvas().Size()
+		require.GreaterOrEqual(t, open.Width, 2*glance.MinCardWidth()+glance.CardGap(),
+			"the open window is too narrow for the cards to reflow, so this shows nothing")
+		d.SetOpen(false)
+
+		again := p.HoldLater()
+		w.Window().Resize(open) // the compositor's answer, with the old size
+		assert.InDelta(t, width, p.CardsWidth(), 0.01, "side %d: the cards took the open window's width", side)
+		assert.Equal(t, below, cards[1].Object().Position(), "side %d: the cards reflowed", side)
+		// On the left the compositor holds the window's right edge, so the
+		// cards stay against it; on the right they stay against the left.
+		at := float32(0)
+		if side == glance.Left {
+			at = open.Width - closed.Width
+		}
+		assert.InDelta(t, at, p.CardsOrigin().X, 0.01, "side %d: the cards moved on the screen", side)
+
+		again()
+		assert.InDelta(t, closed.Width, w.Window().Canvas().Size().Width, 0.01,
+			"side %d: the panel did not ask for its own width again", side)
+		assert.InDelta(t, closed.Height, w.Window().Canvas().Size().Height, 0.01)
+		assert.Zero(t, p.CardsOrigin().X)
+	}
+}
+
+// The other way: a window put back to its closed width just after the drawer
+// opened keeps its cards whole, and is asked for the open width again.
+func TestTheCardsAreNotSqueezedInAWindowPutBackToItsClosedWidth(t *testing.T) {
+	w, _, _ := drawerWindow(t, glance.Options{Title: "drawer", Resizable: true})
+	p, d := w.Panel(), w.Panel().Drawer()
+	closed := w.Window().Canvas().Size()
+	width := p.CardsWidth()
+
+	d.SetOpen(true)
+	open := w.Window().Canvas().Size()
+	again := p.HoldLater()
+	w.Window().Resize(closed)
+	assert.InDelta(t, width, p.CardsWidth(), 0.01, "the cards were squeezed into what the drawer left")
+
+	again()
+	assert.InDelta(t, open.Width, w.Window().Canvas().Size().Width, 0.01)
+}
+
+// A compositor that puts the window back every time is asked once, not at
+// every layout: the next reading's Resize asks after that.
+func TestAWindowPutBackTwiceIsAskedOnce(t *testing.T) {
+	w, _, _ := drawerWindow(t, glance.Options{Title: "drawer"})
+	p, d := w.Panel(), w.Panel().Drawer()
+	closed := w.Window().Canvas().Size()
+	width := p.CardsWidth()
+	d.SetOpen(true)
+	open := w.Window().Canvas().Size()
+	d.SetOpen(false)
+
+	w.Window().Resize(open)
+	require.InDelta(t, closed.Width, w.Window().Canvas().Size().Width, 0.01)
+	w.Window().Resize(open)
+	assert.InDelta(t, open.Width, w.Window().Canvas().Size().Width, 0.01, "the panel asked a second time")
+	assert.InDelta(t, width, p.CardsWidth(), 0.01, "and the cards still do not take the width")
+
+	p.Resize() // a reading
+	assert.InDelta(t, closed.Width, w.Window().Canvas().Size().Width, 0.01)
+}
+
 // A window is a whole number of pixels wide, so the width it has is rarely
 // the width asked for to the last fraction. That fraction is nobody's choice
 // of width: it is not kept, and a drawer opened and closed any number of

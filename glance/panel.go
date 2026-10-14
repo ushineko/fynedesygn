@@ -118,6 +118,15 @@ type Panel struct {
 	// drawer and all: the size a window is put back to by an answer from the
 	// compositor that was already on its way. See resize.
 	before float32
+
+	// reasked is set once the panel has asked for its width again after the
+	// window was put back to before, so that a compositor that keeps putting
+	// it back is asked once and not at every layout. See putBack.
+	reasked bool
+
+	// later runs a function after the layout pass that asked for it. It is
+	// fyne.Do; a test sets its own to look at the panel in between.
+	later func(func())
 }
 
 // NewPanel builds an empty panel. minWidth of 0 means MinWidth.
@@ -133,6 +142,7 @@ func NewPanel(minWidth float32) *Panel {
 		bg:         canvas.NewRectangle(nil),
 		minWidth:   minWidth,
 		selfMoving: movesItself,
+		later:      fyne.Do,
 	}
 	// One layout for both arrangements rather than two containers swapped
 	// under the window: the arrangement is a setting and can change while the
@@ -443,6 +453,7 @@ func (p *Panel) resize(fit bool) {
 	}
 	if total := p.asked + p.drawerShown; p.sized && !p.sameWidth(total, want.Width+extra) {
 		p.before = total
+		p.reasked = false
 	}
 	p.asked, p.sized = want.Width, true
 	p.drawerShown = extra
@@ -452,6 +463,41 @@ func (p *Panel) resize(fit bool) {
 	if p.hook != nil {
 		p.hook()
 	}
+}
+
+/*
+putBack reports whether a width the window has been given is the one this
+panel asked for the time before, and not the one it asks for now.
+
+It is the compositor's answer to a change of focus arriving after a resize
+(see resize): a drawer closes, the keyboard is handed back, and the window is
+at its open width again with no drawer in it. Laid out across that width the
+cards reflowed, in Grid into a second column, and stayed so until the next
+Resize: a panel that flashed sideways at every close. The width is nobody's,
+so the cards are not given it. They keep the width and the place they had
+(drawerLayout) and the panel asks for its own width again (askAgain).
+*/
+func (p *Panel) putBack(width float32) bool {
+	if p.win == nil || !p.sized || p.before <= 0 {
+		return false
+	}
+	return p.sameWidth(width, p.before) && !p.sameWidth(width, p.asked+p.drawerShown)
+}
+
+// askAgain asks for the panel's own width once the layout that found the
+// window put back has finished: a window is not resized from inside its own
+// layout. Once for each width asked for; a reading's Resize is what asks
+// after that.
+func (p *Panel) askAgain() {
+	if p.reasked {
+		return
+	}
+	p.reasked = true
+	p.later(func() {
+		if p.win != nil && p.putBack(p.win.Canvas().Size().Width) {
+			p.Resize()
+		}
+	})
 }
 
 /*

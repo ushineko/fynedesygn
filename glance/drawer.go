@@ -422,13 +422,28 @@ func (l *drawerLayout) MinSize([]fyne.CanvasObject) fyne.Size {
 func (l *drawerLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 	p, d := l.panel, l.panel.drawer
 	extra := d.extra()
+
+	// A window put back to the width it just left is laid out as the window
+	// the panel asked for, standing where the cards stood: against the right
+	// edge when the drawer is on the left, where the compositor holds that
+	// edge, and against the left otherwise. See Panel.putBack.
+	shift := float32(0)
+	stale := p.putBack(size.Width)
+	if stale {
+		asked := p.asked + p.drawerShown
+		if d.side == Left {
+			shift = size.Width - asked
+		}
+		size.Width = asked
+	}
+
 	cards := fyne.NewSize(size.Width-extra, size.Height)
-	origin := fyne.NewPos(0, 0)
+	origin := fyne.NewPos(shift, 0)
 	if extra > 0 {
 		dw := d.width()
 		if d.side == Left {
-			d.frame.Move(fyne.NewPos(0, 0))
-			origin.X = extra
+			d.frame.Move(fyne.NewPos(shift, 0))
+			origin.X += extra
 		} else {
 			d.frame.Move(fyne.NewPos(size.Width-dw, 0))
 		}
@@ -436,6 +451,9 @@ func (l *drawerLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 	}
 	p.stack.Move(origin)
 	p.stack.Resize(cards)
+	if stale {
+		p.askAgain()
+	}
 }
 
 // Drawer is the panel's drawer. It is there from the start, closed and

@@ -6,6 +6,22 @@ import "fyne.io/fyne/v2"
 // cannot, move itself, so both are tested on one system.
 func (p *Panel) SetSelfMoving(v bool) { p.selfMoving = v }
 
+// CardsWidth is the width the card stack is drawn at.
+func (p *Panel) CardsWidth() float32 { return p.stack.Size().Width }
+
+// HoldLater keeps what the panel would run after a layout pass and returns
+// the function that runs it, so a test sees the panel in between.
+func (p *Panel) HoldLater() (run func()) {
+	var held []func()
+	p.later = func(f func()) { held = append(held, f) }
+	return func() {
+		for _, f := range held {
+			f()
+		}
+		held = nil
+	}
+}
+
 // CardsOrigin is where the card stack is drawn in the window.
 func (p *Panel) CardsOrigin() fyne.Position { return p.stack.Position() }
 

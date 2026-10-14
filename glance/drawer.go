@@ -617,6 +617,23 @@ func (l *drawerLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 // empty.
 func (p *Panel) Drawer() *Drawer { return p.drawer }
 
+/*
+CardsSize is the size of the cards alone, without the drawer: what Size is
+while the drawer is closed, and the width a user dragged where they have.
+
+It is for a program that remembers where its panel is. A drawer on the left
+moves the window's corner by its own width, so the corner of an open window
+is not where the cards are; the difference between the window's width and
+this one is how far.
+*/
+func (p *Panel) CardsSize() fyne.Size {
+	s := p.cardsSize()
+	if p.sized {
+		s.Width = p.asked
+	}
+	return s
+}
+
 // cardsSize is the size of the card stack alone: the content's minimum,
 // widened to the panel's floor.
 func (p *Panel) cardsSize() fyne.Size {

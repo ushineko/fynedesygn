@@ -69,6 +69,15 @@ type Drawer struct {
 	body   *fyne.Container
 	pieces []Piece
 	filter *Filter
+	sw     *Switch
+
+	// scroll holds the content when the drawer scrolls (SetScrolling), and
+	// holder is where the content stands, in the scroller or by itself.
+	// titled and bodied keep the heading and the content off the right edge.
+	scroll *container.Scroll
+	holder *fyne.Container
+	titled *fyne.Container
+	bodied *fyne.Container
 
 	face  *canvas.Rectangle
 	inner *fyne.Container
@@ -88,14 +97,103 @@ func newDrawer(p *Panel) *Drawer {
 	d.face.StrokeColor = d.colour(theme.ColorNameSeparator)
 	d.face.StrokeWidth = 1
 	d.face.CornerRadius = CardRadius
-	d.inner = container.New(d.padding(), container.NewVBox(d.title, d.body))
+	// The right margin is the heading's and the content's own, not the
+	// drawer's, so that a scroller reaches the drawer's edge and draws its
+	// bar in the margin and not over a figure.
+	d.titled = container.New(d.rightPad(), d.title)
+	d.bodied = container.New(d.rightPad(), d.body)
+	d.holder = container.NewStack(d.bodied)
+	d.inner = container.New(d.padding(), container.NewBorder(d.titled, nil, nil, nil, d.holder))
 	d.frame = container.NewStack(d.face, d.inner)
 	d.frame.Hide()
 	return d
 }
 
 func (d *Drawer) padding() fyne.Layout {
-	return layout.NewCustomPaddedLayout(d.padTop(), d.padBottom(), d.padH(), d.padH())
+	return layout.NewCustomPaddedLayout(d.padTop(), d.padBottom(), d.padH(), 0)
+}
+
+func (d *Drawer) rightPad() fyne.Layout {
+	return layout.NewCustomPaddedLayout(0, 0, 0, d.padH())
+}
+
+/*
+SetScrolling makes the content under the heading scroll when it is taller than
+the room (spec 069), for a breakdown that has to be read whole: several
+accounts' quotas. Content that fits is drawn exactly as without it.
+
+**The drawer is still the cards' height and still never sets the window's.**
+A list of live readings should not scroll: it reorders under the eye. Cut it
+to the height (Fit) and give it a Filter.
+
+The wheel scrolls it while the pointer is over the drawer, and with the drawer
+open and no filter being typed so do Up, Down, Page Up, Page Down, Home and
+End. The bar is drawn in the content's right margin, takes no width, and is
+not dragged: a press on a panel is the catcher's.
+
+SetContent and closing the drawer go back to the top. Setting a piece in
+place keeps the offset.
+*/
+func (d *Drawer) SetScrolling(on bool) {
+	if on == (d.scroll != nil) {
+		return
+	}
+	if on {
+		d.scroll = container.NewVScroll(d.bodied)
+		d.holder.Objects = []fyne.CanvasObject{d.scroll}
+	} else {
+		d.scroll = nil
+		d.holder.Objects = []fyne.CanvasObject{d.bodied}
+	}
+	d.holder.Refresh()
+}
+
+// Scrolling reports whether the content scrolls when it is taller than the
+// room.
+func (d *Drawer) Scrolling() bool { return d.scroll != nil }
+
+// Offset is how far the content is scrolled from its top.
+func (d *Drawer) Offset() float32 {
+	if d.scroll == nil {
+		return 0
+	}
+	return d.scroll.Offset.Y
+}
+
+// scrollTo puts the content's top that far above the room's, within what
+// there is to scroll.
+func (d *Drawer) scrollTo(y float32) {
+	if d.scroll == nil {
+		return
+	}
+	most := d.bodied.MinSize().Height - d.scroll.Size().Height
+	d.scroll.ScrollToOffset(fyne.NewPos(0, max(0, min(y, most))))
+}
+
+// scrollKey scrolls for a key, and reports whether the key was one that
+// scrolls.
+func (d *Drawer) scrollKey(e *fyne.KeyEvent) bool {
+	if d.scroll == nil || e == nil {
+		return false
+	}
+	line, page := 2*d.textSize(), d.scroll.Size().Height
+	switch e.Name {
+	case fyne.KeyUp:
+		d.scrollTo(d.Offset() - line)
+	case fyne.KeyDown:
+		d.scrollTo(d.Offset() + line)
+	case fyne.KeyPageUp:
+		d.scrollTo(d.Offset() - page)
+	case fyne.KeyPageDown:
+		d.scrollTo(d.Offset() + page)
+	case fyne.KeyHome:
+		d.scrollTo(0)
+	case fyne.KeyEnd:
+		d.scrollTo(d.bodied.MinSize().Height)
+	default:
+		return false
+	}
+	return true
 }
 
 // width is the drawer's own width.
@@ -140,6 +238,7 @@ func (d *Drawer) SetContent(pieces ...Piece) {
 	}
 	d.body.Objects = objects
 	d.body.Refresh()
+	d.scrollTo(0)
 }
 
 // Available is the room under the heading, inside the drawer's margins, at
@@ -163,6 +262,11 @@ func (d *Drawer) Fit(line Piece, above ...Piece) int {
 	gap := d.size(theme.SizeNamePadding)
 	room := d.Available().Height
 	for _, p := range above {
+		// A piece that is not drawn takes no room: a switch with nothing to
+		// choose.
+		if !p.Object().Visible() {
+			continue
+		}
 		room -= p.Object().MinSize().Height + gap
 	}
 	each := line.Object().MinSize().Height + gap
@@ -285,6 +389,7 @@ func (d *Drawer) SetOpen(open bool) {
 		if d.filter != nil {
 			d.filter.stop()
 		}
+		d.scrollTo(0)
 	}
 	d.open = open
 	d.panel.reshape(before)
@@ -365,22 +470,66 @@ func (d *Drawer) SetFilter(f *Filter) {
 	d.wireKeys()
 }
 
-// wireKeys points the window's keys at the filter. It is called again when
-// the panel is attached to a window, which may be after SetFilter.
+/*
+SetSwitch gives the drawer a switch and the clicks and keys to work it: while
+the drawer is open a primary click on a choice selects it, and so does the
+choice's key while the panel holds the keyboard and no filter is being typed.
+
+The switch is drawn where the program put it in SetContent; this is only the
+wiring. A click in the drawer that is not on a choice does nothing and is not
+reported: Panel.OnTapped is about cards.
+
+A filter takes its keys first. A choice whose key is the filter's key is
+never reached, so give it another.
+*/
+func (d *Drawer) SetSwitch(s *Switch) {
+	d.sw = s
+	d.wireKeys()
+}
+
+// tapped takes a primary click at a canvas position when it landed in the
+// drawer, and reports whether it did.
+func (d *Drawer) tapped(at fyne.Position) bool {
+	if !d.open {
+		return false
+	}
+	pos, size := fyne.CurrentApp().Driver().AbsolutePositionForObject(d.frame), d.frame.Size()
+	if at.X < pos.X || at.X >= pos.X+size.Width || at.Y < pos.Y || at.Y >= pos.Y+size.Height {
+		return false
+	}
+	if d.sw != nil {
+		d.sw.tappedAt(at)
+	}
+	return true
+}
+
+// wireKeys points the window's keys at the filter, the switch and the
+// scroller, in that order. It is called again when the panel is attached to a
+// window, which may be after SetFilter.
 func (d *Drawer) wireKeys() {
-	if d.filter == nil || d.panel.win == nil {
+	if d.panel.win == nil {
 		return
 	}
 	cv := d.panel.win.Canvas()
 	cv.SetOnTypedRune(func(r rune) {
-		if d.open {
-			d.filter.TypedRune(r)
+		if !d.open {
+			return
+		}
+		if d.filter != nil && d.filter.TypedRune(r) {
+			return
+		}
+		if d.sw != nil {
+			d.sw.TypedRune(r)
 		}
 	})
 	cv.SetOnTypedKey(func(e *fyne.KeyEvent) {
-		if d.open {
-			d.filter.TypedKey(e)
+		if !d.open {
+			return
 		}
+		if d.filter != nil && d.filter.TypedKey(e) {
+			return
+		}
+		d.scrollKey(e)
 	})
 }
 
@@ -406,6 +555,8 @@ func (d *Drawer) Restyle() {
 	d.title.Refresh()
 	d.refit(d.title)
 	d.inner.Layout = d.padding()
+	d.titled.Layout = d.rightPad()
+	d.bodied.Layout = d.rightPad()
 	d.inner.Refresh()
 }
 

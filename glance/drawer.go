@@ -238,6 +238,12 @@ func (d *Drawer) SetContent(pieces ...Piece) {
 	}
 	d.body.Objects = objects
 	d.body.Refresh()
+	if d.scroll != nil {
+		// The scroller measured the content it had. Without this it goes on
+		// believing that height, and content set while the drawer is open
+		// has nowhere to scroll to.
+		d.scroll.Refresh()
+	}
 	d.scrollTo(0)
 }
 

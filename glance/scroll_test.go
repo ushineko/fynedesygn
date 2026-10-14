@@ -154,3 +154,22 @@ func TestContentThatFitsIsDrawnAsWithoutScrolling(t *testing.T) {
 	assert.Equal(t, size, scrolledSize)
 	assert.Zero(t, offset)
 }
+
+// Content given to a drawer that is already open scrolls like content it
+// was opened with. The scroller measures what it holds when it is laid out,
+// and new content arrives after that.
+func TestContentSetWhileOpenScrolls(t *testing.T) {
+	w, _, _ := drawerWindow(t, glance.Options{Title: "scroll"})
+	d := w.Panel().Drawer()
+	d.SetContent(glance.NewRow("a list", glance.NoRate()))
+	d.SetOpen(true)
+
+	d.SetScrolling(true)
+	pieces := make([]glance.Piece, 80)
+	for i := range pieces {
+		pieces[i] = glance.NewRow("limit", glance.NoRate())
+	}
+	d.SetContent(pieces...)
+	w.Window().Canvas().OnTypedKey()(key(fyne.KeyPageDown))
+	assert.Greater(t, d.Offset(), float32(0))
+}

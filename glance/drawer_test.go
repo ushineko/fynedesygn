@@ -174,8 +174,12 @@ func TestTheCardsSizeLeavesTheDrawerOut(t *testing.T) {
 	closed := p.CardsSize()
 	assert.InDelta(t, wide, closed.Width, 0.01)
 
+	reach := d.Reach()
 	d.SetOpen(true)
 	assert.Equal(t, closed, p.CardsSize())
+	assert.InDelta(t, reach, d.Reach(), 0.01, "the drawer's reach changed when it opened")
+	assert.InDelta(t, closed.Width+reach, w.Window().Canvas().Size().Width, 0.01,
+		"the open window is not the cards and the drawer's reach")
 	assert.Greater(t, w.Window().Canvas().Size().Width, closed.Width+glance.MinCardWidth())
 }
 

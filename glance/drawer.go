@@ -203,6 +203,11 @@ func (d *Drawer) width() float32 { return d.textSize() * DrawerWidthInEms }
 // the gap between it and the cards. extra is what it adds now.
 func (d *Drawer) need() float32 { return d.width() + d.panel.gap() }
 
+// Reach is how much wider the window is with the drawer out than without:
+// the drawer's width and the gap between it and the cards. It is the same
+// whether the drawer is open or not, and changes with the text size.
+func (d *Drawer) Reach() float32 { return d.need() }
+
 func (d *Drawer) extra() float32 {
 	if !d.open {
 		return 0

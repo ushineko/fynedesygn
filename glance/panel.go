@@ -36,9 +36,10 @@ const NoMinWidth float32 = -1
 // Panel is the stack of cards that makes up a glance window's content, and the
 // thing that keeps the window the size of what it is drawing.
 //
-// There is no scroller. Content that does not fit is content that should have
-// been hidden: a scrollbar is an instruction to interact, and nobody scrolls a
-// widget they are reading past.
+// The cards have no scroller. Content that does not fit is content that should
+// have been hidden: a scrollbar is an instruction to interact, and nobody
+// scrolls a widget they are reading past. The drawer, which a person opened to
+// read, may scroll a breakdown (Drawer.SetScrolling).
 type Panel struct {
 	themed
 

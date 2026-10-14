@@ -950,8 +950,8 @@ program opens it.
   On Wayland only the compositor can do that.
 - **The drawer has the height of the card stack and never sets it.** The
   window stays the height of its cards. `Drawer.Fit` returns the number of
-  lines that fit, and the program draws that number. There is still no
-  scroller.
+  lines that fit, and the program draws that number. A list does not scroll.
+  A breakdown can: see [Content that scrolls](#content-that-scrolls).
 - **The drawer has the surface of a card**: the same fill, border, radius and
   margins, `CardGap` away from the cards. Its width is `DrawerWidthInEms`
   text sizes, in the face of the panel.
@@ -961,6 +961,11 @@ program opens it.
   to a fixed width as in a card.
 - **A width that the user dragged is a width of the cards.** The panel keeps
   it when the drawer opens and closes.
+- **The cards do not reflow in a window that the compositor put back.** On
+  Wayland a compositor answers a change of focus with the last size it knew.
+  After the drawer closes, the window can have its open width again for a
+  moment. The cards keep their width and their position in that window, and
+  the panel asks for its own width again. The program does nothing.
 
 ### A click says which reading
 
@@ -977,6 +982,80 @@ exception, and it has one meaning: the person wants more of this reading.
   (quirk 50). On Windows the drag moves the window.
 - **Do not open the drawer on hover.** The pointer crosses a panel many times
   a day, and a drawer that opens each time is a fault.
+- **Prefer one target for each card.** A card whose rows open different
+  details makes the person aim at a panel that they only read, and a click
+  on the heading then has no clear meaning. Put the choice in the drawer:
+  see [A switch between subjects](#a-switch-between-subjects).
+
+### A switch between subjects
+
+`glance.Switch` is one line in the drawer with a small number of named
+choices (spec 069). Use it when one card has more than one detail: the
+processes by processor, by graphics card and by memory.
+
+- `Switch.SetChoices` gives the choices. Each `Choice` has an ID, a label
+  and a key. `Drawer.SetSwitch` connects the clicks and the keys.
+- **A click on a choice selects it, and its key selects it too.** The key
+  operates while the drawer is open and no filter is being typed. A filter
+  that is being typed receives every key.
+- **The selection changes and nothing moves.** Each choice has the width of
+  its label in bold, selected or not.
+- **The switch does not hold the detail.** `Switch.OnChanged` gives the ID,
+  and the program changes the content of the drawer. `Switch.Select` sets
+  the selection for the program and does not call `OnChanged`.
+- **A switch with fewer than two choices is not drawn** and has no height.
+  A program can therefore give every drawer the same switch and set its
+  choices at each opening.
+- Do not give a choice the key of the filter (`f`). The filter receives its
+  key first.
+- **A click in the drawer that is not on a choice does nothing.**
+  `Panel.OnTapped` reports clicks on cards only.
+
+### Content that scrolls
+
+`Drawer.SetScrolling(true)` lets the content scroll when it is higher than
+the cards (spec 069). Use it for a breakdown that a person reads as a whole:
+the quotas of each account.
+
+- **The drawer still has the height of the cards.** Content that fits looks
+  the same with scrolling on and off.
+- **Do not scroll a list of live readings.** The order of the list changes
+  under the eye. Cut the list to the height with `Drawer.Fit`, and give it a
+  `Filter`.
+- **The wheel scrolls the content** while the pointer is on the drawer. The
+  keys Up, Down, Page Up, Page Down, Home and End scroll it while the drawer
+  is open and no filter is being typed.
+- **The scroll bar is in the right margin and has no width of its own.** A
+  person cannot drag it: the catcher receives each press.
+- `Drawer.SetContent` and a close move the content back to the top. A piece
+  that the program sets in place does not move the content, so a new reading
+  leaves the person at the same line.
+
+### A rule between groups
+
+`glance.Rule` is a horizontal line for a card or a drawer. Put it between
+groups of readings that are about different things, such as the quotas of
+one account and the quotas of the next. Do not put it between rows: a line
+below each reading makes a table.
+
+### The position of the cards
+
+A program that saves the position of its panel must save the position of
+the cards, not of the window. A drawer on the left moves the corner of the
+window by the width that the drawer adds.
+
+- `Panel.CardsSize` is the size of the cards without the drawer, and
+  includes a width that the user dragged.
+- `Drawer.Reach` is the width that the drawer adds to the window, open or
+  not.
+- When the width of the window is the width of the cards plus the reach,
+  and the drawer is on the left, the cards start `Reach` units to the right
+  of the corner. This is true while the drawer is open and also for the
+  moment after it closes.
+- **Do not use a flag for "the drawer is open".** The window changes its
+  geometry some milliseconds after the drawer changes its state, and the
+  reports of the compositor can arrive out of order. hayami used a flag and
+  saved the corner of the open window as the position of the panel.
 
 ### The side
 

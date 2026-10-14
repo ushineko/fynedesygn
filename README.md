@@ -103,7 +103,7 @@ Each example is a complete program with a headless test, in `examples/`, on
 | `settings` | A `forms.Form` over a JSON file, saved a second after the last change through `forms.Saver`, with Revert and the standard Appearance section. |
 | `job-runner` | A `steps.List` beside a `logpane.Pane`, a job run through `PerformCancellable` that advances steps and logs, and one banner for the result. |
 | `document-viewer` | `markdown.Section` over an embedded guide with a mermaid diagram rendered by `go generate`. |
-| `glance-monitor` | Not a shell program: a `glance` panel of four cards — peripherals, bandwidth, a two-trace sparkline over thermals, and two quota meters — with a context menu for its settings, a drawer of processes that a click on a card opens and `f` filters, and the KDE window rule offered behind `-kwin`. |
+| `glance-monitor` | Not a shell program: a `glance` panel of four cards — peripherals, bandwidth, a two-trace sparkline over thermals, and two quota meters — with a context menu for its settings, a drawer of processes that a click on a card opens and `f` filters, with a switch between the thermal card's two lists and a scrolling drawer of quotas on the usage card, and the KDE window rule offered behind `-kwin`. |
 | `installer-wizard` | Not a shell program: a `wizard` through every standard page, installing nothing, with a fake job slow enough to cancel and `-fail` to make it fail at its third step. |
 
 ## Used by
@@ -280,6 +280,23 @@ MIT. See [LICENSE](LICENSE).
   asks for its own width again once, without waiting for the consumer's next
   `Resize`. Before, the cards were laid out across the open window's width
   until then: in `Grid`, a second column that came and went.
+- **New**: `glance.Switch`, a line of named choices in a drawer, selected by
+  a click or by a key (`Drawer.SetSwitch`), for a card with more than one
+  detail (spec 069, #207). A click in the drawer is the drawer's and is not
+  reported to `Panel.OnTapped`.
+- **New**: `Drawer.SetScrolling` lets content taller than the cards scroll
+  inside the drawer, by the wheel and by Up, Down, Page Up, Page Down, Home
+  and End. The drawer still never sets the window's height. `Drawer.Offset`
+  and `Drawer.Scrolling` report it.
+- **New**: `glance.Rule`, a line between groups of readings.
+- **New**: `Panel.CardsSize` and `Drawer.Reach`, for a program that remembers
+  where its panel is: the corner of a window with a drawer out on the left
+  is not where the cards are.
+- **Change**: `Drawer.Fit` does not count a piece that is not drawn among the
+  pieces above a list. A hidden piece used to cost the list a line.
+- **Change**: `glance-monitor` opens a drawer from anywhere on a card; its
+  thermal card's two lists are a switch in the drawer and its usage card's
+  drawer is four accounts of quotas, scrolled.
 
 ### 0.1.100 (2026-10-13)
 

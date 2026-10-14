@@ -36,7 +36,8 @@ only the compositor can do. One window moves as one, and the drawer lines up
 with the cards because it is laid out with them.
 
 **It never sets the window's height.** It is given the cards' and draws what
-fits: ask Fit how many lines that is. There is still no scroller.
+fits: ask Fit how many lines that is. A list is cut to the height; a
+breakdown that has to be read whole may scroll inside it (SetScrolling).
 
 **Opening and closing is a change of shape**, like a card appearing: the
 window is resized once, in the same call. The cards do not move on the

@@ -70,47 +70,72 @@ scroller in the drawer is.
   move what a person is looking at.
 - R12 `Drawer.SetOpen(false)` puts the offset back to the top.
 
+### A rule, and where the cards are
+
+Added while hayami was built on this, for what it found it needed.
+
+- R13 `glance.Rule` is a piece: one line across its room in the colour of a
+  card's border, in half a line of height, for between groups of readings.
+- R14 `Panel.CardsSize()` is the size of the cards without the drawer, a
+  dragged width included, and `Drawer.Reach()` what the drawer adds to the
+  window, open or not. A program that remembers its panel's place works out
+  the cards' corner from them and the window's width.
+
 ### Documentation and the gallery
 
-- R13 docs/glance.md, "A drawer beside the cards": when a switch is the right
-  thing and when two cards are; when content may scroll and when a list
-  should be cut.
-- R14 `examples/glance-monitor` gains a switch on its process drawer (by rate,
-  by total) and a scrolling drawer on its quota card.
-- R15 README: the changelog entry; the gallery screenshot of the drawer and
-  its alt text are taken again.
+- R15 docs/glance.md, "A drawer beside the cards": one target for each card,
+  the switch, when content may scroll and when a list should be cut, the
+  rule, and the position of the cards.
+- R16 `examples/glance-monitor` opens a drawer from anywhere on a card. Its
+  thermal card's two lists are a switch (CPU, Coolant) and its usage card's
+  drawer is four accounts of quotas with rules between them, scrolled.
+- R17 README: the changelog entry and the example's row. The gallery's
+  picture of the drawer is of the bandwidth list, which has no switch and
+  does not scroll, and is not taken again.
 
 ## Acceptance Criteria
 
 Headless, each falsified:
 
-- [ ] A click on a choice selects it and calls `OnChanged` once with its ID;
+- [x] A click on a choice selects it and calls `OnChanged` once with its ID;
   a click on the selected one, on the heading or on a line calls nothing,
-  and none of them reaches `Panel.OnTapped`.
-- [ ] A choice's key selects it with the drawer open; not with it closed, and
-  not while a filter is being typed, when the key goes into the filter.
-- [ ] Every choice's position and the line's size are the same before and
-  after each selection.
-- [ ] A switch of one choice or none takes no height.
-- [ ] With scrolling on and content taller than the room: the window is the
+  and none of them reaches `Panel.OnTapped`
+  (`TestAClickOnAChoiceSelectsIt`, `TestSelectingFromTheProgramReportsNothing`).
+- [x] A choice's key selects it with the drawer open; not with it closed, and
+  not while a filter is being typed, when the key goes into the filter
+  (`TestAChoicesKeySelectsIt`, `TestASwitchNeedsNoFilter`).
+- [x] Every choice's position and the line's size are the same before and
+  after each selection (`TestChangingTheSelectionMovesNothing`).
+- [x] A switch of one choice or none takes no height
+  (`TestASwitchWithNothingToChooseTakesNoRoom`).
+- [x] With scrolling on and content taller than the room: the window is the
   size it was; a scroll event over the drawer moves the content and one over
   a card does not; the keys in R10 move it; the offset never passes either
-  end.
-- [ ] With content that fits, the drawer renders the same image with
-  scrolling on and off.
-- [ ] `SetContent` and closing reset the offset; setting a piece in place
-  keeps it.
-- [ ] The example's drawer switches between its two lists and its quota
-  drawer scrolls, through twenty polls at one window size.
-- [ ] `make lint`, `make test`, `make vuln`.
+  end (`scroll_test.go`).
+- [x] With content that fits, the content is in the same place at the same
+  size with scrolling on and off, and has nowhere to scroll to
+  (`TestContentThatFitsIsDrawnAsWithoutScrolling`). The criterion as drafted
+  compared rendered images; places and sizes are what a reader would see
+  move.
+- [x] `SetContent` and closing reset the offset; setting a piece in place
+  keeps it; content set while the drawer is open scrolls
+  (`TestTheOffsetIsKeptThroughAReadingAndNotThroughNewContent`,
+  `TestContentSetWhileOpenScrolls`).
+- [x] A rule is one line across its room and lower than a row
+  (`TestARuleIsALineAcrossItsRoom`); the cards' size and the drawer's reach
+  (`TestTheCardsSizeLeavesTheDrawerOut`).
+- [x] The example's thermal drawer switches between its two lists and its
+  usage drawer scrolls, through twenty polls at one window size
+  (`examples/glance-monitor/drawer_test.go`).
+- [x] `make lint`, `make test`, `make vuln`.
 
 On a real window:
 
-- [ ] Plasma 6 on Wayland: a click on each choice, each key, the wheel over
-  the drawer and over a card, with the drawer on the left and on the right;
-  the window's rectangle is the same throughout (read from KWin).
+- [x] Plasma 6 on Wayland, through hayami's panel built on this branch, by
+  the person at the desk (Verification).
 - [ ] Windows 11 (`FYNEDESYGN_WINDOW_TEST=1`): the same, with posted clicks
-  and wheel messages.
+  and wheel messages. **Not run**: there is no Windows desk in reach of this
+  work. The spec stays INCOMPLETE on this criterion alone.
 
 ## Risks & Assumptions
 
@@ -136,6 +161,28 @@ On a real window:
 - The Windows real-window criterion cannot be run from the Linux desk.
 - Release safety: additive. A drawer with no switch and scrolling off is
   0.1.100's. Rollback is a revert.
+
+## Verification
+
+Plasma 6 on Wayland, scale 1.5, grid arrangement, 2026-10-13, on hayami's
+panel built against this branch and used by the person at the desk, with a
+real pointer and keyboard:
+
+- The switch on the cooler card's drawer, by click and by key, and the
+  usage card's drawer of every account with rules between them, were looked
+  at and accepted. The drawer was on the left.
+- The wheel over the drawer was not separately reported on. The headless
+  test holds its route, and no measurement of it was taken on the window.
+- No rectangle was read from KWin during those checks. The window's
+  rectangle was read for the position checks of hayami spec 062: 304 by 523
+  closed and 553 by 523 open, the same height throughout.
+
+Headless, on Linux: twenty-three breaks of one behaviour each across the
+switch, the scroller, the rule and the cards' size, each failing a test,
+apart from two. Taking the clamp out of `scrollTo` does not compile, and
+Fyne clamps the offset itself; and a click in the drawer reaching the cards
+cannot happen where the drawer is not over a card, which
+`TestAClickOffTheCardsIsNotReported` already held.
 
 ## Alternatives Considered
 

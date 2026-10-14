@@ -35,3 +35,6 @@ func (f *Filter) Line() string { return f.line.Text }
 func (w *Window) Catcher() fyne.CanvasObject {
 	return w.panel.root.Objects[len(w.panel.root.Objects)-1]
 }
+
+// ChoiceObjects are the switch's choices as drawn, in order.
+func (s *Switch) ChoiceObjects() []fyne.CanvasObject { return s.box.Objects }

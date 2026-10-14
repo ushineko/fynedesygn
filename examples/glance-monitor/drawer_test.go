@@ -22,9 +22,9 @@ func drawn(t *testing.T) *monitor {
 // listed is the names the drawer is showing, top to bottom.
 func (m *monitor) listed() []string { return append([]string(nil), m.drawer.listed...) }
 
-// A click opens the drawer on what was clicked, a click on something else
-// changes the subject and leaves it open, and a click on the same thing
-// closes it.
+// A click anywhere on a card opens the drawer on it, a click on another card
+// changes the subject and leaves it open, and a click anywhere on the same
+// card closes it.
 func TestAClickOpensSwitchesAndCloses(t *testing.T) {
 	m := drawn(t)
 	dr := m.win.Panel().Drawer()
@@ -41,16 +41,70 @@ func TestAClickOpensSwitchesAndCloses(t *testing.T) {
 	m.tapped(glance.Tap{Card: m.bandwidth, Row: m.up})
 	assert.False(t, dr.Open(), "a second click on the same card did not close the drawer")
 
-	m.tapped(glance.Tap{Card: m.thermal, Row: m.cpu})
-	assert.Equal(t, "CPU by process", dr.Title())
+	m.tapped(glance.Tap{Card: m.bandwidth})
 	m.tapped(glance.Tap{Card: m.thermal, Row: m.coolant})
-	assert.True(t, dr.Open(), "a click on another row closed the drawer")
-	assert.Equal(t, "Coolant", dr.Title())
+	assert.True(t, dr.Open(), "a click on another card closed the drawer")
+	assert.Equal(t, "CPU by process", dr.Title(), "the row clicked chose the subject")
 	assert.Equal(t, open, m.win.Panel().Size(), "changing the subject changed the window")
 
-	m.tapped(glance.Tap{Card: m.thermal, Row: m.coolant})
+	m.tapped(glance.Tap{Card: m.thermal, Row: m.cpu})
 	assert.False(t, dr.Open())
 	assert.Equal(t, closed, m.win.Panel().Size())
+}
+
+// The thermal card's drawer has a switch between its two subjects, worked by
+// a key; the list and the heading change, the window does not, and the card
+// opens next on what was chosen. The other cards' drawers have none.
+func TestTheThermalDrawerSwitchesBetweenItsSubjects(t *testing.T) {
+	m := drawn(t)
+	dr := m.win.Panel().Drawer()
+	cv := m.win.Window().Canvas()
+
+	m.tapped(glance.Tap{Card: m.thermal})
+	require.True(t, m.drawer.sw.Object().Visible())
+	open, first := m.win.Panel().Size(), m.listed()
+
+	cv.OnTypedRune()('o')
+	assert.Equal(t, "Coolant", dr.Title())
+	assert.NotEqual(t, first, m.listed(), "the other subject is the same list")
+	assert.Equal(t, open, m.win.Panel().Size(), "choosing changed the window")
+
+	m.tapped(glance.Tap{Card: m.thermal})
+	m.tapped(glance.Tap{Card: m.thermal})
+	assert.Equal(t, "Coolant", dr.Title(), "the card opened on another subject than the one chosen")
+
+	m.tapped(glance.Tap{Card: m.bandwidth})
+	assert.False(t, m.drawer.sw.Object().Visible(), "a card with one subject has a switch")
+	cv.OnTypedRune()('c')
+	assert.Equal(t, "Bandwidth by process", dr.Title())
+}
+
+// The usage card's drawer is every account's quotas, taller than the cards:
+// it scrolls, and the window is the size it was through twenty polls. A list
+// after it is a list again.
+func TestTheUsageDrawerScrolls(t *testing.T) {
+	m := drawn(t)
+	dr := m.win.Panel().Drawer()
+	cv := m.win.Window().Canvas()
+	closed := m.win.Panel().Size()
+
+	m.tapped(glance.Tap{Card: m.usage})
+	require.True(t, dr.Scrolling())
+	open := m.win.Panel().Size()
+	assert.Equal(t, closed.Height, open.Height)
+
+	cv.OnTypedKey()(&fyne.KeyEvent{Name: fyne.KeyPageDown})
+	at := dr.Offset()
+	require.Greater(t, at, float32(0), "the quotas fit, so the example shows no scrolling")
+	for i := range 20 {
+		m.render(m.sample())
+		assert.Equal(t, open, m.win.Panel().Size(), "tick %d", i)
+	}
+	assert.InDelta(t, at, dr.Offset(), 0.01, "a reading moved what was being read")
+
+	m.tapped(glance.Tap{Card: m.bandwidth})
+	assert.False(t, dr.Scrolling())
+	assert.NotEmpty(t, m.listed())
 }
 
 // The list is as long as the drawer fits and no longer, greatest first.

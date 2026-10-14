@@ -35,6 +35,10 @@ func (p *Panel) tapped(at fyne.Position) {
 	p.staleAt = at
 	at.X += p.stale
 
+	// A click in the drawer is the drawer's: its switch, or nothing.
+	if p.drawer.tapped(at) {
+		return
+	}
 	if p.OnTapped == nil {
 		return
 	}

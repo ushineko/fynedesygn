@@ -161,6 +161,28 @@ func TestADraggedWidthSurvivesTheDrawer(t *testing.T) {
 		"the user's width was lost to the drawer")
 }
 
+// The cards' size is the window's while the drawer is closed, and stays what
+// it was while the drawer is open, a width the user dragged included.
+func TestTheCardsSizeLeavesTheDrawerOut(t *testing.T) {
+	w, _, _ := drawerWindow(t, glance.Options{Title: "drawer", Resizable: true})
+	p, d := w.Panel(), w.Panel().Drawer()
+	assert.Equal(t, p.Size(), p.CardsSize())
+
+	wide := p.Size().Width + 120
+	w.Window().Resize(fyne.NewSize(wide, p.Size().Height))
+	p.Resize()
+	closed := p.CardsSize()
+	assert.InDelta(t, wide, closed.Width, 0.01)
+
+	reach := d.Reach()
+	d.SetOpen(true)
+	assert.Equal(t, closed, p.CardsSize())
+	assert.InDelta(t, reach, d.Reach(), 0.01, "the drawer's reach changed when it opened")
+	assert.InDelta(t, closed.Width+reach, w.Window().Canvas().Size().Width, 0.01,
+		"the open window is not the cards and the drawer's reach")
+	assert.Greater(t, w.Window().Canvas().Size().Width, closed.Width+glance.MinCardWidth())
+}
+
 // A card whose height depends on its width keeps its height when the drawer
 // opens and closes. Four cells are two to a row at the card's width and one
 // to a row at a few units; the cards were laid out at a few units on the way

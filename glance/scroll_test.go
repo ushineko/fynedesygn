@@ -3,6 +3,7 @@ package glance_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
@@ -11,6 +12,27 @@ import (
 
 	"github.com/ushineko/fynedesygn/glance"
 )
+
+/*
+wheel turns the wheel at a place on the canvas, and holds the test open until
+the scroller is done with it.
+
+Where scroll bars are drawn only while scrolling, on macOS, Fyne's scroller
+starts a timer at each wheel event and refreshes its bars half a second
+after the last. The refresh goes through fyne.Do, which the test driver runs
+on the timer's own goroutine: left running, it measures text while the next
+test builds a window, and the race detector says so. A program is not
+affected, because its driver queues the refresh for the UI thread.
+*/
+func wheel(t *testing.T, cv fyne.Canvas, at fyne.Position, dy float32) {
+	t.Helper()
+	test.Scroll(cv, at, 0, dy)
+	t.Cleanup(func() { time.Sleep(scrollEnd) })
+}
+
+// scrollEnd is longer than Fyne's own wait after the last wheel event
+// (scrollEndDelay, half a second).
+const scrollEnd = 650 * time.Millisecond
 
 // tallDrawer is an open drawer that scrolls, holding n lines, and the lines.
 func tallDrawer(t *testing.T, n int) (*glance.Window, []*glance.Card, []*glance.Row) {
@@ -62,22 +84,22 @@ func TestTheWheelScrollsTheDrawerAndNotTheCards(t *testing.T) {
 	d, cv := w.Panel().Drawer(), w.Window().Canvas()
 	first := middle(rows[0].Object()).Y
 
-	test.Scroll(cv, middle(cards[0].Object()), 0, -60)
+	wheel(t, cv, middle(cards[0].Object()), -60)
 	assert.Zero(t, d.Offset(), "the wheel over a card scrolled the drawer")
 
-	test.Scroll(cv, middle(d.Frame()), 0, -60)
+	wheel(t, cv, middle(d.Frame()), -60)
 	assert.Greater(t, d.Offset(), float32(0), "the wheel over the drawer did nothing")
 	assert.Less(t, middle(rows[0].Object()).Y, first, "the content did not move")
 
-	test.Scroll(cv, middle(d.Frame()), 0, 1e6)
+	wheel(t, cv, middle(d.Frame()), 1e6)
 	assert.Zero(t, d.Offset(), "the content went past its top")
-	test.Scroll(cv, middle(d.Frame()), 0, -1e6)
+	wheel(t, cv, middle(d.Frame()), -1e6)
 	end := d.Offset()
 	last := rows[len(rows)-1].Object()
 	frame := d.Frame()
 	assert.LessOrEqual(t, middle(last).Y, fyne.CurrentApp().Driver().AbsolutePositionForObject(frame).Y+frame.Size().Height,
 		"the last line cannot be reached")
-	test.Scroll(cv, middle(d.Frame()), 0, -60)
+	wheel(t, cv, middle(d.Frame()), -60)
 	assert.InDelta(t, end, d.Offset(), 0.01, "the content went past its end")
 }
 
@@ -116,7 +138,7 @@ func TestTheOffsetIsKeptThroughAReadingAndNotThroughNewContent(t *testing.T) {
 	w, _, rows := tallDrawer(t, 80)
 	d, cv := w.Panel().Drawer(), w.Window().Canvas()
 
-	test.Scroll(cv, middle(d.Frame()), 0, -90)
+	wheel(t, cv, middle(d.Frame()), -90)
 	at := d.Offset()
 	require.Greater(t, at, float32(0))
 	rows[3].SetLabel("another reading")
@@ -127,7 +149,7 @@ func TestTheOffsetIsKeptThroughAReadingAndNotThroughNewContent(t *testing.T) {
 	d.SetOpen(true)
 	assert.Zero(t, d.Offset(), "the drawer opened where it was left")
 
-	test.Scroll(cv, middle(d.Frame()), 0, -90)
+	wheel(t, cv, middle(d.Frame()), -90)
 	d.SetContent(rows[0], rows[1])
 	assert.Zero(t, d.Offset(), "new content began part of the way down")
 }
@@ -143,7 +165,7 @@ func TestContentThatFitsIsDrawnAsWithoutScrolling(t *testing.T) {
 		d.SetTitle("Usage")
 		d.SetContent(row)
 		d.SetOpen(true)
-		test.Scroll(w.Window().Canvas(), middle(d.Frame()), 0, -60)
+		wheel(t, w.Window().Canvas(), middle(d.Frame()), -60)
 		drv := fyne.CurrentApp().Driver()
 		return drv.AbsolutePositionForObject(row.Object()).Subtract(drv.AbsolutePositionForObject(d.Frame())),
 			row.Object().Size(), d.Offset()

@@ -82,6 +82,9 @@ renderer by the pointer `Refresh` is called on.
   late leaves the plot at rest until it does.
 - R9 `Add` and `Clear` stop the drift and draw in place, as before.
 
+- R8a `Sparkline.Drift()` reports the interval, as `Scale()` reports the
+  scale, so a consumer's test can assert the plot it built.
+
 ### What does not change
 
 - R10 Scaling, minimum spans, colours and the pooled segments are as spec 016
@@ -114,6 +117,7 @@ renderer by the pointer `Refresh` is called on.
 - [x] A drifting refresh allocates nothing (R10), tested.
 - [x] Drift off draws exactly what it drew before, the existing sparkline
       tests unchanged (R4, R10).
+- [x] `Sparkline.Drift` reads back what `SetDrift` set, for a consumer's test.
 - [x] On a real window the plot moves between two captures 300 ms apart while
       drifting, and does not between two captures once at rest (R8), checked
       against spectacle captures of a KDE window drawing `glance.Sparkline`
@@ -121,7 +125,7 @@ renderer by the pointer `Refresh` is called on.
       differed while samples arrived every 2 s and 5 s, none did with no
       samples. hayami's adoption repeats the check on its own window.
 - [x] CPU of a drifting plot at 10 frames a second is measured and recorded in
-      the commit (library rule: performance is measured): 1.18–1.29 % of one
+      the commit (library rule: performance is measured): 1.45–1.49 % of one
       core against 0.46–0.51 % for the stepping plot, the same machine and
       feeds, 120 s each.
 - [x] docs/glance.md, the numbers table, the README changelog and the gallery
@@ -134,9 +138,11 @@ renderer by the pointer `Refresh` is called on.
   once, which is where values are read. Accepted by the person who asked for
   this, against the alternative of pinning the newest point, which brings the
   jolt back.
-- A goroutine per drifting plot ticks at 10 Hz and stops when the drift ends,
-  so a plot removed from a window without being destroyed stops within one
-  interval.
+- The redraws are a `fyne.Animation` over the interval, throttled to 10 a
+  second, and end with the drift, so a plot removed from a window without
+  being destroyed stops within one interval. Under the test driver an
+  animation runs to its end when started, so a headless drift is in place at
+  once.
 - The spacing change (R1) is visible to every consumer while a plot fills.
   It is a fix, but it is a change, and the changelog names it.
 - Rollback: revert the commit; consumers that call `SetSamples` or
@@ -148,5 +154,10 @@ renderer by the pointer `Refresh` is called on.
 - A short eased slide per sample: measured, and not seen as motion.
 - Drift at the display's rate: three times the cost of 10 Hz with no
   difference the reviewer could see.
+- A goroutine of the plot's own ticking at 10 Hz: 1.18–1.29 % of one core,
+  0.2 points cheaper than the animation, and rejected because the test
+  driver runs `fyne.Do` on the caller's goroutine, so a consumer's headless
+  test had a plot redrawing under it from another goroutine (the gallery's
+  race test found it).
 - Monotone cubic smoothing: four times the segments, not asked for, and a
   softening of "the plot says what was measured".

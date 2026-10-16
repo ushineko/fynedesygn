@@ -900,13 +900,14 @@ never click. `glance.Sparkline` draws it.
   then moves left at a constant speed until the next is due, and its range
   blends from the old one to the new one over the same time. The plot runs up
   to one interval behind the rows above it, which are where the values are
-  read. It redraws `SparklineDriftRate` (10) times a second while it moves.
+  read. It redraws `SparklineDriftRate` (10) times a second while it moves,
+  from a `fyne.Animation`, so a headless test's drift is in place at once.
   Measured on a 2 s and a 5 s feed:
 
   | Plot | CPU, one core (i9-14900K) |
   |---|---|
   | Stepping (`Clear`, then `Add` per sample) | 0.42–0.51 % |
-  | Drifting at 10 frames a second | 1.2–1.3 % |
+  | Drifting at 10 frames a second | 1.45–1.5 % |
   | Drifting at 20 | 2.0 % |
   | Drifting at the display's rate | 4.0 % |
 

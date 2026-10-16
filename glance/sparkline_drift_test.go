@@ -248,26 +248,28 @@ func TestADriftingRefreshAllocatesNothing(t *testing.T) {
 	assert.Zero(t, got, "a drifting refresh allocated %v times", got)
 }
 
-// R8: the redraws run while a trace drifts and stop when it is put in place.
-func TestTheRedrawsStopWhenTheDriftDoes(t *testing.T) {
-	fynetest.App(t)
-	s := glance.NewSparkline(driftCap)
-	s.AddSeries("a", green, 1)
-	s.SetDrift(driftEvery)
+// Under the test driver an animation runs to its end when it starts, so a
+// headless program's drift is put in place at once and nothing redraws the
+// plot from another goroutine.
+func TestAHeadlessDriftIsInPlaceAtOnce(t *testing.T) {
+	s, _ := driftPlot(t, glance.ScaleEach)
+	restore := glance.HoldDriftTicks()
+	restore()
 	s.SetSamples(map[string][]float64{"a": ramp(0, driftCap)})
-	assert.False(t, s.Ticking(), "the first samples are a reset, not a shift")
-
 	s.SetSamples(map[string][]float64{"a": ramp(1, driftCap)})
-	assert.True(t, s.Ticking())
 
-	s.Add("a", 3)
-	assert.False(t, s.Ticking(), "Add puts the plot in place and stops the redraws")
+	assert.False(t, s.Ticking(), "the animation has already ended")
+	at := starts(t, s)
+	require.Len(t, at, 10)
+	assert.InDelta(t, 10, at[1], 0.01, "in place")
+}
 
-	s.SetSamples(map[string][]float64{"a": ramp(2, driftCap)})
-	s.SetSamples(map[string][]float64{"a": ramp(3, driftCap)})
-	require.True(t, s.Ticking())
-	s.Clear()
-	assert.False(t, s.Ticking(), "Clear stops the redraws")
+// Drift reads back what SetDrift set, zero until then.
+func TestDriftReadsBackWhatWasSet(t *testing.T) {
+	s := glance.NewSparkline(8)
+	assert.Zero(t, s.Drift())
+	s.SetDrift(driftEvery)
+	assert.Equal(t, driftEvery, s.Drift())
 }
 
 // newestY is the height the newest sample of a single-trace plot is drawn at.

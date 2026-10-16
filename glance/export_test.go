@@ -55,4 +55,4 @@ func HoldDriftTicks() (restore func()) {
 }
 
 // Ticking reports whether the plot's redraws are running.
-func (s *Sparkline) Ticking() bool { return s.stop != nil }
+func (s *Sparkline) Ticking() bool { return s.anim != nil }

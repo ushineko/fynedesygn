@@ -69,9 +69,10 @@ type Sparkline struct {
 	sharedFrom span
 	now        func() time.Time
 
-	// stop ends the goroutine that redraws a drifting plot, nil when none
-	// runs. It is owned by the UI thread.
-	stop chan struct{}
+	// anim redraws a drifting plot, nil when nothing drifts, and lastFrame
+	// is when it last did.
+	anim      *fyne.Animation
+	lastFrame time.Time
 }
 
 // span is a range a trace is drawn against: its low edge and its height.
@@ -284,6 +285,10 @@ func (s *Sparkline) isShift(old, next []float64) bool {
 	return false
 }
 
+// Drift reports the time between samples SetDrift set, zero when the plot
+// does not drift, so a consumer's test can assert the plot it built.
+func (s *Sparkline) Drift() time.Duration { return s.drift }
+
 // SetDrift sets the time the program expects between samples, which turns
 // drift on: a sample given by SetSamples moves into place over that time
 // instead of arriving in one step. Zero turns it off, which is the default.
@@ -351,35 +356,48 @@ func (s *Sparkline) settle() {
 // driftTicks is false in a test, which moves the clock itself.
 var driftTicks = true
 
-// tick starts the redraws of a drifting plot, if they are not running.
+/*
+tick starts the redraws of a drifting plot, replacing any running.
+
+They are a fyne.Animation over the drift's interval rather than a goroutine
+of the plot's own, for the reason the shell's banners fade with one: the
+desktop driver runs it on the UI thread with every frame, and the test driver
+runs it to its end at once, so a headless test never has a plot redrawing
+under it from another goroutine. The animation ticks at the display's rate;
+the plot is redrawn at SparklineDriftRate of them, and the rest return at
+once.
+*/
 func (s *Sparkline) tick() {
-	if s.stop != nil || !driftTicks {
+	s.stopTicking()
+	if !driftTicks {
 		return
 	}
-	stop := make(chan struct{})
-	s.stop = stop
-	go func() {
-		t := time.NewTicker(time.Second / SparklineDriftRate)
-		defer t.Stop()
-		for {
-			select {
-			case <-stop:
-				return
-			case <-t.C:
-				fyne.Do(func() { s.frame(stop) })
-			}
-		}
-	}()
+	var a *fyne.Animation
+	a = fyne.NewAnimation(s.drift, func(done float32) { s.frame(a, done) })
+	a.Curve = fyne.AnimationLinear
+	s.anim = a
+	s.lastFrame = time.Time{}
+	a.Start()
 }
 
-// frame is one redraw of a drifting plot, on the UI thread. The drift that
-// has reached its end settles, which stops the redraws until the next sample.
-func (s *Sparkline) frame(stop chan struct{}) {
-	if s.stop != stop {
-		return // a frame queued before the drift was stopped
+// frame is one tick of a drifting plot's animation, on the UI thread. The
+// drift that has reached its end settles, which stops the redraws until the
+// next sample.
+func (s *Sparkline) frame(a *fyne.Animation, done float32) {
+	if s.anim != a {
+		return // an animation already replaced or stopped
 	}
-	if s.progress() >= 1 {
-		s.settle()
+	now := s.now()
+	end := done >= 1 || s.progress() >= 1
+	if !end && now.Sub(s.lastFrame) < time.Second/SparklineDriftRate {
+		return
+	}
+	s.lastFrame = now
+	if end {
+		s.anim = nil // ending on its own: nothing to stop
+		for _, ser := range s.series {
+			ser.drifting = false
+		}
 	}
 	if s.Visible() {
 		s.Refresh()
@@ -388,9 +406,9 @@ func (s *Sparkline) frame(stop chan struct{}) {
 
 // stopTicking ends the redraws.
 func (s *Sparkline) stopTicking() {
-	if s.stop != nil {
-		close(s.stop)
-		s.stop = nil
+	if s.anim != nil {
+		s.anim.Stop()
+		s.anim = nil
 	}
 }
 

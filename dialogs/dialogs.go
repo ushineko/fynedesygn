@@ -116,6 +116,23 @@ func ConfirmWithBody(win fyne.Window, title string, body fyne.CanvasObject, conf
 // Prompt is the shape most input dialogs take: a heading, one or more fields,
 // and a confirm that hands the values to the caller.
 func Prompt(win fyne.Window, title, confirm string, body fyne.CanvasObject, do func()) {
+	PromptSized(win, title, confirm, body, PromptSize, do)
+}
+
+/*
+PromptSized is Prompt at a size the caller chooses.
+
+Prompt's own size fits the shape it was named for: a heading and one or two
+fields. A prompt whose body is a *list* is a different shape and 340 points
+is not enough of it — the caller knows which it is building and this is how
+it says so, usually through RoomySize so the dialog grows with the window.
+
+A second function rather than a size on Prompt, because Prompt is called in
+a lot of places that are the shape it was named for and should not each have
+to repeat the default.
+*/
+func PromptSized(win fyne.Window, title, confirm string, body fyne.CanvasObject,
+	size fyne.Size, do func()) {
 	var d *dialog.ConfirmDialog
 	d = dialog.NewCustomConfirm(title, confirm, "Cancel",
 		closable(body, func() { d.Hide() }), func(ok bool) {
@@ -123,7 +140,7 @@ func Prompt(win fyne.Window, title, confirm string, body fyne.CanvasObject, do f
 				do()
 			}
 		}, win)
-	d.Resize(PromptSize)
+	d.Resize(size)
 	raise(win, d)
 }
 

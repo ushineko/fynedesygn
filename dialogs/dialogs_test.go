@@ -314,3 +314,83 @@ func TestChooseFontWithDrawsTheCallersSample(t *testing.T) {
 	require.NotNil(t, fynetest.FindLabel(overlay, "sample in Beta Serif"))
 	_ = a
 }
+
+/*
+dialogSize is the size of the dialog itself, not of the overlay it sits in.
+
+Fyne's dialog is a *widget.PopUp inside an OverlayContainer that fills the
+canvas, so reading the overlay's size answers how big the window is and says
+nothing about the dialog. Measured the first time these tests were written
+and both of them passed at 700 — the window's height — against a dialog that
+was 340.
+*/
+func dialogSize(t *testing.T, w fyne.Window) fyne.Size {
+	t.Helper()
+	var found fyne.Size
+	var walk func(o fyne.CanvasObject)
+	walk = func(o fyne.CanvasObject) {
+		if p, ok := o.(*widget.PopUp); ok {
+			found = p.Size()
+			return
+		}
+		switch v := o.(type) {
+		case *fyne.Container:
+			for _, k := range v.Objects {
+				walk(k)
+			}
+		case fyne.Widget:
+			for _, k := range test.WidgetRenderer(v).Objects() {
+				walk(k)
+			}
+		}
+	}
+	walk(overlay(t, w))
+	require.NotZero(t, found, "no dialog found in the overlay")
+	return found
+}
+
+/*
+PromptSized opens at the size it was given, and Prompt still opens at its own.
+
+The size is the whole point of the second function: Prompt's 620x340 fits a
+heading and two fields, and a consumer whose body is a scrolling list had no
+way to say so — Prompt resizes internally and returns nothing, so the caller
+could not reach the dialog to resize it afterwards.
+*/
+func TestPromptSizedOpensAtTheGivenSize(t *testing.T) {
+	w := testWindow(t)
+	// Bigger than the size asked for: Fyne clamps a dialog to its canvas, so
+	// in the default 900x700 test window a request for 980x720 is answered
+	// with 900x700 and the test would be measuring the window.
+	w.Resize(fyne.NewSize(1600, 1200))
+
+	want := fyne.NewSize(980, 720)
+	PromptSized(w, "Pick one", "Choose", widget.NewLabel("body"), want, func() {})
+
+	got := dialogSize(t, w)
+	require.Equal(t, want, got, "the dialog did not open at the size it was given")
+	// And taller than the default it would have had, which is the bug this
+	// exists to fix rather than a restatement of the line above.
+	require.Greater(t, got.Height, PromptSize.Height)
+}
+
+// Prompt is unchanged: it is PromptSized at the default, and the callers that
+// are the shape it was named for should not have to say so.
+func TestPromptKeepsItsOwnSize(t *testing.T) {
+	w := testWindow(t)
+	Prompt(w, "Pick one", "Choose", widget.NewLabel("body"), func() {})
+	require.Equal(t, PromptSize, dialogSize(t, w),
+		"Prompt changed size; it should still open at PromptSize")
+}
+
+// Both still run do only on the confirm button, which is the behaviour the
+// size change must not have touched.
+func TestPromptSizedConfirms(t *testing.T) {
+	w := testWindow(t)
+	ran := 0
+	PromptSized(w, "Pick one", "Choose", widget.NewLabel("body"),
+		fyne.NewSize(900, 600), func() { ran++ })
+
+	test.Tap(fynetest.FindButton(overlay(t, w), "Choose"))
+	require.Equal(t, 1, ran)
+}

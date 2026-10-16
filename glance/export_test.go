@@ -1,6 +1,10 @@
 package glance
 
-import "fyne.io/fyne/v2"
+import (
+	"time"
+
+	"fyne.io/fyne/v2"
+)
 
 // SetSelfMoving makes a panel behave as on a desktop where a window can, or
 // cannot, move itself, so both are tested on one system.
@@ -38,3 +42,17 @@ func (w *Window) Catcher() fyne.CanvasObject {
 
 // ChoiceObjects are the switch's choices as drawn, in order.
 func (s *Switch) ChoiceObjects() []fyne.CanvasObject { return s.box.Objects }
+
+// SetClock replaces the sparkline's clock, so a test draws a drift at the
+// moment it chooses.
+func (s *Sparkline) SetClock(now func() time.Time) { s.now = now }
+
+// HoldDriftTicks stops drifting plots starting their redraws, so nothing but
+// the test moves them, and returns what puts it back.
+func HoldDriftTicks() (restore func()) {
+	driftTicks = false
+	return func() { driftTicks = true }
+}
+
+// Ticking reports whether the plot's redraws are running.
+func (s *Sparkline) Ticking() bool { return s.stop != nil }

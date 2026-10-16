@@ -272,6 +272,20 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **New**: a glance sparkline can drift between samples instead of jumping a
+  step when one arrives (spec 070, #211). `Sparkline.SetDrift(every)` says
+  how long the program waits between samples, and `Sparkline.SetSamples`
+  replaces traces from the program's own history in one refresh. A trace
+  that gained one sample moves into place at a constant speed over `every`,
+  and its range blends from the old one to the new one. It redraws 10 times
+  a second while moving (`SparklineDriftRate`), about 0.8 percentage points
+  of one core over a stepping plot on an i9-14900K. Off by default.
+- **Change**: a sparkline's points are spaced by its capacity, not by the
+  number of samples it holds, so a plot that is filling grows from the right
+  edge instead of re-spacing every point on every sample.
+
 ### 0.1.102 (2026-10-16)
 
 - **New**: `dialogs.PromptSized` is `Prompt` at a size the caller chooses

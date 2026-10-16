@@ -2,6 +2,8 @@ package main
 
 import (
 	"math"
+	"slices"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -43,7 +45,7 @@ const panelWidth float32 = 320
 // buildGlance draws the glance vocabulary. Every card here is forced available,
 // because in a program availability is what a poll reports and there is no poll
 // in a gallery.
-func buildGlance(_ *shell.Shell) fyne.CanvasObject {
+func buildGlance(sh *shell.Shell) fyne.CanvasObject {
 	// Everything is drawn at panelWidth rather than filling the content pane.
 	// A glance card lives in a window a few hundred pixels wide; stretched
 	// across a gallery pane it is a shape no program will ever see, and the
@@ -75,6 +77,7 @@ func buildGlance(_ *shell.Shell) fyne.CanvasObject {
 		demo("Card + Sparkline", plotCard().Object()),
 		demo("Card, InsertRow over a plot", insertedCard().Object()),
 		demo("Sparkline, ScaleShared, SeriesColour + Faded", sharedPlot(90)),
+		demo("Sparkline, SetDrift + SetSamples: live, a sample every 2 s", driftingPlot(sh != nil && sh.OnScreen())),
 
 		demo("Card + Meter", meterCard().Object()),
 		// The same three cards under the Lines arrangement (spec 057): a line per
@@ -327,6 +330,44 @@ func sharedPlot(n int) *glance.Sparkline {
 		p.Add("wlan0 down", 1.2*mib*(0.6+0.35*math.Sin(t/5)))
 		p.Add("wlan0 up", 0.3*mib*(0.6+0.3*math.Sin(t/7)))
 	}
+	return p
+}
+
+// driftingPlot is a plot fed a sample every two seconds through SetSamples,
+// with drift on, so it moves at a constant speed between samples instead of
+// stepping when one arrives (spec 070). The history is kept here, as a program
+// keeps it, and handed over whole. The feed starts only with a window to
+// draw into: a headless build has nobody to show it to.
+func driftingPlot(feed bool) *glance.Sparkline {
+	const (
+		n     = 60
+		every = 2 * time.Second
+	)
+	reading := func(i int) float64 {
+		t := float64(i)
+		return 62 + 14*math.Sin(t/7) + 4*math.Sin(t/3)
+	}
+
+	p := glance.NewSparkline(n)
+	p.AddSeries("cpu", fynetheme.Color(fynetheme.ColorNamePrimary), 5)
+	p.SetDrift(every)
+	history := make([]float64, n)
+	for i := range history {
+		history[i] = reading(i)
+	}
+	p.SetSamples(map[string][]float64{"cpu": history})
+	if !feed {
+		return p
+	}
+
+	go func() {
+		for i := n; ; i++ {
+			time.Sleep(every)
+			history = append(history[1:], reading(i))
+			next := slices.Clone(history)
+			fyne.Do(func() { p.SetSamples(map[string][]float64{"cpu": next}) })
+		}
+	}()
 	return p
 }
 

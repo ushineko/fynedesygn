@@ -891,6 +891,30 @@ never click. `glance.Sparkline` draws it.
   Under `ScaleShared` the scale is widened to the largest of the traces'
   minimum ranges when the peak is below it, so a window where every link is
   idle does not stretch a few bytes a second into the full height.
+- **Move between samples; do not poll faster to look smooth** (spec 070). A
+  plot that only moves when a sample arrives jumps a step each time: 4.5 px
+  every 2 s at 60 samples in 268 px. Polling faster costs reads and makes the
+  data worse (a byte counter read faster than its driver updates it is
+  noise). Tell the plot the time between samples with `SetDrift` and give it
+  each sample's history with `SetSamples`. A trace that gained one sample
+  then moves left at a constant speed until the next is due, and its range
+  blends from the old one to the new one over the same time. The plot runs up
+  to one interval behind the rows above it, which are where the values are
+  read. It redraws `SparklineDriftRate` (10) times a second while it moves.
+  Measured on a 2 s and a 5 s feed:
+
+  | Plot | CPU, one core (i9-14900K) |
+  |---|---|
+  | Stepping (`Clear`, then `Add` per sample) | 0.42–0.51 % |
+  | Drifting at 10 frames a second | 1.2–1.3 % |
+  | Drifting at 20 | 2.0 % |
+  | Drifting at the display's rate | 4.0 % |
+
+  A 350 ms ease-out slide of one step was also tried: it costs 1.1 % and is
+  not seen as motion, because the step is a few pixels. A widget wrapped in
+  a struct and put in a window draws once and never again: Fyne finds the
+  renderer by the pointer `Refresh` is called on. Put the `*Sparkline`
+  itself in the window.
 - **Take the colours of traces without a row from the design system.** Where
   a trace has a row whose value is coloured, it takes that colour, as above.
   Where it does not (four bandwidth traces under one card) `SeriesColour(th,
@@ -1246,6 +1270,7 @@ number. See design-system.md, Numbers.
 | Sparkline samples / cadence / span | 60 / 5 s / 5 minutes |
 | Meter bar height / radius | 8 / 4 |
 | Sparkline height | 26 |
+| Sparkline drift redraws | 10 a second (`glance.SparklineDriftRate`) |
 | Sparkline minimum span per trace | 5 units |
 | Faded series alpha | half the primary's |
 | Trend smoothing | 60 s trailing mean |

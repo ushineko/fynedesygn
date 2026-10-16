@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.101
+**Version**: 0.1.102
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -271,6 +271,16 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.102 (2026-10-16)
+
+- **New**: `dialogs.PromptSized` is `Prompt` at a size the caller chooses
+  (#210). `Prompt`'s own 620x340 fits the shape it was named for — a heading
+  and one or two fields — and a prompt whose body is a *list* is a different
+  shape that could not say so: `Prompt` resized internally and returned
+  nothing, so the caller had no handle either. Usually passed
+  `dialogs.RoomySize(win, floor)`, so the dialog grows with the window the
+  way the detail dialogs already do. `Prompt` is unchanged and delegates.
 
 ### 0.1.101 (2026-10-13)
 

@@ -17,10 +17,11 @@ func TestTheHoldScriptKeepsTheRightEdge(t *testing.T) {
 
 	assert.Contains(t, s, `const target = { class: "io.ushineko.example", caption: "Monitor" }`)
 	assert.Contains(t, s, "w.frameGeometryChanged.connect(function(old)")
-	assert.Contains(t, s, "x: old.x + old.width - g.width")
+	assert.Contains(t, s, "const x = old.x + old.width - g.width;")
+	assert.Contains(t, s, "x: x, y: g.y, width: g.width, height: g.height")
 	assert.Contains(t, s, "w.move || w.resize", "a window dragged or resized by hand was moved back")
-	assert.Contains(t, s, "g.width == old.width || g.x != old.x",
-		"a change that is not a client's own widening was acted on")
+	assert.Contains(t, s, "|| Math.abs(g.width - old.width) < 0.5)", "a change that kept the width was acted on")
+	assert.Contains(t, s, "if (Math.abs(g.x - x) < 0.5) { return; }", "an edge already held was set again")
 	assert.Contains(t, s, "workspace.windowAdded.connect(hold)", "a panel restarted while it is loaded was not held")
 	assert.NotContains(t, s, "Qt.rect", "Qt.rect does not exist in a KWin script")
 }
@@ -66,4 +67,16 @@ func TestADrawerScriptCannotBeEscapedByItsStrings(t *testing.T) {
 		assert.NotContains(t, s, `x"; workspace`, name)
 		assert.Contains(t, s, `x\"; workspace`, name)
 	}
+}
+
+// Spec 071. Plasma 6.8 moves x by half of what the window grew, in the same
+// change; a script that waited for x to stay put never acted there.
+func TestTheHoldScriptActsWhereTheCompositorMovedTheWindow(t *testing.T) {
+	s := kwin.HoldRightEdgeScript(panel)
+
+	assert.NotContains(t, s, "g.x != old.x", "a widening the compositor also moved was left alone")
+	// The script's own move reports a width a few ulps from the one set;
+	// compared exactly, the move was undone in its own handler.
+	assert.NotContains(t, s, "g.width == old.width", "the script's own move was read as a widening")
+	assert.NotContains(t, s, "g.x == x", "a held edge a few ulps off was set again")
 }

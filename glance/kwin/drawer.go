@@ -10,14 +10,29 @@ cards must stay under the pointer that clicked them and only the compositor
 moves a window.
 
 It stays loaded, as WatchGeometryScript does, and acts in the window's
-frameGeometryChanged handler: when the width changed and x did not, and the
-user is not moving or resizing the window by hand, it sets x back by the
-difference. Measured on Plasma 6.7.5 on Wayland: the client's resize and the
-move are logged in the same millisecond, growing and shrinking, and a window
-opened and closed returns to the pixel it started on. A frame is not painted
-between the two, because the move is made inside the commit that applied the
-resize. Setting frameGeometry inside the handler is not dropped and needs no
-timer.
+frameGeometryChanged handler: when the width changed and the user is not
+moving or resizing the window by hand, it puts the right edge back where it
+was. Measured on Plasma 6.7.5 on Wayland: the client's resize and the move are
+logged in the same millisecond, growing and shrinking, and a window opened and
+closed returns to the pixel it started on. A frame is not painted between the
+two, because the move is made inside the commit that applied the resize.
+Setting frameGeometry inside the handler is not dropped and needs no timer.
+
+The x KWin gave the window is not consulted (spec 071). Plasma 6.7 left x
+where it was when a client changed its own width; Plasma 6.8 keeps the
+window's centre instead, moving x by half the difference in the same change.
+The script once acted only when x had not moved, and on 6.8 it never acted: a
+left drawer moved the cards by half its width. The right edge is worked out
+from the geometry before the change, whichever x the compositor chose.
+
+Widths and places are compared to within half a pixel, never with ==. The
+script's own move changes the geometry and calls the handler again, and the
+width it reports then differs from the one it set in the last digits
+(553.3333333333335 against 553.3333333333333 at a scale of 1.5). Compared
+exactly, that was read as the client widening again and the move was undone
+inside its own handler: a drawer that opened at the centred place and closed
+at the held one, and the panel crept sideways by half a drawer at each
+opening.
 
 **Load it only while the drawer is on the left**, and tell the drawer with
 glance.Drawer.SetEdgeHeld. Loaded for a drawer on the right it would make
@@ -31,8 +46,10 @@ func HoldRightEdgeScript(t Target) string {
     if (!matches(w) || !w.frameGeometryChanged) { return; }
     w.frameGeometryChanged.connect(function(old) {
         const g = w.frameGeometry;
-        if (w.move || w.resize || g.width == old.width || g.x != old.x) { return; }
-        w.frameGeometry = { x: old.x + old.width - g.width, y: g.y, width: g.width, height: g.height };
+        if (w.move || w.resize || Math.abs(g.width - old.width) < 0.5) { return; }
+        const x = old.x + old.width - g.width;
+        if (Math.abs(g.x - x) < 0.5) { return; }
+        w.frameGeometry = { x: x, y: g.y, width: g.width, height: g.height };
     });
 }
 for (const w of workspace.windowList()) { hold(w); }

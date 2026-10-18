@@ -272,6 +272,17 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fixed**: a drawer on the left opens and closes with the cards in place
+  on Plasma 6.8 (spec 071, #213). KWin 6.8 moves a window's x when the
+  client widens it, and `kwin.HoldRightEdgeScript` acted only on a change
+  where x had not moved, so it never acted there and the cards moved by half
+  the drawer's width. The script now holds the edge whatever x the
+  compositor chose, and compares widths and places within half a pixel: its
+  own move reports a width a few ulps off, which compared exactly undid the
+  move inside its own handler.
+
 ### 0.1.103 (2026-10-16)
 
 - **New**: a glance sparkline can drift between samples instead of jumping a

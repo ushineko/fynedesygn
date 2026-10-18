@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.103
+**Version**: 0.1.104
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -272,7 +272,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.104 (2026-10-17)
 
 - **Fixed**: a drawer on the left opens and closes with the cards in place
   on Plasma 6.8 (spec 071, #213). KWin 6.8 moves a window's x when the

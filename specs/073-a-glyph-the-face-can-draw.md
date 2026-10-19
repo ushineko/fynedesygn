@@ -67,7 +67,10 @@ question with an answer.
 - [x] Both standard lists resolve against Fyne's bundled face and against
       Adwaita Sans: each gives U+2039 and U+203A, because neither face has
       the triangles.
-- [ ] A Windows desk draws the chosen glyphs as glyphs (hayami's change).
+- [x] A Windows desk draws the chosen glyphs as glyphs: confirmed on
+      gamerson-w11 (Windows 11) through hayami's change, by the desk that
+      reported the boxes. No Linux desk can see that, so the tick is that
+      desk's word and not this one's.
 
 ## Out of scope
 
@@ -96,5 +99,6 @@ Against Fyne's bundled face and Adwaita Sans on Linux: both lists resolve to
 U+2039 and U+203A, and neither face has U+25C2 or U+25B8. The tests fail
 when the fallback is removed.
 
-Not verified here: how the chosen glyphs draw on Windows or macOS. hayami's
-change carries that.
+Not verified here: how the chosen glyphs draw on Windows or macOS -- this
+desk cannot see either screen. Windows is confirmed by gamerson-w11 through
+hayami's change; macOS is still nobody's report.

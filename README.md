@@ -272,6 +272,17 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **New**: `theme.FirstDrawable` answers with a glyph the theme's face can
+  actually draw, from an ordered list of candidates, and `BackGlyphs` and
+  `ForwardGlyphs` are the standard lists for pointing back and on (spec 073,
+  #217). A program that picks a character and hopes gets this wrong: U+2190
+  drew as a missing-glyph box in Adwaita Sans, the triangle chosen to fix it
+  drew as a box on Windows, and in fact **neither** Fyne's bundled face nor
+  Adwaita Sans has that triangle -- the Linux desk drew it only because the
+  platform substituted another font. The face is asked instead of a desk.
+
 ### 0.1.105 (2026-10-19)
 
 - **New**: a drawer can be worked and not only read (spec 072, #215). Its

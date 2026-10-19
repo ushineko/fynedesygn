@@ -272,6 +272,28 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **New**: a drawer can be worked and not only read (spec 072, #215). Its
+  heading takes a row of buttons (`Drawer.SetButtons`, `DrawerSpec`) and one
+  at the left for a way back (`SetLeadButton`); a spec's `Words` hold a
+  button at the width of the widest word it will carry, and `Active` draws
+  an engaged toggle filled rather than outlined. `SetRowTapped` reports a
+  primary click on a named row, which nothing could do: `Panel.OnTapped` is
+  about cards and a click in the drawer was the switch's or nothing.
+  `SetHighlight` and `Row.SetHovered` light the row under the pointer --
+  the library had no notion of a pointer that was not clicking -- and every
+  row carries its ground, so turning the hover on does not change a row's
+  height. `SetOffset` puts a rebuilt drawer back where it was scrolled to,
+  which `Offset()` could only read: a breakdown whose shape changes as rows
+  come and go was dragged to its top on nearly every reading.
+- **Changed**: `DrawerWidthInEms` is 32, was 24. A drawer holding a name
+  column and two figures had no room for a hostname at 24.
+- **Changed**: `Row.Object()` is a stack whose first child is the ground a
+  hover is drawn on, not the label column. Nothing in the library indexes
+  into it -- `Visible`, `MinSize` and `Hide` only -- but a caller reaching
+  into a row's tree by position would be affected.
+
 ### 0.1.104 (2026-10-17)
 
 - **Fixed**: a drawer on the left opens and closes with the cards in place

@@ -369,6 +369,22 @@ func (c *menuCatcher) TappedSecondary(e *fyne.PointEvent) {
 // under it.
 func (c *menuCatcher) Tapped(e *fyne.PointEvent) { c.owner.panel.tapped(e.AbsolutePosition) }
 
+// The pointer, for the drawer's hover. The catcher already lies over the
+// whole panel for clicks, so it is where a move is heard too.
+func (c *menuCatcher) MouseIn(e *desktop.MouseEvent) { c.MouseMoved(e) }
+
+func (c *menuCatcher) MouseMoved(e *desktop.MouseEvent) {
+	if c.owner.panel != nil {
+		c.owner.panel.drawer.hoverAt(e.AbsolutePosition)
+	}
+}
+
+func (c *menuCatcher) MouseOut() {
+	if c.owner.panel != nil {
+		c.owner.panel.drawer.hoverAway()
+	}
+}
+
 // Dragged is the first movement of a press and every one after it. The first
 // moves the window where the window moves itself (Windows); elsewhere the
 // desktop moves it and there is nothing to do but not be a tap.

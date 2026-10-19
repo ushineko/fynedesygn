@@ -23,7 +23,7 @@ const (
 // DrawerWidthInEms is the drawer's width in text sizes: a name, a figure and
 // something between them, a little wider than a card's least
 // (CardWidthInEms).
-const DrawerWidthInEms = 24
+const DrawerWidthInEms = 32
 
 /*
 Drawer is a surface beside the card stack, in the same window and as tall as
@@ -66,11 +66,20 @@ type Drawer struct {
 	// yield gives the keyboard back where the window cannot. See SetYield.
 	yield func()
 
-	title  *canvas.Text
-	body   *fyne.Container
-	pieces []Piece
-	filter *Filter
-	sw     *Switch
+	title   *canvas.Text
+	body    *fyne.Container
+	pieces  []Piece
+	filter  *Filter
+	sw      *Switch
+	onRow   func(*Row)
+	taprows []*Row
+
+	// button is the drawer's own control, at the right of its heading, and
+	// hovered is the row a pointer is over while highlighting is on.
+	buttons   []*drawerButton
+	lead      *drawerButton
+	hovered   *Row
+	highlight bool
 
 	// scroll holds the content when the drawer scrolls (SetScrolling), and
 	// holder is where the content stands, in the scroller or by itself.
@@ -170,6 +179,19 @@ func (d *Drawer) scrollTo(y float32) {
 	most := d.bodied.MinSize().Height - d.scroll.Size().Height
 	d.scroll.ScrollToOffset(fyne.NewPos(0, max(0, min(y, most))))
 }
+
+/*
+SetOffset puts the content back to where it was scrolled to.
+
+A drawer whose content is rebuilt -- a breakdown that gained a row, a list
+whose shape changed -- starts again at the top, which for a live list is a
+list that cannot be scrolled at all: every reading takes the reader back.
+The caller reads Offset before it rebuilds and gives it back afterwards.
+
+The offset is clamped to what there is to scroll, so a rebuild that made the
+content shorter settles at its end rather than past it.
+*/
+func (d *Drawer) SetOffset(y float32) { d.scrollTo(y) }
 
 // scrollKey scrolls for a key, and reports whether the key was one that
 // scrolls.
@@ -509,10 +531,49 @@ func (d *Drawer) tapped(at fyne.Position) bool {
 	if at.X < pos.X || at.X >= pos.X+size.Width || at.Y < pos.Y || at.Y >= pos.Y+size.Height {
 		return false
 	}
+	if d.buttonAt(at) {
+		return true
+	}
 	if d.sw != nil {
 		d.sw.tappedAt(at)
 	}
+	if d.onRow != nil {
+		for _, r := range d.taprows {
+			if rowAt(r, at) {
+				d.onRow(r)
+				break
+			}
+		}
+	}
 	return true
+}
+
+/*
+SetRowTapped makes the drawer's rows clickable and says which were clicked.
+
+A drawer used to be a page to read: its clicks were the switch's and nothing
+else was reported. A list a person navigates needs more than that -- a row
+opened for what is behind it, a trail clicked to come back -- so the program
+names the rows that answer to a click and is told which one it was.
+
+rows are the pieces SetContent was given, in any order; a click lands on at
+most one. Passing no rows, or a nil function, makes the drawer a page to
+read again.
+*/
+func (d *Drawer) SetRowTapped(on func(*Row), rows ...*Row) {
+	d.onRow, d.taprows = on, rows
+}
+
+// rowAt reports whether a canvas position is within a row.
+func rowAt(r *Row, at fyne.Position) bool {
+	if r == nil || !r.Shown() {
+		return false
+	}
+	o := r.Object()
+	pos := fyne.CurrentApp().Driver().AbsolutePositionForObject(o)
+	size := o.Size()
+	return at.X >= pos.X && at.X < pos.X+size.Width &&
+		at.Y >= pos.Y && at.Y < pos.Y+size.Height
 }
 
 // wireKeys points the window's keys at the filter, the switch and the
@@ -566,6 +627,11 @@ func (d *Drawer) Restyle() {
 	d.title.Color = d.colour(theme.ColorNamePlaceHolder)
 	d.title.Refresh()
 	d.refit(d.title)
+	for _, b := range append([]*drawerButton{d.lead}, d.buttons...) {
+		if b != nil {
+			b.restyle(d)
+		}
+	}
 	d.inner.Layout = d.padding()
 	d.titled.Layout = d.rightPad()
 	d.bodied.Layout = d.rightPad()

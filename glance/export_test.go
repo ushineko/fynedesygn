@@ -56,3 +56,16 @@ func HoldDriftTicks() (restore func()) {
 
 // Ticking reports whether the plot's redraws are running.
 func (s *Sparkline) Ticking() bool { return s.anim != nil }
+
+// Head is the row's label column: the pinned container for a row built by
+// NewRowWidth, and the bare label otherwise.
+//
+// A test asking "is the column still the width it was pinned to" wants that
+// object and not the row's first child, which is the ground a hover is drawn
+// on and is as wide as the row.
+func (r *Row) Head() fyne.CanvasObject {
+	if r.labelBox != nil {
+		return r.labelBox
+	}
+	return r.label
+}

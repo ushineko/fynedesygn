@@ -47,6 +47,10 @@ type Row struct {
 
 	// id names the row within its card. Empty for a row nobody looks up.
 	id string
+
+	// ground is the fill behind the row, lit while a pointer is on it.
+	ground  *canvas.Rectangle
+	hovered bool
 }
 
 /*
@@ -108,9 +112,36 @@ func NewRowWidth(label, blank string, labelWidth float32) *Row {
 		head = r.labelBox
 	}
 	r.slot = container.New(valueLayout{}, r.value)
-	r.box = container.NewHBox(head, layout.NewSpacer(), r.slot)
+	// The ground a hover is drawn on. It is part of every row rather than
+	// added to the ones that can be hovered, so a row that lights up and
+	// one that does not are the same height and the list does not shift
+	// when highlighting is turned on.
+	r.ground = canvas.NewRectangle(color.Transparent)
+	r.ground.CornerRadius = r.size(theme.SizeNameInputRadius)
+	r.box = container.NewStack(r.ground,
+		container.NewHBox(head, layout.NewSpacer(), r.slot))
 	r.reading = Measured(blank)
 	return r
+}
+
+/*
+SetHovered lights the row's ground, or puts it out.
+
+Subtle on purpose: it says which row the pointer is on and must not say
+anything else. A row that lit up as brightly as a selection would read as
+chosen, and nothing has been chosen by pointing at it.
+*/
+func (r *Row) SetHovered(on bool) {
+	if r == nil || r.hovered == on {
+		return
+	}
+	r.hovered = on
+	if on {
+		r.ground.FillColor = r.colour(theme.ColorNameHover)
+	} else {
+		r.ground.FillColor = color.Transparent
+	}
+	r.ground.Refresh()
 }
 
 // Set replaces the row's value. It repaints; it does not re-lay-out, because

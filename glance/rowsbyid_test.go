@@ -203,10 +203,7 @@ func TestAPinnedLabelColumnFollowsItsRow(t *testing.T) {
 
 	found := c.RowByID("gpu:0")
 	require.NotNil(t, found)
-	box, ok := found.Object().(*fyne.Container)
-	require.True(t, ok)
-	require.NotEmpty(t, box.Objects)
-	assert.InDelta(t, pin, box.Objects[0].MinSize().Width, 0.01,
+	assert.InDelta(t, pin, found.Head().MinSize().Width, 0.01,
 		"the pinned label column moved when a row was inserted above it")
 }
 

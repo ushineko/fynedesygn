@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.104
+**Version**: 0.1.105
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -272,7 +272,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.105 (2026-10-19)
 
 - **New**: a drawer can be worked and not only read (spec 072, #215). Its
   heading takes a row of buttons (`Drawer.SetButtons`, `DrawerSpec`) and one

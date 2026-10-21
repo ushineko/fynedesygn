@@ -272,6 +272,20 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fixed**: `glance/kwin` no longer deletes the user's other window rules on
+  Plasma 6.8 (spec 074, #219). KWin 6.8 lists rules in `Order` and takes a
+  `rules=` it finds as the only rules to keep; `Install` wrote `rules=1` into
+  such a file, over whatever rule was `[1]`, and on the next reconfigure KWin
+  deleted every other rule. Two programs using the package overwrote each
+  other's rule in turn. The rule list is now read from and written to the
+  format the file is in, a new rule is numbered past every group in the file,
+  a stray `rules=` in a 6.8 file is folded into `Order`, and `NoBorder` is
+  written and read as `decorationpolicy=none` there. `Lookup` finds a rule
+  after KWin 6.8 has rewritten the file, so a settings switch no longer
+  unticks itself.
+
 ### 0.1.106 (2026-10-19)
 
 - **New**: `theme.FirstDrawable` answers with a glyph the theme's face can

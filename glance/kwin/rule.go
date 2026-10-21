@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -78,8 +79,25 @@ type Rule struct {
 // it exactly at "2" and was opaque at every percentage at "3" and "4".
 const ruleForce = "2"
 
-// generalSection holds the list of rules and their count.
+// decorationNone is KWin 6.8's decorationpolicy for a window with no border.
+const decorationNone = "none"
+
+// generalSection holds the list of rules.
 const generalSection = "General"
+
+// The two places the list of rules has lived. KWin 6.8 reads `Order`; `rules`
+// and `count` are what it read before, and what KWin 6.7 still reads.
+//
+// **A legacy list in a 6.8 file deletes rules.** KWin 6.8 takes a non-empty
+// `rules` as an old file to migrate and deletes every rule group it does not
+// list (RuleBookSettings::usrRead, v6.8.0). This package once wrote `rules=1`
+// into a file that listed its rules in `Order`, and on the next reconfigure
+// KWin deleted every rule but that one (spec 074).
+const (
+	orderKey  = "Order"
+	legacyKey = "rules"
+	countKey  = "count"
+)
 
 // staleKeys are keys an earlier version of a rule may have written that this
 // one must clear.
@@ -150,11 +168,13 @@ func Install(r Rule) error {
 		return err
 	}
 
-	sec := file.section(sectionFor(file, r.AppID, r.Title))
+	list := readList(file)
+	sec := file.section(sectionFor(file, list, r.AppID, r.Title))
 	if sec == nil {
-		sec = appendRule(file)
+		sec = appendRule(file, &list)
 	}
-	write(sec, r)
+	write(sec, r, list.order)
+	list.store()
 
 	return save(path, file)
 }
@@ -175,22 +195,21 @@ func RemoveTitled(appID, title string) (bool, error) {
 		return false, err
 	}
 
-	name := sectionFor(file, appID, title)
+	list := readList(file)
+	name := sectionFor(file, list, appID, title)
 	if name == "" {
 		return false, nil
 	}
 	file.remove(name)
 
-	general := file.ensure(generalSection)
-	names := ruleNames(general)
-	kept := names[:0]
-	for _, n := range names {
+	kept := list.names[:0]
+	for _, n := range list.names {
 		if n != name {
 			kept = append(kept, n)
 		}
 	}
-	general.set("rules", strings.Join(kept, ","))
-	general.set("count", strconv.Itoa(len(kept)))
+	list.names = kept
+	list.store()
 
 	return true, save(path, file)
 }
@@ -210,7 +229,7 @@ func LookupTitled(appID, title string) (Rule, bool, error) {
 	if err != nil {
 		return Rule{}, false, err
 	}
-	name := sectionFor(file, appID, title)
+	name := sectionFor(file, readList(file), appID, title)
 	if name == "" {
 		return Rule{}, false, nil
 	}
@@ -223,7 +242,8 @@ func LookupTitled(appID, title string) (Rule, bool, error) {
 		return v == "true"
 	}
 	r.AlwaysOnTop = flag("above")
-	r.NoBorder = flag("noborder")
+	policy, _ := sec.get("decorationpolicy")
+	r.NoBorder = flag("noborder") || policy == decorationNone
 	r.SkipTaskbar = flag("skiptaskbar")
 	r.SkipSwitcher = flag("skipswitcher")
 	r.SkipPager = flag("skippager")
@@ -285,9 +305,75 @@ func save(path string, file *iniFile) error {
 	return nil
 }
 
-// ruleNames is the General section's rule list, empty entries dropped.
-func ruleNames(general *iniSection) []string {
-	raw, _ := general.get("rules")
+// ruleList is the file's list of rule groups and the format it is kept in.
+type ruleList struct {
+	general *iniSection
+	// order is KWin 6.8's format: the list in `Order`, no `rules` or `count`.
+	order bool
+	names []string
+}
+
+/*
+readList reads the rule list in whichever format the file is in.
+
+A file with `Order` is a 6.8 file. A `rules` left beside it — by an earlier
+version of this package — is folded in, so that store removes it before KWin
+reads it as the only rules to keep. Groups the list does not name are rules
+too: KWin 6.8 prepends them to its order.
+
+A file with neither key but with rule groups is also a 6.8 file, since only 6.8
+leaves rules unlisted, and a legacy list naming one of them would delete the
+others. A file with `rules` alone, or with no rules at all, stays legacy: KWin
+6.7 reads only that, and 6.8 migrates a list that names every group without
+losing any.
+*/
+func readList(file *iniFile) ruleList {
+	l := ruleList{general: file.ensure(generalSection)}
+	order, hasOrder := l.general.get(orderKey)
+	legacy, hasLegacy := l.general.get(legacyKey)
+
+	add := func(name string) {
+		if file.section(name) != nil && !slices.Contains(l.names, name) {
+			l.names = append(l.names, name)
+		}
+	}
+	if hasLegacy && !hasOrder {
+		l.names = splitNames(legacy)
+		return l
+	}
+	l.order = true
+	for _, n := range splitNames(order) {
+		add(n)
+	}
+	for _, n := range splitNames(legacy) {
+		add(n)
+	}
+	for _, s := range file.sections {
+		if !isMetaData(s.name) {
+			add(s.name)
+		}
+	}
+	if !hasOrder && len(l.names) == 0 {
+		l.order = false // an empty file: the legacy keys, which every KWin reads
+	}
+	return l
+}
+
+// store writes the list back in the file's format.
+func (l ruleList) store() {
+	joined := strings.Join(l.names, ",")
+	if l.order {
+		l.general.set(orderKey, joined)
+		l.general.unset(legacyKey)
+		l.general.unset(countKey)
+		return
+	}
+	l.general.set(legacyKey, joined)
+	l.general.set(countKey, strconv.Itoa(len(l.names)))
+}
+
+// splitNames splits a list value, empty entries dropped.
+func splitNames(raw string) []string {
 	var out []string
 	for _, n := range strings.Split(raw, ",") {
 		if n = strings.TrimSpace(n); n != "" {
@@ -297,14 +383,15 @@ func ruleNames(general *iniSection) []string {
 	return out
 }
 
+// isMetaData is KWin's own test for a group that is not a rule.
+func isMetaData(name string) bool {
+	return name == generalSection || strings.HasPrefix(name, "$")
+}
+
 // sectionFor finds the listed rule whose wmclass is appID and whose title is
 // title (no title key at all when title is empty), or "".
-func sectionFor(file *iniFile, appID, title string) string {
-	general := file.section(generalSection)
-	if general == nil {
-		return ""
-	}
-	for _, name := range ruleNames(general) {
+func sectionFor(file *iniFile, list ruleList, appID, title string) string {
+	for _, name := range list.names {
 		sec := file.section(name)
 		if sec == nil {
 			continue
@@ -322,31 +409,28 @@ func sectionFor(file *iniFile, appID, title string) string {
 }
 
 // appendRule adds a new numbered section and lists it. The number is one past
-// the highest already in use rather than the count, because a file whose rules
-// were removed out of order has gaps, and reusing a number would collide with
-// a rule the user still has.
-func appendRule(file *iniFile) *iniSection {
-	general := file.ensure(generalSection)
-	names := ruleNames(general)
-
+// the highest group in the file, listed or not, rather than the count: a file
+// whose rules were removed out of order has gaps, and a number reused would
+// write this rule over one the user, or another program, still has.
+func appendRule(file *iniFile, list *ruleList) *iniSection {
 	next := 1
-	for _, n := range names {
-		if v, err := strconv.Atoi(n); err == nil && v >= next {
+	for _, s := range file.sections {
+		if v, err := strconv.Atoi(s.name); err == nil && v >= next {
 			next = v + 1
 		}
 	}
 	name := strconv.Itoa(next)
 
-	names = append(names, name)
-	general.set("rules", strings.Join(names, ","))
-	general.set("count", strconv.Itoa(len(names)))
-
-	return file.ensure(name)
+	list.names = append(list.names, name)
+	sec := &iniSection{name: name}
+	file.sections = append(file.sections, sec)
+	return sec
 }
 
 // write lays r into a section, clearing the keys it does not set so a rule
 // edited down from a larger one does not keep the parts that were removed.
-func write(sec *iniSection, r Rule) {
+// order is the file's format (readList), which decides how NoBorder is said.
+func write(sec *iniSection, r Rule, order bool) {
 	sec.set("Description", descriptionOf(r))
 	sec.set("wmclass", r.AppID)
 	sec.set("wmclassmatch", "1") // exact
@@ -359,7 +443,16 @@ func write(sec *iniSection, r Rule) {
 	}
 
 	setFlag(sec, "above", r.AlwaysOnTop, ruleForce)
-	setFlag(sec, "noborder", r.NoBorder, ruleForce)
+	// KWin 6.8 replaced noborder with a decoration policy, and migrates one to
+	// the other when it loads; 6.7 knows only noborder.
+	setFlag(sec, "noborder", r.NoBorder && !order, ruleForce)
+	if r.NoBorder && order {
+		sec.set("decorationpolicy", decorationNone)
+		sec.set("decorationpolicyrule", ruleForce)
+	} else {
+		sec.unset("decorationpolicy")
+		sec.unset("decorationpolicyrule")
+	}
 	setFlag(sec, "skiptaskbar", r.SkipTaskbar, ruleForce)
 	setFlag(sec, "skipswitcher", r.SkipSwitcher, ruleForce)
 	setFlag(sec, "skippager", r.SkipPager, ruleForce)

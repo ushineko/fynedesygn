@@ -33,6 +33,15 @@ this package changes only the rule matching its own AppID and keeps every other
 line — including comments and section order — as it found them. Keys are case
 sensitive: KWin reads `wmclass`, not `WMClass`.
 
+# Two formats
+
+KWin 6.8 lists rules in `[General] Order` and says "no border" as
+`decorationpolicy=none`; earlier versions list them in `rules` and `count` and
+say `noborder=true`. KWin 6.8 rewrites a file in the old format into the new
+one when it loads it, and reads a non-empty `rules` as the only rules to keep,
+deleting every other. This package writes a file back in the format it found
+it in and never puts a `rules` into a file that has `Order` (spec 074).
+
 # Matching
 
 KWin matches by window class. On Wayland that is the `app_id`, which Fyne sets

@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.106
+**Version**: 0.1.107
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -272,7 +272,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.107 (2026-10-20)
 
 - **Fixed**: `glance/kwin` no longer deletes the user's other window rules on
   Plasma 6.8 (spec 074, #219). KWin 6.8 lists rules in `Order` and takes a

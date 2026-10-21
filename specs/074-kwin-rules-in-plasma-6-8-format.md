@@ -100,3 +100,18 @@ so a settings checkbox unticks itself.
 - Expected: the file keeps every rule it had plus the two programs' rules;
   neither program's window gets a titlebar back; each settings checkbox stays
   ticked. Covers AC 2, 4, 5 on a real KWin.
+
+### Result (2026-10-21)
+
+- Desk: Plasma 6.8.0 on Wayland, CachyOS. `kwinrulesrc` was restored from a
+  copy holding 16 rules, which KWin 6.8 then saved with `Order=` and no
+  `rules=`. ototo 0.1.5 and hayami 0.11.3 were installed, both built against
+  0.1.107.
+- Each program's rule checkbox was used from its settings. The operator
+  reported both checkboxes staying ticked, and both windows staying frameless.
+- The file afterwards: `Order=` names all 16 groups, there are 16
+  `Description=` lines, no `rules=` or `count=`, and ototo's and hayami's rules
+  each carry `decorationpolicy=none`. Covers AC 2, 4 and 5 on a real KWin.
+- Not done as planned: the two programs were not alternated twice each with a
+  reconfigure timed between, and the checking was by eye and by reading the
+  file, not scripted.

@@ -272,6 +272,13 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Added**: `CellGrid.SetOneLine` lays every shown cell on one line, whatever
+  the width, and asks for that line's width, so a card of cells can grow wider
+  instead of taller (spec 075, #222). Off by default. `Lines` still draws one
+  cell per line.
+
 ### 0.1.107 (2026-10-20)
 
 - **Fixed**: `glance/kwin` no longer deletes the user's other window rules on

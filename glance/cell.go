@@ -496,6 +496,9 @@ type CellGrid struct {
 
 	// lines is whether the grid draws one cell per line (Lines, spec 057).
 	lines bool
+
+	// oneLine is whether every cell goes on one line (SetOneLine, spec 075).
+	oneLine bool
 }
 
 // NewCellGrid builds an empty grid. Cells are added with Add.
@@ -547,6 +550,30 @@ func (g *CellGrid) Restyle() {
 func (g *CellGrid) Object() fyne.CanvasObject { return g.box }
 
 /*
+SetOneLine puts every shown cell on one line, whatever the width (spec 075),
+or, off, as many as fit with the rest wrapped, which is the default.
+
+On, the grid asks for the whole line's width, so a fixed-size glance window
+grows to it and a card that holds more cells grows wider rather than taller.
+It is the consumer's choice of which way a card grows; nothing here makes it.
+
+It re-lays the grid and does not resize the window, which it cannot see: call
+Panel.Resize after it, in the same call, as after any change to a card's
+contents. Lines (spec 057) wins over it while the panel is in that
+arrangement.
+*/
+func (g *CellGrid) SetOneLine(on bool) {
+	if g.oneLine == on {
+		return
+	}
+	g.oneLine = on
+	g.box.Refresh()
+}
+
+// OneLine reports whether every cell goes on one line.
+func (g *CellGrid) OneLine() bool { return g.oneLine }
+
+/*
 cellGridLayout puts as many equal-width cells on a line as the width fits.
 
 It remembers the width it was last laid out at, because MinSize has to answer
@@ -575,10 +602,12 @@ func (l *cellGridLayout) gap() float32 {
 	return l.grid.gridGap()
 }
 
-// MinSize is one cell wide and as many lines as the last width implies.
+// MinSize is one cell wide and as many lines as the last width implies, or,
+// on one line, the whole line.
 //
 // One cell wide, because a grid that demanded room for a pair would set the
-// width of a panel that only ever holds one device.
+// width of a panel that only ever holds one device. A grid on one line has
+// been asked for exactly that.
 func (l *cellGridLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	shown := visible(objects)
 	if len(shown) == 0 {
@@ -587,12 +616,31 @@ func (l *cellGridLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	cell := cellSize(shown)
 
 	gap := l.gap()
-	across := min(perLine(l.width, cell.Width, gap), len(shown))
-	if l.grid != nil && l.grid.lines {
-		across = 1
-	}
+	across := l.across(l.width, cell.Width, gap, len(shown))
 	lines := lineCount(len(shown), across)
-	return fyne.NewSize(cell.Width, float32(lines)*cell.Height+float32(lines-1)*gap)
+	width := cell.Width
+	if l.oneLine() {
+		width = float32(across)*cell.Width + float32(across-1)*gap
+	}
+	return fyne.NewSize(width, float32(lines)*cell.Height+float32(lines-1)*gap)
+}
+
+// oneLine is whether the grid lays every cell on one line now: asked to, and
+// not in Lines, which wins.
+func (l *cellGridLayout) oneLine() bool {
+	return l.grid != nil && l.grid.oneLine && !l.grid.lines
+}
+
+// across is how many cells go on a line: one in Lines, all of them on one
+// line, and otherwise as many as fit, never more than there are.
+func (l *cellGridLayout) across(space, cell, gap float32, n int) int {
+	switch {
+	case l.grid != nil && l.grid.lines:
+		return 1
+	case l.oneLine():
+		return n
+	}
+	return min(perLine(space, cell, gap), n)
 }
 
 // Layout fills each line before starting the next.
@@ -611,10 +659,7 @@ func (l *cellGridLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	// leave the last third empty, which reads as a panel that does not fit
 	// its own window -- and on a card whose other rows stretch to the edge it
 	// is the one thing that looks unfinished.
-	across := min(perLine(size.Width, cell.Width, gap), len(shown))
-	if l.grid != nil && l.grid.lines {
-		across = 1
-	}
+	across := l.across(size.Width, cell.Width, gap, len(shown))
 
 	width := (size.Width - float32(across-1)*gap) / float32(across)
 	for i, o := range shown {

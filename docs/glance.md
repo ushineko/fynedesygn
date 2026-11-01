@@ -791,6 +791,14 @@ that wrap to the width they are given.
 - **How many fit on a line follows the width.** The monitor draws two because
   its panel is 260 px wide and it has four fixed slots; a grid fits what it
   can, which is the same answer at that width and a better one at any other.
+- **Or every cell on one line, when the consumer asks** (spec 075).
+  `CellGrid.SetOneLine(true)` lays every shown cell on one line whatever the
+  width, and the grid asks for that line's width, so the card and the window
+  grow wider instead of taller as cells arrive. Which way a card grows is the
+  consumer's choice; the default stays "as many as fit". Call `Panel.Resize`
+  after the switch, in the same call: the grid cannot see the window, and a
+  fixed-size window grows on its own but shrinks only when asked (quirk 34).
+  `Lines` wins: in that arrangement a grid is one cell per line either way.
 - **A grid goes into a card through `AddObject`**, like a sparkline — and like
   a sparkline the card cannot restyle it, because `AddObject` takes a plain
   canvas object. Call `CellGrid.Restyle` when the scheme or the text size

@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -242,4 +243,16 @@ func TestTheSpacersRenderToAnImage(t *testing.T) {
 
 	require.NotPanics(t, func() { _ = win.Canvas().Capture() },
 		"the software painter must be able to draw every wrapper here")
+}
+
+// nmsbonker put a compiler's stack trace on a fact row: one line of several
+// hundred characters, and the window grew past the screen with every label
+// pushed off its edge. The value's length must not reach the row's minimum.
+func TestFactRowValueLengthDoesNotSetItsWidth(t *testing.T) {
+	test.NewTempApp(t)
+	short := FactRow("label", "ok", fd.StatusWarn)
+	long := FactRow("label", strings.Repeat("at libMBIN.NMSTemplate.Deserialize(); ", 20), fd.StatusWarn)
+	require.Equal(t, short.MinSize(), long.MinSize())
+	require.Contains(t, textIn(long), strings.Repeat("at libMBIN.NMSTemplate.Deserialize(); ", 20),
+		"the value is cut when drawn, not in what the row holds")
 }

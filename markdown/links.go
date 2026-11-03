@@ -1,14 +1,14 @@
 package markdown
 
 import (
-	"image/color"
 	"net/url"
 	"strconv"
 	"strings"
 	"unicode"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/driver/desktop"
 	fynetheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -225,12 +225,15 @@ test (is the point over my text?) said no, and nothing happened. Only the top
 of each entry worked. A headless tap on the widget itself never sees this; a
 click on the window did (hayami's About page, spec 064).
 
-So each link widget is drawn under a theme whose inner padding is zero, which
-makes its box its text's box and leaves its text where it was. Fyne applies a
-theme override to the objects that exist when it is applied, and a RichText
-makes new link widgets on every refresh -- it keeps those inside a list or a
-paragraph only until the next one -- so the override is applied by the
-renderer, to the links each refresh made, before they are laid out again.
+So each link is drawn by a bareLink, whose box is its text's box. Fyne's
+Hyperlink stays in the tree, hidden, and the RichText still updates it.
+
+This used to be a theme override with no inner padding around each link.
+That made the box right and leaked memory. A RichText makes new link widgets
+on every refresh -- it keeps those inside a list or a paragraph only until
+the next one -- so each refresh needed new overrides, and Fyne keeps the
+fonts of every override's scope for the life of the program (quirk 51). A
+bareLink has no padding to take away, so it needs no theme of its own.
 */
 type linkText struct {
 	widget.RichText
@@ -251,7 +254,8 @@ func (t *linkText) CreateRenderer() fyne.WidgetRenderer {
 	return &linkRenderer{WidgetRenderer: t.RichText.CreateRenderer()}
 }
 
-// linkRenderer is the RichText's renderer, which unpads each link it makes.
+// linkRenderer is the RichText's renderer, which draws each link it makes as
+// a bareLink.
 type linkRenderer struct {
 	fyne.WidgetRenderer
 }
@@ -260,37 +264,167 @@ func (r *linkRenderer) Refresh() {
 	r.WidgetRenderer.Refresh()
 	for _, o := range r.Objects() {
 		c, ok := o.(*fyne.Container)
-		if !ok || len(c.Objects) != 1 {
+		if !ok || len(c.Objects) == 0 {
 			continue
 		}
 		hl, ok := c.Objects[0].(*widget.Hyperlink)
-		if !ok || hl.Theme().Size(fynetheme.SizeNameInnerPadding) == 0 {
+		if !ok {
 			continue
 		}
-		// The override is the point; the container it returns is not used.
-		container.NewThemeOverride(hl, unpadded{})
-		c.Refresh() // lays the link out again, under the padding it now has
+		if len(c.Objects) == 2 {
+			// A link the RichText kept: it has updated the Hyperlink, and
+			// the bareLink takes what it now says.
+			if b, ok := c.Objects[1].(*bareLink); ok {
+				b.Refresh()
+				continue
+			}
+		}
+		hl.Hide()
+		c.Objects = append(c.Objects[:1], newBareLink(hl))
+		c.Layout = bareLinkLayout{hl: hl}
+		c.Refresh()
 	}
 }
 
-// unpadded is the running theme with no inner padding.
-type unpadded struct{}
+/*
+bareLinkLayout puts the hidden Hyperlink where Fyne's own layout puts it, so
+its text is where the bareLink draws, and gives the bareLink the text's box.
+The minimum is Fyne's too, so a RichText lays a line out exactly as before.
+*/
+type bareLinkLayout struct{ hl *widget.Hyperlink }
 
-func (unpadded) current() fyne.Theme { return fyne.CurrentApp().Settings().Theme() }
-
-func (u unpadded) Color(n fyne.ThemeColorName, v fyne.ThemeVariant) color.Color {
-	return u.current().Color(n, v)
+func (l bareLinkLayout) pad() float32 {
+	return fynetheme.SizeForWidget(fynetheme.SizeNameInnerPadding, l.hl)
 }
 
-func (u unpadded) Font(s fyne.TextStyle) fyne.Resource { return u.current().Font(s) }
-
-func (u unpadded) Icon(n fyne.ThemeIconName) fyne.Resource { return u.current().Icon(n) }
-
-func (u unpadded) Size(n fyne.ThemeSizeName) float32 {
-	if n == fynetheme.SizeNameInnerPadding {
-		return 0
+func (l bareLinkLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	pad := l.pad()
+	objects[0].Move(fyne.NewPos(-pad, -pad))
+	objects[0].Resize(size.Add(fyne.NewSize(2*pad, 2*pad)))
+	for _, o := range objects[1:] {
+		o.Move(fyne.NewPos(0, 0))
+		o.Resize(size)
 	}
-	return u.current().Size(n)
+}
+
+func (l bareLinkLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	pad := l.pad()
+	return objects[0].MinSize().Subtract(fyne.NewSize(2*pad, 2*pad))
+}
+
+/*
+bareLink draws a Hyperlink's text in the hyperlink colour and acts on a click
+the way the Hyperlink would: its OnTapped, or else its URL. It underlines
+under the pointer and shows the pointing hand, as Fyne's does. It takes no
+keyboard focus, which Fyne's does.
+*/
+type bareLink struct {
+	widget.BaseWidget
+
+	hl      *widget.Hyperlink
+	text    *canvas.Text
+	hovered bool
+}
+
+func newBareLink(hl *widget.Hyperlink) *bareLink {
+	b := &bareLink{hl: hl}
+	b.ExtendBaseWidget(b)
+	return b
+}
+
+// CreateRenderer implements fyne.Widget.
+func (b *bareLink) CreateRenderer() fyne.WidgetRenderer {
+	b.text = canvas.NewText("", nil)
+	r := &bareLinkRenderer{b: b, text: b.text, under: canvas.NewRectangle(nil)}
+	r.Refresh()
+	return r
+}
+
+// over reports whether pos, in the link's own coordinates, is over its text.
+// A link alone on a line is as wide as the line, and a point beside its text
+// is not on the link, as with Fyne's.
+func (b *bareLink) over(pos fyne.Position) bool {
+	return b.text != nil && pos.X <= b.text.MinSize().Width
+}
+
+// Tapped implements fyne.Tappable.
+func (b *bareLink) Tapped(e *fyne.PointEvent) {
+	if !b.over(e.Position) {
+		return
+	}
+	if b.hl.OnTapped != nil {
+		b.hl.OnTapped()
+		return
+	}
+	if b.hl.URL != nil {
+		if err := fyne.CurrentApp().OpenURL(b.hl.URL); err != nil {
+			fyne.LogError("opening "+b.hl.URL.String(), err)
+		}
+	}
+}
+
+// Cursor implements desktop.Cursorable.
+func (b *bareLink) Cursor() desktop.Cursor {
+	if b.hovered {
+		return desktop.PointerCursor
+	}
+	return desktop.DefaultCursor
+}
+
+// MouseIn implements desktop.Hoverable.
+func (b *bareLink) MouseIn(e *desktop.MouseEvent) { b.hover(b.over(e.Position)) }
+
+// MouseMoved implements desktop.Hoverable.
+func (b *bareLink) MouseMoved(e *desktop.MouseEvent) { b.hover(b.over(e.Position)) }
+
+// MouseOut implements desktop.Hoverable.
+func (b *bareLink) MouseOut() { b.hover(false) }
+
+func (b *bareLink) hover(on bool) {
+	if b.hovered != on {
+		b.hovered = on
+		b.Refresh()
+	}
+}
+
+type bareLinkRenderer struct {
+	b     *bareLink
+	text  *canvas.Text
+	under *canvas.Rectangle
+}
+
+func (r *bareLinkRenderer) Destroy() {}
+
+func (r *bareLinkRenderer) Layout(fyne.Size) {
+	text := r.text.MinSize()
+	r.text.Move(fyne.NewPos(0, 0))
+	r.text.Resize(text)
+	line := r.b.Theme().Size(fynetheme.SizeNameInputBorder)
+	r.under.Move(fyne.NewPos(0, text.Height-line))
+	r.under.Resize(fyne.NewSize(text.Width, line))
+}
+
+func (r *bareLinkRenderer) MinSize() fyne.Size { return r.text.MinSize() }
+
+func (r *bareLinkRenderer) Objects() []fyne.CanvasObject {
+	return []fyne.CanvasObject{r.text, r.under}
+}
+
+func (r *bareLinkRenderer) Refresh() {
+	hl, th := r.b.hl, r.b.Theme()
+	size := hl.SizeName
+	if size == "" {
+		size = fynetheme.SizeNameText
+	}
+	r.text.Text = hl.Text
+	r.text.TextStyle = hl.TextStyle
+	r.text.TextSize = th.Size(size)
+	r.text.Color = th.Color(fynetheme.ColorNameHyperlink, fyne.CurrentApp().Settings().ThemeVariant())
+	r.under.FillColor = r.text.Color
+	r.under.Hidden = !r.b.hovered
+	r.Layout(r.b.Size())
+	r.text.Refresh()
+	r.under.Refresh()
 }
 
 // live reports whether rt still holds a link a reader can tap.

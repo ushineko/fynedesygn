@@ -5,12 +5,12 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
-	"fyne.io/fyne/v2/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ushineko/fynedesygn/glance"
 	fdtheme "github.com/ushineko/fynedesygn/theme"
+	"github.com/ushineko/fynedesygn/widgets"
 )
 
 // drawerTexts is every text drawn in an object, for asking what face they
@@ -26,8 +26,8 @@ func drawerTexts(o fyne.CanvasObject) []*canvas.Text {
 			for _, c := range v.Objects {
 				walk(c)
 			}
-		case *container.ThemeOverride:
-			walk(v.Content)
+		case *widgets.ThemeOverride:
+			walk(v.Content())
 		}
 	}
 	walk(o)

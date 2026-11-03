@@ -198,9 +198,9 @@ type Shell struct {
 	// owns its appearance. Nil for one that does not.
 	//
 	// It is held rather than built and forgotten because it has to be
-	// refreshed whenever the content under it changes: a subtree installed
+	// reapplied whenever the content under it changes: a subtree installed
 	// after the override was built is not covered by it. See reapply.
-	override *container.ThemeOverride
+	override *widgets.ThemeOverride
 
 	// The navigation list's rows, which are the sections plus a heading per
 	// group and minus the members of a closed one, the groups the user has
@@ -544,7 +544,7 @@ func (s *Shell) layout() {
 	if s.opts.OwnAppearance {
 		// Its own theme over its own subtree, so the application's is free
 		// for a window whose widgets cannot be overridden.
-		s.override = container.NewThemeOverride(content, s.theme())
+		s.override = widgets.NewThemeOverride(content, s.theme())
 		content = s.override
 	}
 	s.Window.SetContent(content)
@@ -570,7 +570,7 @@ A no-op for a window that does not own its appearance, which is most of them.
 */
 func (s *Shell) reapply() {
 	if s.override != nil {
-		s.override.Refresh()
+		s.override.Reapply()
 	}
 }
 

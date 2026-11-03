@@ -2,12 +2,14 @@ package markdown
 
 import (
 	"net/url"
+	"runtime"
 	"strings"
 	"testing"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/test"
 	fynetheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -194,9 +196,13 @@ func TestEveryPartOfAListedLinkTakesTheClick(t *testing.T) {
 	d := fyne.CurrentApp().Driver()
 
 	for _, e := range entries {
+		// The text as drawn: Fyne's own Hyperlink is still in the tree,
+		// hidden, and a hidden object has no position on the canvas.
 		var text *canvas.Text
-		fynetest.WalkRendered(hyperlink(t, o, e), func(c fyne.CanvasObject) bool {
-			text, _ = c.(*canvas.Text)
+		fynetest.WalkRendered(o, func(c fyne.CanvasObject) bool {
+			if b, ok := c.(*bareLink); ok && b.hl.Text == e {
+				text = b.text
+			}
 			return text != nil
 		})
 		require.NotNil(t, text, "no text drawn for %q", e)
@@ -241,4 +247,79 @@ func TestFyneStillOverlapsListedLinkBoxes(t *testing.T) {
 	test.TapCanvas(w.Canvas(), at.Add(fyne.NewPos(text.Size().Width/2, text.Size().Height*0.8)))
 	assert.NotEqual(t, []string{"One"}, got,
 		"Fyne gave the click to the link under it: the boxes no longer overlap (quirk 47)")
+}
+
+/*
+Drawing links keeps no fonts behind (spec 076). A pane renders a block again
+each time it comes near the viewport, and a full view is built afresh for
+each ticket, so link widgets are made all the time. They used to get a theme
+override each, which is a scope whose fonts Fyne keeps for the life of the
+program (quirk 51).
+*/
+func TestDrawingLinksAgainKeepsNoFontsBehind(t *testing.T) {
+	fynetest.App(t)
+	var src strings.Builder
+	for _, e := range []string{"One", "Two **bold**", "Three `mono`", "Four *italic*", "Five"} {
+		src.WriteString("- [" + e + "](#" + Slug(e) + ")\n")
+	}
+	block := func() fyne.CanvasObject {
+		return renderBlock(src.String(), Options{}, linkFixer{anchor: func(string) {}})
+	}
+	w := test.NewWindow(block())
+	defer w.Close()
+	w.Resize(fyne.NewSize(400, 300))
+
+	w.Canvas().Capture()
+	before := liveHeap()
+	for range 50 {
+		w.SetContent(block())
+		w.Canvas().Capture()
+	}
+	after := liveHeap()
+	if after > before && after-before > 4<<20 {
+		t.Errorf("drawing five links fifty times kept %.1f MB", float64(after-before)/(1<<20))
+	}
+}
+
+// liveHeap is the heap still reachable after two collections, in bytes.
+func liveHeap() uint64 {
+	runtime.GC()
+	runtime.GC()
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	return m.HeapAlloc
+}
+
+// A link alone on a line is as wide as the line. It underlines, shows the
+// hand and takes a click only over its text, as Fyne's own does.
+func TestALinkAnswersOnlyOverItsText(t *testing.T) {
+	fynetest.App(t)
+	var got []string
+	o := renderBlock("- [One](#one)\n", Options{}, linkFixer{anchor: func(f string) { got = append(got, f) }})
+	w := test.NewWindow(o)
+	defer w.Close()
+	w.Resize(fyne.NewSize(400, 200))
+
+	var link *bareLink
+	fynetest.WalkRendered(o, func(c fyne.CanvasObject) bool {
+		link, _ = c.(*bareLink)
+		return link != nil
+	})
+	require.NotNil(t, link)
+	text := link.text.MinSize()
+	require.Greater(t, link.Size().Width, 2*text.Width, "the link is not wider than its text; the test proves nothing")
+
+	beside := fyne.NewPos(text.Width*2, text.Height/2)
+	link.MouseIn(&desktop.MouseEvent{PointEvent: fyne.PointEvent{Position: beside}})
+	assert.False(t, link.hovered, "underlined beside its text")
+	assert.Equal(t, desktop.DefaultCursor, link.Cursor())
+	link.Tapped(&fyne.PointEvent{Position: beside})
+	assert.Empty(t, got, "took a click beside its text")
+
+	on := fyne.NewPos(text.Width/2, text.Height/2)
+	link.MouseMoved(&desktop.MouseEvent{PointEvent: fyne.PointEvent{Position: on}})
+	assert.True(t, link.hovered)
+	assert.Equal(t, desktop.PointerCursor, link.Cursor())
+	link.Tapped(&fyne.PointEvent{Position: on})
+	assert.Equal(t, []string{"one"}, got)
 }

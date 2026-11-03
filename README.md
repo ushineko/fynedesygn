@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.110
+**Version**: 0.1.111
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -274,7 +274,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.111 (2026-11-03)
 
 - **Changed**: Fyne is pinned to `develop` at `b655332`
   (`v2.8.3-0.20261103091334-b655332b73c2`) for its shared parsed fonts

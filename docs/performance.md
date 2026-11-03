@@ -150,7 +150,9 @@ The heap profile names it directly: `painter.CachedFontFace` above
 
 Use `widgets.ThemeOverride`, which applies its theme only when told to.
 Building an override still makes a scope, so build one per view or per
-section, never one per row or per cell.
+section, never one per row, cell or link. A real document costs more than a
+probe suggests: each scope's faces cache the glyphs they draw, and jira-viewer
+measured about 6 MB per ticket opened while its links each had an override.
 
 ### Decode a picture once, through the shared cache
 

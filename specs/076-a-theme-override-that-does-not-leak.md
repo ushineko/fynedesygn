@@ -9,10 +9,11 @@
 `widgets.ThemeOverride` applies its theme when it is built and when it is
 told to, never on `Refresh`. Fyne's own override applies its theme at every
 refresh, and each application leaks that scope's fonts for the life of the
-program. `shell` and `glance` use the new type. Fyne is pinned to `develop`
+program. `shell` and `glance` use the new type, and a Markdown link no
+longer uses an override at all. Fyne is pinned to `develop`
 at `b655332`, where a scope that is still made costs about 138 KB per style
-rather than 6.3 MB. Reviewers should look first at `widgets/override.go` and
-at the quirk 51 row.
+rather than 6.3 MB. Reviewers should look first at `widgets/override.go`, then at
+`bareLink` in `markdown/links.go`, then at the quirk 51 row.
 
 ## Context
 
@@ -67,12 +68,17 @@ This module makes overrides in three places:
   `shell` and `glance` already know the moment they add a subtree, and they
   call `Reapply` there. Lists, trees and text grids give the rows they
   create their parent's scope themselves.
-- **D4 — `markdown/links.go` is unchanged.** It makes an override for each
-  new link widget, and a RichText makes new link widgets at each refresh
-  (quirk 47). A new widget needs a new override either way, so
-  `widgets.ThemeOverride` does not help there. On `develop` the cost is about
-  138 KB per link per re-render, and fyne-io/fyne#6642 removes it. Recorded as a known
-  remainder.
+- **D4 — A Markdown link uses no override at all.** `markdown/links.go`
+  made one per link widget, and a RichText makes new link widgets at each
+  refresh inside a list (quirk 47), as does every block the pane renders and
+  every document built. `widgets.ThemeOverride` cannot help there, because a
+  new widget needs a new override. The first version of this spec left it as
+  a known remainder. Measured in jira-viewer, it was the largest source: about
+  6 MB per ticket opened, 42.7 of 58 MB in one session. A link is now drawn
+  by a `bareLink`, a widget whose box is its text's box, with Fyne's Hyperlink
+  hidden beside it so the RichText's updates still land. It gives the click,
+  the hover underline and the pointing hand that the Hyperlink gave. Unlike
+  the Hyperlink, it takes no keyboard focus.
 - **D5 — Quirk 6 is fixed on `develop`, and its row and canary are retired.**
   `markdown.CodePanel` stays, because it wraps code rather than letting it
   run past the pane, and that is a design rule in its own right.
@@ -85,7 +91,9 @@ This module makes overrides in three places:
   `SetContent`, `SetTheme`, `Reapply` and a `Refresh` that does not apply
   the theme.
 - R3 — `shell` and `glance` use it. No `container.NewThemeOverride` remains
-  outside `widgets/override.go` and `markdown/links.go`.
+  outside `widgets/override.go`.
+- R6 — `markdown` draws a link with no theme override, and every part of a
+  listed link still takes its click (quirk 47).
 - R4 — Quirk 51 in `docs/fyne-quirks.md`, with a canary that fails once Fyne
   stops keeping fonts per scope.
 - R5 — Changelog, the Fyne pin in the README and in `.claude/CLAUDE.md`, and
@@ -116,6 +124,16 @@ This module makes overrides in three places:
 - [x] AC7 — jira-viewer spec 025 builds and passes against this branch,
       through a `replace` in a scratch worktree only.
 
+- [x] AC8 — `markdown.TestDrawingLinksAgainKeepsNoFontsBehind` passes, and
+      was falsified: with a per-link override put back, fifty rounds of five
+      links keep 33.7 MB. `TestEveryPartOfAListedLinkTakesTheClick` passes, and
+      fails with Fyne's Hyperlink left visible (R6).
+- [x] AC9 — Seen on a real window: this README in a markdown section on
+      Xvfb. Its links draw in the link colour, inline and in the contents
+      list. With the pointer beside a listed link, nothing is underlined; on
+      it, that link underlines. A real click at 80% of the height of
+      "Screenshots" scrolls the pane to that heading (R6).
+
 ## Risks & Assumptions
 
 - **`develop` is unreleased**, 478 commits past v2.8.2. Every consumer
@@ -129,6 +147,8 @@ This module makes overrides in three places:
 - **A caller who adds content and does not call `Reapply` sees it drawn in
   the application theme.** That is quirk 37, and it is the same with Fyne's
   override until the next refresh. The doc comment says so.
+- **A link no longer takes keyboard focus.** Fyne's Hyperlink did. Nothing
+  in a consumer relied on tabbing to a link in a document.
 - **Rollback**: revert. `go.mod` returns to v2.8.1, and `shell` and `glance`
   return to Fyne's override.
 

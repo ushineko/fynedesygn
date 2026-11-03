@@ -291,6 +291,13 @@ MIT. See [LICENSE](LICENSE).
 - **Fixed**: an `OwnAppearance` shell and a `glance.Panel` with a theme of its
   own no longer leak fonts each time they are refreshed. Both now use
   `widgets.ThemeOverride`.
+- **Fixed**: a Markdown link no longer leaks fonts each time it is drawn. A
+  link was a Fyne Hyperlink inside a theme override that removed its inner
+  padding (quirk 47). Every block the pane rendered and every document built
+  made new links, and each override kept its own fonts. A link is now drawn
+  by a widget whose box is its text's box, with no override. It takes the
+  click, the hover underline and the pointing hand as before. It no longer
+  takes keyboard focus.
 
 ### 0.1.110 (2026-11-03)
 

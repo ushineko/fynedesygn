@@ -64,26 +64,23 @@ func TestAThemeOverrideDrawsItsContentInItsTheme(t *testing.T) {
 	require.Equal(t, float32(bigTextSize), label.Theme().Size(theme.SizeNameText))
 }
 
-func TestARefreshedThemeOverrideKeepsNoFontsBehind(t *testing.T) {
-	a := test.NewTempApp(t)
-	w := a.NewWindow("")
-	o := NewThemeOverride(styledText(), bigText{theme.DefaultTheme()})
-	w.SetContent(container.NewStack(o))
-	w.Resize(fyne.NewSize(400, 100))
+/*
+An object added to the content is covered by the next Refresh, as with Fyne's
+override. 0.1.111 left it to Reapply, and lost the theme whenever Fyne's cache
+took a widget out of the override and nothing asked for it again.
+*/
+func TestAnObjectAddedLaterIsCoveredByARefresh(t *testing.T) {
+	test.NewTempApp(t)
+	box := container.NewVBox(widget.NewLabel("first"))
+	o := NewThemeOverride(box, bigText{theme.DefaultTheme()})
 
-	// A hundred of Fyne's own refreshes keep about 55 MB; a stray megabyte is
-	// the collector, not a scope.
-	require.Less(t, heapGrowth(w, o.Refresh), uint64(4<<20))
-}
+	later := widget.NewLabel("later")
+	box.Add(later)
+	require.NotEqual(t, float32(bigTextSize), later.Theme().Size(theme.SizeNameText),
+		"covered before anything asked; the test proves nothing")
 
-func TestARefreshReachingTheOverrideThroughItsContainerKeepsNoFontsBehind(t *testing.T) {
-	a := test.NewTempApp(t)
-	w := a.NewWindow("")
-	around := container.NewStack(NewThemeOverride(styledText(), bigText{theme.DefaultTheme()}))
-	w.SetContent(around)
-	w.Resize(fyne.NewSize(400, 100))
-
-	require.Less(t, heapGrowth(w, around.Refresh), uint64(4<<20))
+	o.Refresh()
+	require.Equal(t, float32(bigTextSize), later.Theme().Size(theme.SizeNameText))
 }
 
 func TestAnObjectAddedLaterIsCoveredOnceReapplied(t *testing.T) {
@@ -93,10 +90,6 @@ func TestAnObjectAddedLaterIsCoveredOnceReapplied(t *testing.T) {
 
 	later := widget.NewLabel("later")
 	box.Add(later)
-	o.Refresh()
-	require.NotEqual(t, float32(bigTextSize), later.Theme().Size(theme.SizeNameText),
-		"a refresh applies nothing; that is the contract")
-
 	o.Reapply()
 	require.Equal(t, float32(bigTextSize), later.Theme().Size(theme.SizeNameText))
 }
@@ -125,9 +118,10 @@ func TestSetThemeRedrawsTheContentInTheNewTheme(t *testing.T) {
 /*
 Canary #51 from docs/fyne-quirks.md, not a contract: Fyne's ThemeOverride
 makes a theme scope on every Refresh, and the font cache keeps an entry per
-scope for the life of the program (fyne-io/fyne#6640). ThemeOverride above
-exists to avoid that. When this fails, Fyne has released the fix
-(fyne-io/fyne#6642 or its successor) and the pin can move to that tag.
+scope for the life of the program (fyne-io/fyne#6640). This module keeps
+overrides out of anything refreshed often because of it. When this fails,
+Fyne has released the fix (fyne-io/fyne#6642 or its successor) and the pin
+can move to that tag.
 */
 func TestFyneStillKeepsFontsForEveryThemeScope(t *testing.T) {
 	a := test.NewTempApp(t)

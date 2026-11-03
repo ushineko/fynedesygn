@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.112
+**Version**: 0.1.113
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -273,6 +273,18 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.113 (2026-11-03)
+
+- **Fixed**: `widgets.ThemeOverride` applies its theme again at every
+  `Refresh`, as Fyne's own override does (spec 077, #228). 0.1.111 applied
+  it only when told to, which stopped a font leak and lost the theme instead.
+  Fyne's cache takes a widget out of its override when it expires the
+  widget's renderer, and a widget that came back drew in the application's
+  theme: jira-viewer showed rows of a Carlito table in the interface font. An
+  `OwnAppearance` shell and a themed `glance.Panel` were open to the same.
+  The leak is avoided by keeping overrides out of anything refreshed often;
+  see quirk 51 and `docs/performance.md`.
 
 ### 0.1.112 (2026-11-03)
 

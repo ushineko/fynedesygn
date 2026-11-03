@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.112
+**Version**: 0.1.113
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -274,7 +274,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.113 (2026-11-03)
 
 - **Fixed**: `widgets.ThemeOverride` applies its theme again at every
   `Refresh`, as Fyne's own override does (spec 077, #228). 0.1.111 applied

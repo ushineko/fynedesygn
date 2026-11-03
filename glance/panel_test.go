@@ -6,7 +6,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
-	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/theme"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/ushineko/fynedesygn/fynetest"
 	"github.com/ushineko/fynedesygn/glance"
 	fdtheme "github.com/ushineko/fynedesygn/theme"
+	"github.com/ushineko/fynedesygn/widgets"
 )
 
 // newTestWindow builds a window on the test driver. NewWindow falls back to an
@@ -414,7 +414,7 @@ func TestAPanelsThemeCanBeTakenAway(t *testing.T) {
 	p.SetTheme(fdtheme.New(fdtheme.BreezeDark, fdtheme.Options{TextSize: 8}))
 	p.SetTheme(nil)
 
-	_, wrapped := w.Content().(*container.ThemeOverride)
+	_, wrapped := w.Content().(*widgets.ThemeOverride)
 	assert.False(t, wrapped, "the panel kept an override after it was taken away")
 }
 
@@ -447,9 +447,9 @@ func TestACardAddedAfterTheThemeIsDrawnInIt(t *testing.T) {
 // themeOf reads the theme a content override carries.
 func themeOf(t *testing.T, o fyne.CanvasObject) fyne.Theme {
 	t.Helper()
-	over, ok := o.(*container.ThemeOverride)
+	over, ok := o.(*widgets.ThemeOverride)
 	require.True(t, ok, "the content is not a theme override")
-	return over.Theme
+	return over.OwnTheme()
 }
 
 // texts collects every canvas.Text in a tree, for a test that asks what is
@@ -465,8 +465,8 @@ func texts(o fyne.CanvasObject) []string {
 			for _, c := range v.Objects {
 				walk(c)
 			}
-		case *container.ThemeOverride:
-			walk(v.Content)
+		case *widgets.ThemeOverride:
+			walk(v.Content())
 		}
 	}
 	walk(o)

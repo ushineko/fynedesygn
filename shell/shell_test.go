@@ -902,7 +902,7 @@ func TestAWindowWithItsOwnAppearanceLeavesTheAppsThemeAlone(t *testing.T) {
 	assert.Equal(t, panelTheme, a.Settings().Theme(),
 		"the shell replaced the application's theme, which belongs to the panel")
 
-	_, wrapped := s.Window.Content().(*container.ThemeOverride)
+	_, wrapped := s.Window.Content().(*widgets.ThemeOverride)
 	assert.True(t, wrapped, "the shell is not drawing in a theme of its own")
 }
 

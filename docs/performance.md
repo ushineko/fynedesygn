@@ -138,6 +138,20 @@ was 61% of that, and its text-size cache was 26%, with `nilinterhash` and
 `nilinterequal` below them, because the keys are interface values. From
 outside Fyne you can only ask for fewer lookups, which means fewer widgets.
 
+### A theme override that is refreshed leaks its fonts
+
+Fyne's `container.ThemeOverride` applies its theme again at every `Refresh`,
+and each application makes a theme scope whose fonts Fyne keeps until the
+application theme changes (quirk 51). Refreshing any container around the
+override also refreshes it. jira-viewer's ticket table, under a table font of
+its own and refreshed on a timer, held 3.3 GB after six days on Fyne 2.8.1.
+The heap profile names it directly: `painter.CachedFontFace` above
+`loadMeasureFont`, under `drawText`.
+
+Use `widgets.ThemeOverride`, which applies its theme only when told to.
+Building an override still makes a scope, so build one per view or per
+section, never one per row or per cell.
+
 ### Decode a picture once, through the shared cache
 
 `canvas.Image` decodes from its resource, and decodes again at each refresh.
@@ -256,6 +270,7 @@ its own copy.
 | Diagrams | `mermaid` -- rendered at build time, never at runtime |
 | Log output that would otherwise refresh per line | `logpane` |
 | Tabular data | `table` -- not a Markdown table, not a `RichText` |
+| A subtree in a theme of its own | `widgets.ThemeOverride` -- not `container.ThemeOverride` (quirk 51) |
 | Asserting nothing scrolls inside a section | `fynetest.ScrollableIn` |
 | Asserting what a headless tree says | `fynetest.Text`, `fynetest.TextIn` |
 

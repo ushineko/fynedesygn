@@ -282,6 +282,15 @@ MIT. See [LICENSE](LICENSE).
   twelve times (spec 076). Quirk 6 is fixed there: a Markdown code block is no
   longer drawn in a scroller. `CodePanel` stays, because it wraps code rather
   than letting it run past the pane.
+- **Added**: `widgets.ThemeOverride`, a theme override that does not apply its
+  theme again at every refresh (spec 076, quirk 51). Each time Fyne's
+  `container.ThemeOverride` applies its theme it makes a new scope, and Fyne
+  keeps that scope's fonts for the life of the program. Refreshing any
+  container around the override is enough to make one. Call `Reapply` after
+  adding to the content.
+- **Fixed**: an `OwnAppearance` shell and a `glance.Panel` with a theme of its
+  own no longer leak fonts each time they are refreshed. Both now use
+  `widgets.ThemeOverride`.
 
 ### 0.1.110 (2026-11-03)
 

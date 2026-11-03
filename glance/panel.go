@@ -92,7 +92,7 @@ type Panel struct {
 	// override is the panel's own theme, when it has been given one. Nil
 	// until SetTheme is called, so a panel that never asks carries no extra
 	// widget and behaves exactly as it always did.
-	override *container.ThemeOverride
+	override *widgets.ThemeOverride
 
 	// resizable is set from the window's Options. A resizable panel never
 	// pulls the window narrower than the user has made it; see Resize.
@@ -191,11 +191,11 @@ func (p *Panel) Add(cards ...*Card) {
 	}
 
 	// A card added after the override was built keeps the default theme until
-	// the override is refreshed. Fyne's own documentation for it says so, and
+	// the override is reapplied. Fyne's own documentation for it says so, and
 	// every consumer adds its cards after the window exists, so this is the
 	// ordinary path rather than an edge of it.
 	if p.override != nil {
-		p.override.Refresh()
+		p.override.Reapply()
 	}
 }
 
@@ -356,10 +356,9 @@ func (p *Panel) SetTheme(th fyne.Theme) {
 	case th == nil:
 		p.override = nil
 	case p.override == nil:
-		p.override = container.NewThemeOverride(p.root, th)
+		p.override = widgets.NewThemeOverride(p.root, th)
 	default:
-		p.override.Theme = th
-		p.override.Refresh()
+		p.override.SetTheme(th)
 	}
 
 	// The cards are the half the override cannot do: they are canvas objects

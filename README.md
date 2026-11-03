@@ -272,7 +272,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### 0.1.110 (2026-11-02)
+### 0.1.110 (2026-11-03)
 
 - **Fixed**: a long `FactRow` value no longer sets the window's minimum width.
   It is cut with an ellipsis, as `PlainRow` already did. A row now takes the

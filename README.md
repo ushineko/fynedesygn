@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.108
+**Version**: 0.1.110
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -271,6 +271,20 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.110 (2026-11-03)
+
+- **Fixed**: a long `FactRow` value no longer sets the window's minimum width.
+  It is cut with an ellipsis, as `PlainRow` already did. A row now takes the
+  width its container gives it, so one laid out by its own minimum, in an
+  `HBox` or an unsized dialog, shows less of its value than it did. nmsbonker
+  found this when a compiler's stack trace on one row pushed the window past
+  the screen.
+
+### 0.1.109 (2026-11-02)
+
+- No changes from 0.1.108. Tagged by mistake from `main` before the fix above
+  had merged. The Go checksum database has recorded it, so the tag stays.
 
 ### 0.1.108 (2026-10-31)
 

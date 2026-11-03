@@ -73,16 +73,22 @@ func Wrapped(text string) fyne.CanvasObject {
 // every scheme. An info status leaves the label at its default colour.
 func StatusText(s string, st fd.Status) fyne.CanvasObject {
 	l := widget.NewLabel(s)
+	l.Importance = statusImportance(st)
+	return l
+}
+
+// statusImportance is the label importance that draws a status's colour.
+func statusImportance(st fd.Status) widget.Importance {
 	switch st {
 	case fd.StatusGood:
-		l.Importance = widget.SuccessImportance
+		return widget.SuccessImportance
 	case fd.StatusWarn:
-		l.Importance = widget.WarningImportance
+		return widget.WarningImportance
 	case fd.StatusBad:
-		l.Importance = widget.DangerImportance
+		return widget.DangerImportance
 	case fd.StatusInfo:
 	}
-	return l
+	return widget.MediumImportance
 }
 
 // Marker is the icon that ranks a row at a glance.
@@ -136,12 +142,17 @@ func Note(text string, st fd.Status) fyne.CanvasObject {
 }
 
 // FactRow is one "label   value" line with a status marker, the shape a
-// terminal would print as `label: value`.
+// terminal would print as `label: value`. A value too long for the row is cut
+// with an ellipsis, as on PlainRow, so what a program reports cannot set the
+// window's minimum width. Text that has to be read whole belongs in a Note.
 func FactRow(label, value string, st fd.Status) fyne.CanvasObject {
 	l := widget.NewLabel(label)
 	l.Importance = widget.LowImportance
+	v := widget.NewLabel(value)
+	v.Importance = statusImportance(st)
+	v.Truncation = fyne.TextTruncateEllipsis
 	return container.NewBorder(nil, nil, FixedWidth(l, LabelWidth), nil,
-		container.NewHBox(Marker(st), StatusText(value, st)))
+		container.NewBorder(nil, nil, Marker(st), nil, v))
 }
 
 // PlainRow is FactRow without the marker, for facts that carry no verdict. The

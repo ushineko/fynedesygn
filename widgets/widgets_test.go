@@ -256,3 +256,45 @@ func TestFactRowValueLengthDoesNotSetItsWidth(t *testing.T) {
 	require.Contains(t, textIn(long), strings.Repeat("at libMBIN.NMSTemplate.Deserialize(); ", 20),
 		"the value is cut when drawn, not in what the row holds")
 }
+
+// A row cuts a value that does not fit with an ellipsis, short enough to draw
+// in the width it has, and shows the whole value again when it is given room.
+func TestARowCutsItsValueToItsWidth(t *testing.T) {
+	test.NewTempApp(t)
+	value := strings.Repeat("ninety-seven paks under GAMEDATA/PCBANKS ", 6)
+	for name, row := range map[string]fyne.CanvasObject{
+		"PlainRow": PlainRow("label", value),
+		"FactRow":  FactRow("label", value, fd.StatusWarn),
+	} {
+		t.Run(name, func(t *testing.T) {
+			row.Resize(fyne.NewSize(LabelWidth+400, 40))
+			l := valueLabel(t, row)
+			require.True(t, strings.HasSuffix(l.Text, "…"), "cut: %q", l.Text)
+			require.True(t, strings.HasPrefix(value, strings.TrimSuffix(l.Text, "…")))
+			require.LessOrEqual(t, l.MinSize().Width, l.Size().Width, "the cut text fits its width")
+
+			row.Resize(fyne.NewSize(LabelWidth+4000, 40))
+			require.Equal(t, value, valueLabel(t, row).Text, "with room, nothing is cut")
+		})
+	}
+}
+
+// valueLabel is the label drawing a row's value.
+func valueLabel(t *testing.T, row fyne.CanvasObject) *widget.Label {
+	t.Helper()
+	var found *widget.Label
+	var walk func(o fyne.CanvasObject)
+	walk = func(o fyne.CanvasObject) {
+		switch v := o.(type) {
+		case *fitLabel:
+			found = v.label
+		case *fyne.Container:
+			for _, c := range v.Objects {
+				walk(c)
+			}
+		}
+	}
+	walk(row)
+	require.NotNil(t, found)
+	return found
+}

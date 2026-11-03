@@ -130,20 +130,6 @@ func TestScrollableInFindsAScrollAndNotALabel(t *testing.T) {
 	require.False(t, fynetest.ScrollableIn(container.NewVBox(widget.NewLabel("x"))))
 }
 
-/*
-Canary #6 from docs/fyne-quirks.md, not a contract: Fyne 2.8.1's
-richCodeBlock wraps its label in an HScroll, which takes the wheel from the
-section around it. markdown.CodePanel exists to avoid that. When this fails,
-Fyne has changed and CodePanel can be reconsidered.
-*/
-func TestFyneStillDrawsMarkdownCodeInsideAScroll(t *testing.T) {
-	test.NewTempApp(t)
-	rt := widget.NewRichTextFromMarkdown("    code\n")
-	rt.Resize(fyne.NewSize(400, 100))
-
-	require.True(t, fynetest.ScrollableIn(rt))
-}
-
 func TestSandboxMovesHomeIntoATempDir(t *testing.T) {
 	before, err := os.UserHomeDir()
 	require.NoError(t, err)

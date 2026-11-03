@@ -7,7 +7,8 @@ The canary test fails when Fyne changes the behaviour. A failed canary does not
 mean this module is defective; it means you can examine the correction again.
 
 The behaviour is that of `fyne.io/fyne/v2 v2.8.1` unless an entry gives a
-different version. A row that shows "planned" does not have a test yet.
+different version. Every canary still holds on `develop` at `b655332`, the
+current pin, except quirk 6, which is retired. A row that shows "planned" does not have a test yet.
 
 This document is written in plain technical English; see [How this is
 written](style.md).
@@ -19,7 +20,7 @@ written](style.md).
 | 3 | `SetText` on a table cell that is in use again refreshes the label, and the refresh is where `Importance` becomes a colour. If you set the importance after the text, the cell shows the colour of the previous row. | `table` sets `Importance` before it calls `SetText`. | `table.TestImportanceAfterSetTextKeepsOldColour` |
 | 4 | `widget.Table.UpdateHeader` receives `Col == -1` for the corner cell. | `table` tests for this value. | `table.TestUpdateHeaderVisitsCornerCell` |
 | 5 | `container.AppTabs` takes the height of its tallest item, not of the selected item. | Only the selected tab holds content. The other tabs hold an empty container. | `TestAppTabsSizeToTallestItem` (planned) |
-| 6 | `widget.NewRichTextFromMarkdown` puts code blocks in a horizontal scroller (`richCodeBlock`). The innermost scroller below the pointer receives the wheel, and the scroller changes axis when the block is wider than the pane but not taller. | `markdown.CodePanel` draws code blocks itself, and wraps the text instead of scrolling it. | `fynetest.TestFyneStillDrawsMarkdownCodeInsideAScroll` |
+| 6 | **Retired: fixed on `develop` at `b655332`.** `widget.NewRichTextFromMarkdown` puts code blocks in a horizontal scroller (`richCodeBlock`). The innermost scroller below the pointer receives the wheel, and the scroller changes axis when the block is wider than the pane but not taller. | `markdown.CodePanel` still draws code blocks, because it wraps code rather than letting it run past the pane. | none (retired; the canary failed on the `develop` pin) |
 | 7 | `widget.RichText` puts every segment in position and paints it again at each refresh, and a scroller refreshes its content while it moves. A document with 250 segments needs approximately 51 ms for each frame in the software painter. | `markdown.Pane` draws one block at a time, and only near the viewport. It keeps the measured height of each block. | `markdown.TestDocumentRendersOnlyNearTheViewport` |
 | 8 | A theme icon made with `theme.XxxIcon()` before `app.New` writes the message "Attempt to access current Fyne app when none is started". | Section icons are a `func() fyne.Resource`, which the shell calls after the app exists. | `shell.TestNamesNeedNoApp` |
 | 9 | Fyne animates properties, not opacity. A widget does not have an alpha value. | The banner fades the colour of its background rectangle with `canvas.NewColorRGBAAnimation`. | none (design, not a bug) |

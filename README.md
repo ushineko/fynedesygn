@@ -141,7 +141,9 @@ programs adopt it. Nothing here is stable until `v1.0.0`.
 go get github.com/ushineko/fynedesygn@latest
 ```
 
-The library pins `fyne.io/fyne/v2 v2.8.1`. Building a Fyne program needs CGO
+The library pins `fyne.io/fyne/v2 v2.8.3-0.20261103091334-b655332b73c2`, a commit on
+Fyne's `develop` branch: it carries a font-cache fix (fyne-io/fyne#6555) that
+no tagged release has yet. It moves to the first tag that does. Building a Fyne program needs CGO
 and, on Linux, the OpenGL and X11 or Wayland development headers. Running this
 module's tests does not: they use the Fyne test driver.
 
@@ -271,6 +273,15 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### Unreleased
+
+- **Changed**: Fyne is pinned to `develop` at `b655332`
+  (`v2.8.3-0.20261103091334-b655332b73c2`) for its shared parsed fonts
+  (fyne-io/fyne#6555), which cut the memory a theme override leaks by about
+  twelve times (spec 076). Quirk 6 is fixed there: a Markdown code block is no
+  longer drawn in a scroller. `CodePanel` stays, because it wraps code rather
+  than letting it run past the pane.
 
 ### 0.1.110 (2026-11-03)
 

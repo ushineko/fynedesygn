@@ -91,7 +91,8 @@ issue and the link when convenient — but a new spec should start from one.
 - **Public API is a contract.** Every exported identifier has a doc comment
   and appears in the gallery. Nothing is exported "just in case". Until v1 the
   module is `v0.x` and the changelog names every breaking change.
-- **Fyne pin**: `fyne.io/fyne/v2 v2.8.1`. Fyne quirks the library works around
+- **Fyne pin**: `fyne.io/fyne/v2 v2.8.3-0.20261103091334-b655332b73c2` (`develop` at `b655332`,
+  spec 076; back to a tag once a release carries fyne-io/fyne#6642). Fyne quirks the library works around
   are catalogued in `docs/fyne-quirks.md`; each has a canary test named after
   the quirk so an upstream fix shows up as one failing test, not three silent
   bugs in three apps. Bump Fyne in its own commit and re-run the canaries.

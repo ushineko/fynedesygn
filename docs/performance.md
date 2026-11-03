@@ -148,11 +148,18 @@ its own and refreshed on a timer, held 3.3 GB after six days on Fyne 2.8.1.
 The heap profile names it directly: `painter.CachedFontFace` above
 `loadMeasureFont`, under `drawText`.
 
-Use `widgets.ThemeOverride`, which applies its theme only when told to.
-Building an override still makes a scope, so build one per view or per
-section, never one per row, cell or link. A real document costs more than a
-probe suggests: each scope's faces cache the glyphs they draw, and jira-viewer
-measured about 6 MB per ticket opened while its links each had an override.
+Keep overrides out of anything refreshed often: one per window, section or
+dialog, never one per row, cell or link, and never around a table or list a
+timer redraws. Text that needs a face of its own can carry it in
+`canvas.Text.FontSource`, which needs no override. A real document costs more
+than a probe suggests: each scope's faces cache the glyphs they draw, and
+jira-viewer measured about 6 MB per ticket opened while its links each had an
+override.
+
+An override that does not apply its theme again is no cure. 0.1.111's
+`widgets.ThemeOverride` tried it: Fyne's cache takes a widget out of its
+override when it expires the widget's renderer, so cells that came back drew
+in the application's font (spec 077).
 
 ### Decode a picture once, through the shared cache
 
@@ -272,7 +279,7 @@ its own copy.
 | Diagrams | `mermaid` -- rendered at build time, never at runtime |
 | Log output that would otherwise refresh per line | `logpane` |
 | Tabular data | `table` -- not a Markdown table, not a `RichText` |
-| A subtree in a theme of its own | `widgets.ThemeOverride` -- not `container.ThemeOverride` (quirk 51) |
+| A subtree in a theme of its own | `widgets.ThemeOverride`, once per window, section or dialog (quirk 51) |
 | Asserting nothing scrolls inside a section | `fynetest.ScrollableIn` |
 | Asserting what a headless tree says | `fynetest.Text`, `fynetest.TextIn` |
 

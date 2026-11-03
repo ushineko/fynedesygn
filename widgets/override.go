@@ -7,26 +7,20 @@ import (
 )
 
 /*
-ThemeOverride draws its content in a theme of its own, like Fyne's
-container.ThemeOverride, and applies that theme only when it is built and
-when it is told to: by SetContent, SetTheme or Reapply. A Refresh refreshes
-the content and nothing else.
+ThemeOverride draws its content in a theme of its own. It is Fyne's
+container.ThemeOverride, with the theme and the content settable and the
+theme readable (OwnTheme).
 
-Fyne's override applies its theme again on every Refresh, and each application
-makes a new theme scope (quirk 51 in docs/fyne-quirks.md). Fyne keeps the fonts
-it builds for a scope for as long as the program runs, so an override that is
-refreshed leaks memory at each refresh. A refresh also reaches the override
-whenever any container around it is refreshed, because fyne.Container.Refresh
-refreshes every child. A program that refreshes its table every few seconds
-grows without bound.
-
-**Reapply after adding to the content.** An override covers the objects that
-existed when its theme was last applied (quirk 37). Fyne's own override made
-up for that by applying the theme at every refresh. This one leaves it to the
-caller, who knows when the tree has changed. Each Reapply makes one scope, so
-call it after content is added, not on a timer. Lists, trees and text grids
-give the rows they create their parent's scope themselves and need no
-Reapply.
+**It applies its theme again at every Refresh**, as Fyne's does, and each
+application is a new theme scope whose fonts Fyne keeps for the life of the
+program (quirk 51). 0.1.111 applied it only when told to, which stopped that
+leak and lost the theme instead: Fyne's cache destroys the renderers of
+widgets that have not been drawn for a minute and takes them out of their
+override as it does, and a widget that came back drew in the application's
+theme. So an override belongs where it is refreshed rarely — a window, a
+section, a dialog — never around a table, a list or anything a timer redraws.
+Widgets that draw text in a face of their own (canvas.Text.FontSource) need no
+override at all.
 */
 type ThemeOverride struct {
 	widget.BaseWidget
@@ -62,14 +56,14 @@ func (o *ThemeOverride) SetTheme(th fyne.Theme) {
 }
 
 // Reapply applies the theme again, to cover objects added to the content since
-// it was last applied.
+// it was last applied. Refresh does the same.
 func (o *ThemeOverride) Reapply() {
 	o.inner.Refresh()
 }
 
-// Refresh redraws the content without applying the theme again.
+// Refresh applies the theme again and redraws the content.
 func (o *ThemeOverride) Refresh() {
-	o.inner.Content.Refresh()
+	o.inner.Refresh()
 	o.BaseWidget.Refresh()
 }
 
@@ -78,8 +72,8 @@ func (o *ThemeOverride) CreateRenderer() fyne.WidgetRenderer {
 	return &themeOverrideRenderer{o: o, objects: []fyne.CanvasObject{o.inner}}
 }
 
-// themeOverrideRenderer lays out the Fyne override it holds and never
-// refreshes it, which is the point of the type.
+// themeOverrideRenderer lays out the Fyne override it holds. Refresh reaches
+// that override through ThemeOverride.Refresh.
 type themeOverrideRenderer struct {
 	o       *ThemeOverride
 	objects []fyne.CanvasObject

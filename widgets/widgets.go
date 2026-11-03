@@ -148,9 +148,7 @@ func Note(text string, st fd.Status) fyne.CanvasObject {
 func FactRow(label, value string, st fd.Status) fyne.CanvasObject {
 	l := widget.NewLabel(label)
 	l.Importance = widget.LowImportance
-	v := widget.NewLabel(value)
-	v.Importance = statusImportance(st)
-	v.Truncation = fyne.TextTruncateEllipsis
+	v := newFitLabel(value, statusImportance(st))
 	return container.NewBorder(nil, nil, FixedWidth(l, LabelWidth), nil,
 		container.NewBorder(nil, nil, Marker(st), nil, v))
 }
@@ -161,8 +159,7 @@ func FactRow(label, value string, st fd.Status) fyne.CanvasObject {
 func PlainRow(label, value string) fyne.CanvasObject {
 	l := widget.NewLabel(label)
 	l.Importance = widget.LowImportance
-	v := widget.NewLabel(value)
-	v.Truncation = fyne.TextTruncateEllipsis
+	v := newFitLabel(value, widget.MediumImportance)
 	return container.NewBorder(nil, nil, FixedWidth(l, LabelWidth), nil,
 		container.NewBorder(nil, nil, FixedWidth(widget.NewLabel(""), MarkerGutter), nil, v))
 }

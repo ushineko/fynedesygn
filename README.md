@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.111
+**Version**: 0.1.112
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -273,6 +273,16 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.112 (2026-11-03)
+
+- **Fixed**: `PlainRow` and `FactRow` no longer shape their values again
+  through harfbuzz at every layout (Fyne quirk 30). Each row cuts its own
+  value to its width with an ellipsis, and measures only when the width
+  changes. Resizing 24 rows costs 0.13 ms instead of 2.3 ms
+  (`widgets.BenchmarkRowsResize`), and in nmsbonker a window drag spent half
+  its CPU on this before. Rows look the same, and a row's minimum width is
+  still zero.
 
 ### 0.1.111 (2026-11-03)
 

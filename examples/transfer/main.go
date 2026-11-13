@@ -56,9 +56,14 @@ func copyWithPopup(s *shell.Shell, tick time.Duration) {
 // progress after each. A real program calls BusyProgress from its read loop.
 func copyBytes(ctx context.Context, s *shell.Shell, tick time.Duration) error {
 	for done := 0; done < total; done += 1 << 20 {
+		// Checked first: with a zero tick both cases of the select below are
+		// ready and Go picks one at random, so a cancelled copy could still
+		// take a few steps.
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("transfer stopped at %d of %d MiB: %w", done>>20, total>>20, err)
+		}
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("transfer stopped at %d of %d MiB: %w", done>>20, total>>20, ctx.Err())
 		case <-time.After(tick):
 		}
 		got := done + 1<<20

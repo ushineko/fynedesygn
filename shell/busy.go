@@ -3,6 +3,7 @@ package shell
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -70,6 +71,10 @@ func (s *Shell) busy(what string, cancel context.CancelFunc) func() {
 		s.busyMu.Lock()
 		s.busyCount++
 		s.busyWhat = what
+		// A new operation describes itself: whatever the last one reported is
+		// not about this one.
+		s.busyHasFrac, s.busyFrac, s.busyCaption = false, 0, ""
+		s.showBusyProgress()
 		first := s.busyCount == 1
 		if cancel != nil {
 			s.busyCancel = job
@@ -249,7 +254,7 @@ func (s *Shell) showBusy() {
 		return
 	}
 	if s.busyPop != nil {
-		s.busyLabel.SetText(s.busyWhat)
+		s.busyLabel.SetText(s.busyText())
 		if (s.busyCancel != nil) == (s.busyCancelBtn != nil) {
 			return
 		}
@@ -277,6 +282,85 @@ func (s *Shell) showBusy() {
 	}()
 }
 
+/*
+BusyProgress gives the busy popup a real value, for a job that knows how far
+along it is.
+
+fraction is the completion in [0, 1]: the bar fills to it and stops being the
+bar with no end. caption replaces the popup's text while the job runs; an empty
+caption leaves it as it was. A fraction below zero, or NaN, puts the bar with no
+end back. Above one counts as one.
+
+It exists for one case: a job that measures. A download that knows its length,
+a copy that knows its file count. The bar still has no value by default, for the
+reason Busy gives, and a program that cannot name a real number does not call
+this. Do not call it with an estimate.
+
+It describes the operation that holds the popup, and the last call wins: with
+two operations at once the popup shows whichever reported last. BusyWhat, and so
+BusyReason, still name the operation as Busy was given it, because a refusal
+that quotes "Downloading (41%)" names a moment and not the job.
+
+Safe to call from a goroutine and at any rate: it hops to the UI thread itself,
+so a download can call it from its read loop. It does nothing when no operation
+is busy. A value reported before the popup appears, inside BusyDelay, is what the
+popup opens with. Keep the caption short: the popup is sized to its content when
+it opens and does not grow with the text.
+*/
+func (s *Shell) BusyProgress(fraction float64, caption string) {
+	fyne.Do(func() {
+		s.busyMu.Lock()
+		defer s.busyMu.Unlock()
+		if s.busyCount == 0 {
+			return
+		}
+		if fraction < 0 || math.IsNaN(fraction) {
+			s.busyHasFrac = false
+		} else {
+			s.busyHasFrac, s.busyFrac = true, math.Min(fraction, 1)
+		}
+		if caption != "" {
+			s.busyCaption = caption
+		}
+		s.showBusyProgress()
+	})
+}
+
+// showBusyProgress brings a popup that is already up in line with the reported
+// value: the caption, and the bar swapped between the one with a value and the
+// one without. Call with busyMu held, on the UI thread. With no popup yet it
+// does nothing, and busyPopUp reads the state when it builds one.
+func (s *Shell) showBusyProgress() {
+	if s.busyPop == nil || s.busyBarBox == nil {
+		return
+	}
+	if s.busyLabel != nil {
+		s.busyLabel.SetText(s.busyText())
+	}
+	switch {
+	case s.busyHasFrac && s.busyBar == nil:
+		s.busyBar = widget.NewProgressBar()
+		s.busyBar.SetValue(s.busyFrac)
+		s.busyBarBox.Objects = []fyne.CanvasObject{widgets.FixedWidth(s.busyBar, busyBarWidth)}
+		s.busyBarBox.Refresh()
+	case s.busyHasFrac:
+		s.busyBar.SetValue(s.busyFrac)
+	case s.busyBar != nil:
+		s.busyBar = nil
+		s.busyBarBox.Objects = []fyne.CanvasObject{widgets.FixedWidth(widget.NewProgressBarInfinite(), busyBarWidth)}
+		s.busyBarBox.Refresh()
+	}
+}
+
+// busyText is the popup's caption: the one a program reported, else the one the
+// operation was started with. Call with busyMu held.
+func (s *Shell) busyText() string {
+	if s.busyCaption != "" {
+		return s.busyCaption
+	}
+	return s.busyWhat
+}
+
 // busyPopup returns the popup that is up, if any. The busy fields are behind
 // busyMu, so a reader not already holding it comes through here.
 func (s *Shell) busyPopup() *widget.PopUp {
@@ -288,10 +372,20 @@ func (s *Shell) busyPopup() *widget.PopUp {
 // busyPopUp builds the popup for the caption, with a Cancel button when a
 // cancellable operation is holding it. Call with busyMu held.
 func (s *Shell) busyPopUp(what string) *widget.PopUp {
+	if s.busyCaption != "" {
+		what = s.busyCaption
+	}
 	s.busyLabel = widget.NewLabel(what)
 	s.busyLabel.Alignment = fyne.TextAlignCenter
-	bar := widget.NewProgressBarInfinite()
-	items := []fyne.CanvasObject{s.busyLabel, widgets.FixedWidth(bar, busyBarWidth)}
+	var bar fyne.CanvasObject = widget.NewProgressBarInfinite()
+	s.busyBar = nil
+	if s.busyHasFrac {
+		s.busyBar = widget.NewProgressBar()
+		s.busyBar.SetValue(s.busyFrac)
+		bar = s.busyBar
+	}
+	s.busyBarBox = container.NewStack(widgets.FixedWidth(bar, busyBarWidth))
+	items := []fyne.CanvasObject{s.busyLabel, s.busyBarBox}
 
 	s.busyCancelBtn = nil
 	if job := s.busyCancel; job != nil {
@@ -317,6 +411,8 @@ func (s *Shell) hideBusy() {
 		s.busyPop, s.busyLabel = nil, nil
 	}
 	s.busyCancel, s.busyCancelBtn = nil, nil
+	s.busyHasFrac, s.busyFrac, s.busyCaption = false, 0, ""
+	s.busyBarBox, s.busyBar = nil, nil
 }
 
 /*

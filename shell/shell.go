@@ -227,6 +227,16 @@ type Shell struct {
 	// busyCancelBtn the button it put there. UI thread only.
 	busyCancel    *busyJob
 	busyCancelBtn *widget.Button
+	// busyHasFrac says a program reported a real completion with BusyProgress,
+	// busyFrac is that value in [0, 1], and busyCaption the text it gave the
+	// popup in place of busyWhat. busyBarBox is the container the popup's bar
+	// sits in and busyBar the bar with a value, nil while the one with no end
+	// is showing, so the bar can be swapped under a popup already up.
+	busyHasFrac bool
+	busyFrac    float64
+	busyCaption string
+	busyBarBox  *fyne.Container
+	busyBar     *widget.ProgressBar
 
 	flashes  *fyne.Container
 	flashSeq int

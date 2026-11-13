@@ -361,9 +361,14 @@ Border{
   done nothing is a button that the user clicks two times.
 - The busy indicator is a modal popup in the centre with a progress bar that
   has no end. It appears after 300 ms, so a quick call never shows it. The bar
-  has no value by design, because a bar that filled at a constant rate would
+  has no value by default, because a bar that filled at a constant rate would
   invent a number. A program with real steps shows a step list beside a log
-  pane instead. The busy state is a count and not a flag, because the load of a
+  pane instead. A job that measures, such as a download that knows its length
+  or a copy that knows its file count, gives the bar a real value with
+  `Shell.BusyProgress(fraction, caption)`. Never call it with an estimate: a
+  bar with a value that is a guess is the invented number again. The call is
+  safe from the job's own goroutine and at any rate, applies to the operation
+  holding the popup, and is forgotten when that operation ends. The busy state is a count and not a flag, because the load of a
   section can start more than one call.
 - The `what` text ends in an ellipsis, as in "Clearing the history...", because
   it is the caption of the popup.

@@ -101,10 +101,17 @@ Each example is a complete program with a headless test, in `examples/`, on
 |---|---|
 | `master-detail` | A table with one status per row, a detail card for the selected row, Refresh through `Perform`, a count in the status bar, and the loaded-flag pattern. |
 | `settings` | A `forms.Form` over a JSON file, saved a second after the last change through `forms.Saver`, with Revert and the standard Appearance section. |
+| `transfer` | A job that measures, run through `PerformCancellable`, giving the busy popup a real value with `BusyProgress`: the bar fills with the bytes copied. |
 | `job-runner` | A `steps.List` beside a `logpane.Pane`, a job run through `PerformCancellable` that advances steps and logs, and one banner for the result. |
 | `document-viewer` | `markdown.Section` over an embedded guide with a mermaid diagram rendered by `go generate`. |
 | `glance-monitor` | Not a shell program: a `glance` panel of four cards — peripherals, bandwidth, a two-trace sparkline over thermals, and two quota meters — with a context menu for its settings, a drawer of processes that a click on a card opens and `f` filters, with a switch between the thermal card's two lists and a scrolling drawer of quotas on the usage card, and the KDE window rule offered behind `-kwin`. |
 | `installer-wizard` | Not a shell program: a `wizard` through every standard page, installing nothing, with a fake job slow enough to cancel and `-fail` to make it fail at its third step. |
+
+The `transfer` example, mid-copy: the busy popup with a real value, in the dark and the light scheme.
+
+![The transfer example in Breeze Dark with the busy popup over a dimmed window: the text Copying 9 of 64 MiB, a progress bar filled to 14 percent with the percentage on it, and a Cancel button.](docs/img/transfer-busy-progress-dark.png)
+
+![The transfer example in Breeze Light with the busy popup over a dimmed window: the text Copying 6 of 64 MiB, a progress bar filled to 9 percent, and a Cancel button.](docs/img/transfer-busy-progress-light.png)
 
 ## Used by
 
@@ -273,6 +280,15 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### Unreleased
+
+- **Added**: `Shell.BusyProgress(fraction, caption)` gives the busy popup a real
+  value for a job that knows how far along it is, spec 078 (#230). The bar still
+  has no value by default and nothing changes for a caller that does not use it.
+  A fraction below zero returns the bar with no end; `BusyWhat` and `BusyReason`
+  keep naming the operation. New example: `examples/transfer`. clockwork-orange
+  needed it for a model download that takes minutes (clockwork-orange#60).
 
 ### 0.1.113 (2026-11-03)
 

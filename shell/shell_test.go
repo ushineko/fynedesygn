@@ -3,6 +3,7 @@ package shell
 import (
 	"context"
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -1071,4 +1072,120 @@ func sectionTextSize(t *testing.T, s *Shell) float32 {
 	})
 	require.NotZero(t, size, "no text found in the section")
 	return size
+}
+
+// progressBars reports what bar the busy popup is showing: whether it has a
+// value, and what value.
+func progressBars(s *Shell) (determinate *widget.ProgressBar, infinite *widget.ProgressBarInfinite) {
+	pop := s.busyPopup()
+	return fynetest.Find[*widget.ProgressBar](pop.Content), fynetest.Find[*widget.ProgressBarInfinite](pop.Content)
+}
+
+func waitForBusyPopup(t *testing.T, s *Shell) {
+	t.Helper()
+	require.Eventually(t, func() bool { return s.busyPopup() != nil },
+		2*time.Second, 10*time.Millisecond, "the busy popup never appeared")
+}
+
+func TestBusyProgressFillsTheBarAndKeepsTheOperationsName(t *testing.T) {
+	s := onScreen(t, testOptions(NewSection("A", nil, func(*Shell) fyne.CanvasObject { return widget.NewLabel("a") })))
+	done := s.Busy("Pulling the model...")
+	t.Cleanup(done)
+	waitForBusyPopup(t, s)
+
+	det, inf := progressBars(s)
+	require.Nil(t, det, "a bar has no value until a program gives it one")
+	require.NotNil(t, inf)
+
+	s.BusyProgress(0.4, "Downloading, 40%")
+	det, inf = progressBars(s)
+	require.NotNil(t, det)
+	require.InDelta(t, 0.4, det.Value, 1e-9)
+	require.Nil(t, inf, "the bar with no end is gone once there is a value")
+	require.NotNil(t, fynetest.FindLabel(s.busyPopup().Content, "Downloading, 40%"))
+	require.Equal(t, "Pulling the model...", s.BusyWhat(), "a refusal still names the operation")
+
+	s.BusyProgress(0.75, "")
+	det, _ = progressBars(s)
+	require.InDelta(t, 0.75, det.Value, 1e-9)
+	require.NotNil(t, fynetest.FindLabel(s.busyPopup().Content, "Downloading, 40%"), "an empty caption leaves the text")
+}
+
+func TestBusyProgressClampsAndCanGiveTheBarItsEndBack(t *testing.T) {
+	s := onScreen(t, testOptions(NewSection("A", nil, func(*Shell) fyne.CanvasObject { return widget.NewLabel("a") })))
+	done := s.Busy("Copying...")
+	t.Cleanup(done)
+	waitForBusyPopup(t, s)
+
+	s.BusyProgress(7, "")
+	det, _ := progressBars(s)
+	require.InDelta(t, 1.0, det.Value, 1e-9, "above one counts as one")
+
+	s.BusyProgress(-1, "")
+	det, inf := progressBars(s)
+	require.Nil(t, det)
+	require.NotNil(t, inf, "a negative fraction returns to the bar with no end")
+
+	s.BusyProgress(math.NaN(), "")
+	det, inf = progressBars(s)
+	require.Nil(t, det)
+	require.NotNil(t, inf)
+}
+
+func TestBusyProgressBeforeThePopupAppearsIsWhatItOpensWith(t *testing.T) {
+	s := onScreen(t, testOptions(NewSection("A", nil, func(*Shell) fyne.CanvasObject { return widget.NewLabel("a") })))
+	done := s.Busy("Copying...")
+	t.Cleanup(done)
+	s.BusyProgress(0.5, "Copying, 50%")
+	waitForBusyPopup(t, s)
+
+	det, inf := progressBars(s)
+	require.NotNil(t, det)
+	require.Nil(t, inf)
+	require.InDelta(t, 0.5, det.Value, 1e-9)
+	require.NotNil(t, fynetest.FindLabel(s.busyPopup().Content, "Copying, 50%"))
+}
+
+func TestBusyProgressWithNothingBusyDoesNothingAndIsNotRemembered(t *testing.T) {
+	s := onScreen(t, testOptions(NewSection("A", nil, func(*Shell) fyne.CanvasObject { return widget.NewLabel("a") })))
+	s.BusyProgress(0.9, "Stale")
+
+	done := s.Busy("Loading...")
+	t.Cleanup(done)
+	waitForBusyPopup(t, s)
+	det, inf := progressBars(s)
+	require.Nil(t, det, "progress reported with nothing running is not carried into the next operation")
+	require.NotNil(t, inf)
+}
+
+func TestANewOperationDoesNotInheritTheLastOnesProgress(t *testing.T) {
+	s := onScreen(t, testOptions(NewSection("A", nil, func(*Shell) fyne.CanvasObject { return widget.NewLabel("a") })))
+	first := s.Busy("Downloading...")
+	t.Cleanup(first)
+	waitForBusyPopup(t, s)
+	s.BusyProgress(0.6, "Downloading, 60%")
+
+	second := s.Busy("Indexing...")
+	t.Cleanup(second)
+	det, inf := progressBars(s)
+	require.Nil(t, det, "the second operation reported nothing")
+	require.NotNil(t, inf)
+	require.NotNil(t, fynetest.FindLabel(s.busyPopup().Content, "Indexing..."))
+}
+
+func TestBusyProgressIsForgottenWhenTheOperationEnds(t *testing.T) {
+	s := onScreen(t, testOptions(NewSection("A", nil, func(*Shell) fyne.CanvasObject { return widget.NewLabel("a") })))
+	done := s.Busy("Downloading...")
+	waitForBusyPopup(t, s)
+	s.BusyProgress(0.6, "Downloading, 60%")
+	done()
+	require.False(t, s.Working())
+
+	again := s.Busy("Loading...")
+	t.Cleanup(again)
+	waitForBusyPopup(t, s)
+	det, inf := progressBars(s)
+	require.Nil(t, det)
+	require.NotNil(t, inf)
+	require.NotNil(t, fynetest.FindLabel(s.busyPopup().Content, "Loading..."))
 }

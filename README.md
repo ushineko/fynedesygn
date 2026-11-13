@@ -107,6 +107,12 @@ Each example is a complete program with a headless test, in `examples/`, on
 | `glance-monitor` | Not a shell program: a `glance` panel of four cards — peripherals, bandwidth, a two-trace sparkline over thermals, and two quota meters — with a context menu for its settings, a drawer of processes that a click on a card opens and `f` filters, with a switch between the thermal card's two lists and a scrolling drawer of quotas on the usage card, and the KDE window rule offered behind `-kwin`. |
 | `installer-wizard` | Not a shell program: a `wizard` through every standard page, installing nothing, with a fake job slow enough to cancel and `-fail` to make it fail at its third step. |
 
+The `transfer` example, mid-copy: the busy popup with a real value, in the dark and the light scheme.
+
+![The transfer example in Breeze Dark with the busy popup over a dimmed window: the text Copying 9 of 64 MiB, a progress bar filled to 14 percent with the percentage on it, and a Cancel button.](docs/img/transfer-busy-progress-dark.png)
+
+![The transfer example in Breeze Light with the busy popup over a dimmed window: the text Copying 6 of 64 MiB, a progress bar filled to 9 percent, and a Cancel button.](docs/img/transfer-busy-progress-light.png)
+
 ## Used by
 
 Eight programs, all by the same author and all public. The first three

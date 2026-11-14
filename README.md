@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.117
+**Version**: 0.1.118
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -280,6 +280,15 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.118 (2026-11-14)
+
+- **Fixed**: on Windows, a panel with drawers on the left moved a pixel to the
+  left each time several drawers closed at once (#238). The window was moved
+  by each drawer's width rounded on its own, and sized by the whole width
+  rounded up; at 150 % a drawer 493.5 pixels wide moved it 494 at each
+  opening and `CloseDrawers` moved it back by 987 for two. The window now
+  moves by the difference of its widths as Fyne makes them.
 
 ### 0.1.117 (2026-11-14)
 

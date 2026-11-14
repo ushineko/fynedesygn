@@ -12,7 +12,7 @@ const movesItself = false
 
 // moveWindowBy does nothing here: the compositor holds the edge, or the
 // drawer opens on the right.
-func moveWindowBy(fyne.Window, float32) {}
+func moveWindowBy(fyne.Window, float32, float32) {}
 
 // roomBeside cannot answer here. A program asks the compositor and tells the
 // drawer with Drawer.Choose.

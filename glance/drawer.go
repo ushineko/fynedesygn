@@ -1,6 +1,8 @@
 package glance
 
 import (
+	"math"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
@@ -898,7 +900,7 @@ func (p *Panel) shift(before, after float32) {
 		return
 	}
 	if p.selfMoving {
-		moveWindowBy(p.win, before-after)
+		moveWindowBy(p.win, p.asked+before, p.asked+after)
 		return
 	}
 	// The compositor moved the window, and the pointer was not told (quirk
@@ -909,6 +911,23 @@ func (p *Panel) shift(before, after float32) {
 	if !repoint(p.win, &p.pointer, after-before) {
 		p.stale += after - before
 	}
+}
+
+/*
+pixelsMoved is how far, in device pixels, a window's origin moves for its
+right edge to stay where it is while its width goes from before to after, in
+Fyne's units at scale.
+
+It is the difference of the two widths as Fyne makes them, the width times
+the scale rounded up (scale.ToScreenCoordinate), and not the difference of
+the drawers' widths rounded on its own. Rounded on its own, a drawer 493.5
+pixels wide moved the window 494 at each opening while the window grew by
+493 and then 494; closing both at once (CloseDrawers) moved it back by 987,
+and the panel crept a pixel to the left each time (#238).
+*/
+func pixelsMoved(scale, before, after float32) int32 {
+	px := func(v float32) int32 { return int32(math.Ceil(float64(v * scale))) }
+	return px(before) - px(after)
 }
 
 // pointer is what repoint remembers between two moves of the window: where

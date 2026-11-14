@@ -1,7 +1,6 @@
 package glance
 
 import (
-	"math"
 	"unsafe"
 
 	"fyne.io/fyne/v2"
@@ -34,16 +33,15 @@ func hwndOf(win fyne.Window) uintptr {
 	return hwnd
 }
 
-// moveWindowBy moves the window sideways by dx, in Fyne's units, and leaves
-// its size alone.
-func moveWindowBy(win fyne.Window, dx float32) {
+// moveWindowBy moves the window sideways by as much as its width changes from
+// before to after, in Fyne's units, so its right edge stays; it leaves the
+// size alone. See pixelsMoved.
+func moveWindowBy(win fyne.Window, before, after float32) {
 	hwnd := hwndOf(win)
 	if hwnd == 0 {
 		return
 	}
-	// Rounded, not truncated: the window's width is rounded when Fyne sets
-	// it, and a move a pixel short of it leaves the far edge a pixel out.
-	px := int32(math.Round(float64(dx * win.Canvas().Scale())))
+	px := pixelsMoved(win.Canvas().Scale(), before, after)
 	var r edges
 	if ok, _, _ := getWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&r))); ok == 0 {
 		return

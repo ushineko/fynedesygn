@@ -1,6 +1,7 @@
 package kwin_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,7 +18,8 @@ func TestTheHoldScriptKeepsTheRightEdge(t *testing.T) {
 
 	assert.Contains(t, s, `const target = { class: "io.ushineko.example", caption: "Monitor" }`)
 	assert.Contains(t, s, "w.frameGeometryChanged.connect(function(old)")
-	assert.Contains(t, s, "const x = old.x + old.width - g.width;")
+	assert.Contains(t, s, "edge = old.x + old.width;", "the right edge is not what is held")
+	assert.Contains(t, s, "const x = edge - g.width;")
 	assert.Contains(t, s, "x: x, y: g.y, width: g.width, height: g.height")
 	assert.Contains(t, s, "if (w.move || w.resize) { edge = null; return; }", "a window dragged or resized by hand was moved back")
 	assert.Contains(t, s, "if (Math.abs(g.width - old.width) < 0.5) {", "a change that kept the width was taken for a widening")
@@ -30,14 +32,35 @@ func TestTheHoldScriptKeepsTheRightEdge(t *testing.T) {
 // was held; the script undoes a move that keeps the width only shortly after
 // a hold, only off the edge it held, and never one made by hand.
 func TestTheHoldScriptUndoesAPutBackOfThePlace(t *testing.T) {
-	s := kwin.HoldRightEdgeScript(panel)
+	for name, s := range map[string]string{
+		"right": kwin.HoldRightEdgeScript(panel),
+		"left":  kwin.HoldLeftEdgeScript(panel),
+	} {
+		assert.Contains(t, s, "const heldFor = 250;", name)
+		assert.Contains(t, s, "let edge = null, at = 0;", "%s: the edge is remembered per window", name)
+		assert.Contains(t, s, "} else {\n            edge = ", "%s: the edge is remembered only at a change of width", name)
+		assert.Contains(t, s, "at = Date.now();", "%s: the time of the hold is not remembered", name)
+		assert.Contains(t, s, "if (edge === null || Date.now() - at > heldFor) { return; }",
+			"%s: a move long after a hold, or with nothing held, was undone", name)
+		// One path moves the window, for a widening and a put-back alike, and
+		// it leaves a window already on its edge alone.
+		assert.Equal(t, 1, strings.Count(s, "w.frameGeometry = {"), name)
+		assert.Contains(t, s, "if (Math.abs(g.x - x) < 0.5) { return; }", name)
+	}
+}
 
-	assert.Contains(t, s, "const heldFor = 250;")
-	assert.Contains(t, s, "let edge = null, at = 0;", "the edge is remembered per window")
-	assert.Contains(t, s, "edge = old.x + old.width;\n        at = Date.now();", "the edge held is not remembered")
-	assert.Contains(t, s, "if (edge === null || Date.now() - at > heldFor || Math.abs(g.x + g.width - edge) < 0.5) { return; }",
-		"a move long after a hold, or one already on the edge, was undone")
-	assert.Contains(t, s, "w.frameGeometry = { x: edge - g.width, y: g.y, width: g.width, height: g.height };")
+// Issue #236. Plasma 6.8 moved a right drawer's window by half its growth; the
+// left edge is held for it as the right one is for a left drawer, with the
+// same guards.
+func TestTheLeftHoldScriptKeepsTheLeftEdge(t *testing.T) {
+	s := kwin.HoldLeftEdgeScript(panel)
+
+	assert.Contains(t, s, `const target = { class: "io.ushineko.example", caption: "Monitor" }`)
+	assert.Contains(t, s, "edge = old.x;", "the left edge is not what is held")
+	assert.Contains(t, s, "const x = edge;")
+	assert.Contains(t, s, "if (w.move || w.resize) { edge = null; return; }", "a window dragged or resized by hand was moved back")
+	assert.Contains(t, s, "workspace.windowAdded.connect(hold)")
+	assert.NotEqual(t, kwin.HoldRightEdgeScript(panel), s)
 }
 
 // R10. The room is two numbers, measured in the area windows are placed in.
@@ -75,6 +98,7 @@ func TestADrawerScriptCannotBeEscapedByItsStrings(t *testing.T) {
 
 	for name, s := range map[string]string{
 		"hold":  kwin.HoldRightEdgeScript(target),
+		"left":  kwin.HoldLeftEdgeScript(target),
 		"room":  kwin.ReportRoomScript(target, bad, bad, bad, bad),
 		"yield": kwin.YieldFocusScript(target),
 	} {

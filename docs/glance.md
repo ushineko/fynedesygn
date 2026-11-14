@@ -1105,9 +1105,15 @@ window by the width that the drawer adds.
   reports the room on each side in 1 to 2 ms, and the program gives the
   answer to `Drawer.Choose`. `kwin.HoldRightEdgeScript` keeps the right edge
   while it is loaded, and the program then calls `Drawer.SetEdgeHeld(true)`.
-- **Load the hold script only while the drawer is on the left.** The script
-  cannot know the side. If it is loaded for a drawer on the right, that
-  drawer also opens to the left.
+- **A drawer on the right needs a script too, on Plasma 6.8.** Plasma 6.7
+  left a window's x alone when the window changed its width, so a right
+  drawer grew rightwards by itself. Plasma 6.8 keeps the window's centre,
+  and the cards moved left by half of each drawer (#236).
+  `kwin.HoldLeftEdgeScript` keeps the left edge.
+- **Load the script for the side the drawers are on, and only that one.**
+  A script cannot know the side. The right edge's, loaded for a drawer on
+  the right, makes that drawer open to the left; the left edge's, loaded
+  for a drawer on the left, makes it open over the cards' place.
 - **A drawer that cannot open to the left opens on the right.** The other
   result is a set of cards that jumps sideways under the pointer.
 - After the compositor moves the window, Fyne has the old pointer position

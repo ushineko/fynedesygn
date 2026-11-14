@@ -47,11 +47,47 @@ back on it. A drag (w.move) forgets the edge at once.
 **Load it only while the drawer is on the left**, and tell the drawer with
 glance.Drawer.SetEdgeHeld. Loaded for a drawer on the right it would make
 that one grow leftwards too: the script cannot know which side was meant.
+A drawer on the right has HoldLeftEdgeScript; load one or the other, never
+both.
 
 The geometry is a plain object, as in PositionScript: Qt.rect does not exist
 in a KWin script.
 */
 func HoldRightEdgeScript(t Target) string {
+	return holdEdgeScript(t, "old.x + old.width", "edge - g.width")
+}
+
+/*
+HoldLeftEdgeScript is HoldRightEdgeScript for the other edge: it keeps a
+window's left edge where it is when the window changes its own width, so a
+window made wider grows rightwards. It is what a glance drawer on the right
+needs on Plasma 6.8 (issue #236).
+
+A right drawer needed nothing on Plasma 6.7, which left x alone when a client
+changed its width: the window grew rightwards by itself. Plasma 6.8 keeps the
+window's centre instead, and the cards moved left by half of each drawer that
+opened and back as it closed: #213 on the other side, which spec 071
+answered for the left alone. The put-back of the place alone is undone here
+as there.
+
+Load it only while the drawers are on the right; loaded for a drawer on the
+left it would make that one grow rightwards, over the cards' place.
+*/
+func HoldLeftEdgeScript(t Target) string {
+	return holdEdgeScript(t, "old.x", "edge")
+}
+
+/*
+holdEdgeScript is the script both edges share. edge is how the edge is read
+from the geometry before a change of width, and x how the window's x follows
+from that edge and the new geometry g.
+
+A change of width remembers the edge and moves the window onto it. A change
+that keeps the width is left alone, unless it comes within heldFor
+milliseconds of a hold, by nobody's hand, and leaves the edge: that is the
+compositor putting back a place it knew (spec 079), and it is moved back.
+*/
+func holdEdgeScript(t Target, edge, x string) string {
 	return t.match() + fmt.Sprintf(`const heldFor = %d;
 function hold(w) {
     if (!matches(w) || !w.frameGeometryChanged) { return; }
@@ -60,17 +96,16 @@ function hold(w) {
         const g = w.frameGeometry;
         if (w.move || w.resize) { edge = null; return; }
         if (Math.abs(g.width - old.width) < 0.5) {
-            if (edge === null || Date.now() - at > heldFor || Math.abs(g.x + g.width - edge) < 0.5) { return; }
-            w.frameGeometry = { x: edge - g.width, y: g.y, width: g.width, height: g.height };
-            return;
+            if (edge === null || Date.now() - at > heldFor) { return; }
+        } else {
+            edge = %s;
+            at = Date.now();
         }
-        const x = old.x + old.width - g.width;
-        edge = old.x + old.width;
-        at = Date.now();
+        const x = %s;
         if (Math.abs(g.x - x) < 0.5) { return; }
         w.frameGeometry = { x: x, y: g.y, width: g.width, height: g.height };
     });
-}`, holdPutBackMillis) + `
+}`, holdPutBackMillis, edge, x) + `
 
 for (const w of workspace.windowList()) { hold(w); }
 workspace.windowAdded.connect(hold);

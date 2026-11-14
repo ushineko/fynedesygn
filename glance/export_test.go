@@ -6,6 +6,9 @@ import (
 	"fyne.io/fyne/v2"
 )
 
+// PixelsMoved is pixelsMoved, for the test of the right edge on Windows.
+func PixelsMoved(scale, before, after float32) int32 { return pixelsMoved(scale, before, after) }
+
 // SetSelfMoving makes a panel behave as on a desktop where a window can, or
 // cannot, move itself, so both are tested on one system.
 func (p *Panel) SetSelfMoving(v bool) { p.selfMoving = v }

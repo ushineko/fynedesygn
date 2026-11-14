@@ -1,6 +1,7 @@
 package glance_test
 
 import (
+	"math"
 	"testing"
 
 	"fyne.io/fyne/v2"
@@ -303,4 +304,30 @@ func TestCloseDrawersIsOneChangeOfShape(t *testing.T) {
 
 	p.CloseDrawers() // none out: nothing to do
 	assert.Equal(t, 1, *resizes)
+}
+
+// #238. On Windows the panel moves its own window for drawers on the left, and
+// the right edge stays however the drawers open and close: one at a time, all
+// at once, at a scale where a drawer is not a whole number of pixels wide.
+func TestTheRightEdgeStaysWhenSeveralDrawersCloseAtOnce(t *testing.T) {
+	const scale, cards, reach = 1.5, 246.6667, 329 // a drawer 493.5 pixels wide
+	width := func(drawers int) int32 {
+		// The window as Fyne makes it: the width times the scale, rounded up.
+		return int32(math.Ceil(float64(float32(cards+float32(drawers)*reach) * scale)))
+	}
+	left := int32(3468)
+	right := left + width(0)
+	out := 0
+	to := func(n int) {
+		left += glance.PixelsMoved(scale, cards+float32(out)*reach, cards+float32(n)*reach)
+		out = n
+		assert.Equal(t, right, left+width(n), "the right edge moved with %d drawers out", n)
+	}
+	for range 3 {
+		to(1)
+		to(2)
+		to(3)
+		to(0)
+	}
+	assert.Equal(t, int32(3468), left, "the cards are not where they were")
 }

@@ -237,3 +237,22 @@ left drawer on Plasma 6.8 and nothing held the left edge for a right one.
   Plasma 6.8's centring with a fake window: a right drawer's window keeps its
   x through two openings, a close, a put-back; a drag and a later move are
   left alone; the right edge's script behaves as before.
+
+### Windows: a pixel at each close of several (#238)
+
+On hayami's panel on Windows 11 at 150 %, drawers on the left: two drawers
+opened and closed together left the window a pixel further left each time
+(x 3464, 3463, 3462, 3461); one drawer opened and closed left it where it was.
+`moveWindowBy` rounded each change in the drawers' width on its own, and Fyne
+makes the window `ceil(width × scale)` of the whole: a drawer 493.5 pixels
+wide moved the window 494 at each opening while it grew by 493 and then 494,
+and `CloseDrawers` moved it back by the 987 it had grown.
+
+- [x] The window moves by the difference of its widths as Fyne makes them
+  (`pixelsMoved`), so its right edge stays however the drawers open and close
+  (`TestTheRightEdgeStaysWhenSeveralDrawersCloseAtOnce`, falsified by the old
+  rounding: the edge a pixel out with one drawer, two with two).
+- [x] On hayami's panel on Windows 11 at 150 %, built against the fix: two
+  drawers then a close of all, and three then a close of all, twice each: the
+  right edge at 3838 at every step, x back at 3468 after each close, and the
+  cards at the same place in the grabs with drawers out and closed.

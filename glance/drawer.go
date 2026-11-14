@@ -423,19 +423,49 @@ func (d *Drawer) SetOpen(open bool) {
 		p.row = append(p.row, d)
 		p.keyed = d
 	} else {
-		d.frame.Hide()
-		if d.filter != nil {
-			d.filter.stop()
-		}
-		d.scrollTo(0)
-		d.hoverAway()
-		p.leave(d)
+		d.shut()
 	}
 	d.open = open
 	p.reshape(before)
 	if !open && len(p.row) == 0 {
 		d.YieldFocus()
 	}
+}
+
+// shut takes a drawer off the window and out of the row, and leaves the
+// window's size to the caller.
+func (d *Drawer) shut() {
+	d.frame.Hide()
+	if d.filter != nil {
+		d.filter.stop()
+	}
+	d.scrollTo(0)
+	d.hoverAway()
+	d.panel.leave(d)
+	d.open = false
+}
+
+/*
+CloseDrawers pushes every drawer back in one change of shape: the window is
+resized once, and the keyboard given back once.
+
+Closing them one at a time is a resize for each, in the same moment. A
+compositor answers each with the size it last knew, and the answers that
+cross the next request put the window back to widths in between: on Plasma
+three drawers closed by SetOpen left the window three drawers wide with the
+cards stretched across it, read as a width the person had dragged (spec 079).
+*/
+func (p *Panel) CloseDrawers() {
+	if len(p.row) == 0 {
+		return
+	}
+	before := p.drawersExtra()
+	last := p.row[len(p.row)-1]
+	for _, d := range append([]*Drawer(nil), p.row...) {
+		d.shut()
+	}
+	p.reshape(before)
+	last.YieldFocus()
 }
 
 // leave takes a drawer out of the row and hands the keys on when it had them.

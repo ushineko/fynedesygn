@@ -30,6 +30,18 @@ func (p *Panel) HoldLater() (run func()) {
 // driver keeps no keyboard state.
 func (p *Panel) SetShift(held bool) { p.shifted = func() bool { return held } }
 
+// CountResizes counts the window's resizes from now on.
+func (p *Panel) CountResizes() *int {
+	n, was := 0, p.hook
+	p.hook = func() {
+		n++
+		if was != nil {
+			was()
+		}
+	}
+	return &n
+}
+
 // CardsOrigin is where the card stack is drawn in the window.
 func (p *Panel) CardsOrigin() fyne.Position { return p.stack.Position() }
 

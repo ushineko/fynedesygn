@@ -161,9 +161,8 @@ func (m *monitor) tapped(tap glance.Tap) {
 	open := m.open()
 	switch {
 	case len(open) > 1:
-		for _, d := range open {
-			d.dr.SetOpen(false)
-		}
+		// All at once: one at a time is a resize for each (spec 079).
+		m.win.Panel().CloseDrawers()
 	case len(open) == 1 && open[0].subject == tap.Card:
 		open[0].dr.SetOpen(false)
 	case len(open) == 1:

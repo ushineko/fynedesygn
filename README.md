@@ -281,6 +281,19 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Added**: several drawers beside the cards, spec 079 (#233).
+  `Panel.AddDrawer` makes another; open drawers stand in a row, the first
+  opened next to the cards, and the cards do not move on the screen.
+  `Panel.Fits` and `Panel.FitsHere` say whether one more fits beside the
+  window, `glance.DrawersWithoutRoom` caps the row where the room cannot be
+  read, and `Panel.Outermost` is the drawer furthest out. `Tap.Shift` and
+  `Switch.OnShifted` report a Shift-click. The side is now the panel's: any
+  drawer's `SetSide` sets it for all. The keys go to the drawer opened or
+  clicked last. A program that never calls `AddDrawer` sees no change.
+  hayami needed it to show several details at once (hayami#320).
+
 ### 0.1.114 (2026-11-12)
 
 - **Added**: `Shell.BusyProgress(fraction, caption)` gives the busy popup a real

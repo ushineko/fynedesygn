@@ -177,3 +177,36 @@ func TestTheDrawerNeverResizesTheWindowWhileItIsOpen(t *testing.T) {
 		assert.Equal(t, open, m.win.Panel().Size(), "tick %d", i)
 	}
 }
+
+// Spec 079 R17. A Shift-click opens a card's drawer beside the one open and
+// closes it when it is open; with several open a plain click closes them all.
+// Where the room cannot be read the row stops at DrawersWithoutRoom and the
+// outermost takes the next card.
+func TestAShiftClickOpensADrawerBeside(t *testing.T) {
+	m := drawn(t)
+	p := m.win.Panel()
+	closed := p.Size()
+
+	m.tapped(glance.Tap{Card: m.bandwidth})
+	m.tapped(glance.Tap{Card: m.thermal, Shift: true})
+	require.Equal(t, 2, p.Opened())
+	one := p.Drawer().Reach()
+	assert.InDelta(t, closed.Width+2*one, p.Size().Width, 0.01)
+	assert.Equal(t, "Bandwidth by process", p.Drawer().Title())
+	assert.Equal(t, "CPU by process", p.Outermost().Title())
+
+	// The test driver cannot read the room: the row is full at two.
+	m.tapped(glance.Tap{Card: m.usage, Shift: true})
+	assert.Equal(t, glance.DrawersWithoutRoom, p.Opened())
+	assert.Equal(t, "Usage by account", p.Outermost().Title(), "at the cap the outermost did not take the card")
+	assert.InDelta(t, closed.Width+2*one, p.Size().Width, 0.01, "the cap was passed")
+
+	m.tapped(glance.Tap{Card: m.usage, Shift: true})
+	assert.Equal(t, 1, p.Opened(), "a Shift-click on an open card did not close its drawer")
+
+	m.tapped(glance.Tap{Card: m.thermal, Shift: true})
+	require.Equal(t, 2, p.Opened())
+	m.tapped(glance.Tap{Card: m.battery})
+	assert.Zero(t, p.Opened(), "a plain click with two open did not close both")
+	assert.Equal(t, closed, p.Size())
+}

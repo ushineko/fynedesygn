@@ -8,11 +8,16 @@ import (
 )
 
 /*
-The drawer: what a card has no room to say, beside the cards and as tall as
-them. A click anywhere on a card opens it on that card; a click on another
-card changes the subject; a click on the same card closes it. Those three are
-this program's decisions, not the library's, which only says what was
-clicked.
+The drawers: what a card has no room to say, beside the cards and as tall as
+them. A click anywhere on a card opens a drawer on that card; a click on
+another card changes the subject; a click on the same card closes it. Those
+three are this program's decisions, not the library's, which only says what
+was clicked.
+
+A Shift-click opens the card's drawer beside the ones already open, or closes
+it when it is open, and with several open a plain click closes them all (spec
+079). Where the room beside the window cannot be read the row is held to
+glance.DrawersWithoutRoom; at the cap the outermost drawer takes the new card.
 
 The thermal card has two subjects, and the choice between them is a switch in
 the drawer (spec 069): one target on the card, and no going back to it to see
@@ -23,6 +28,7 @@ The lists are generated, like every reading here: greatest first, and `f`
 filters them.
 */
 type drawer struct {
+	dr     *glance.Drawer
 	sw     *glance.Switch
 	filter *glance.Filter
 	rows   []*glance.Row
@@ -34,8 +40,8 @@ type drawer struct {
 	quotaPieces []glance.Piece
 	showsQuotas bool
 
-	// subject is the card the drawer was opened on, and thermal the choice
-	// last made on the thermal card's.
+	// subject is the card the drawer is open on, and thermal the thermal
+	// card's subject it shows.
 	subject *glance.Card
 	thermal string
 
@@ -72,13 +78,22 @@ const (
 	quotaLimits   = 4
 )
 
+// buildDrawer makes the first drawer's pieces and points the panel's clicks
+// at the drawers. More are made as Shift-clicks ask for them.
 func (m *monitor) buildDrawer() {
-	d := &drawer{sw: glance.NewSwitch(), filter: glance.NewFilter(), thermal: "cpu"}
-	d.filter.OnChanged = m.renderDrawer
+	m.thermalLast = "cpu"
+	m.drawer = m.newDrawer(m.win.Panel().Drawer())
+	m.win.Panel().OnTapped = m.tapped
+}
+
+// newDrawer gives a drawer of the panel's its own pieces.
+func (m *monitor) newDrawer(dr *glance.Drawer) *drawer {
+	d := &drawer{dr: dr, sw: glance.NewSwitch(), filter: glance.NewFilter(), thermal: "cpu"}
+	d.filter.OnChanged = func() { m.renderOne(d) }
 	d.sw.OnChanged = func(id string) {
-		d.thermal = id
-		m.win.Panel().Drawer().SetTitle(thermalTitles[id])
-		m.renderDrawer()
+		d.thermal, m.thermalLast = id, id
+		dr.SetTitle(thermalTitles[id])
+		m.renderOne(d)
 	}
 	for range drawerRows {
 		d.rows = append(d.rows, glance.NewRowWidth("", glance.NoRate(), processLabel))
@@ -94,13 +109,11 @@ func (m *monitor) buildDrawer() {
 			d.quotaPieces = append(d.quotaPieces, q)
 		}
 	}
-	m.drawer = d
-
-	dr := m.win.Panel().Drawer()
 	dr.SetContent(d.listPieces()...)
 	dr.SetFilter(d.filter)
 	dr.SetSwitch(d.sw)
-	m.win.Panel().OnTapped = m.tapped
+	m.drawers = append(m.drawers, d)
+	return d
 }
 
 // listPieces are a list's content: the switch, the filter and the rows.
@@ -113,7 +126,7 @@ func (d *drawer) listPieces() []glance.Piece {
 }
 
 // titleOf is the heading of a card's drawer.
-func (m *monitor) titleOf(card *glance.Card) string {
+func (m *monitor) titleOf(d *drawer, card *glance.Card) string {
 	switch card {
 	case m.bandwidth:
 		return "Bandwidth by process"
@@ -122,25 +135,90 @@ func (m *monitor) titleOf(card *glance.Card) string {
 	case m.usage:
 		return "Usage by account"
 	default:
-		return thermalTitles[m.drawer.thermal]
+		return thermalTitles[d.thermal]
 	}
 }
 
-// tapped opens the drawer on the card clicked, and closes it on a second
-// click of the same card. What on the card was clicked makes no difference.
+// open is the drawers that are out.
+func (m *monitor) open() []*drawer {
+	var out []*drawer
+	for _, d := range m.drawers {
+		if d.dr.Open() {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// tapped opens a drawer on the card clicked, changes its subject, or closes
+// it; a Shift-click adds or closes one beside the others. What on the card
+// was clicked makes no difference.
 func (m *monitor) tapped(tap glance.Tap) {
-	d := m.drawer
-	dr := m.win.Panel().Drawer()
-	if dr.Open() && d.subject == tap.Card {
-		dr.SetOpen(false)
+	if tap.Shift {
+		m.shiftTapped(tap.Card)
 		return
 	}
-	d.subject = tap.Card
+	open := m.open()
+	switch {
+	case len(open) > 1:
+		for _, d := range open {
+			d.dr.SetOpen(false)
+		}
+	case len(open) == 1 && open[0].subject == tap.Card:
+		open[0].dr.SetOpen(false)
+	case len(open) == 1:
+		m.show(open[0], tap.Card)
+	default:
+		m.show(m.drawer, tap.Card)
+	}
+}
+
+// shiftTapped closes the card's drawer when one is open, and otherwise opens
+// one beside the rest: in a drawer of its own where there is room, in the
+// outermost where there is not.
+func (m *monitor) shiftTapped(card *glance.Card) {
+	open := m.open()
+	for _, d := range open {
+		if d.subject == card {
+			d.dr.SetOpen(false)
+			return
+		}
+	}
+	if len(open) == 0 {
+		m.show(m.drawer, card)
+		return
+	}
+	p := m.win.Panel()
+	fits, known := p.FitsHere()
+	if !known {
+		fits = p.Opened() < glance.DrawersWithoutRoom
+	}
+	if !fits {
+		for _, d := range open {
+			if d.dr == p.Outermost() {
+				m.show(d, card)
+				return
+			}
+		}
+	}
+	for _, d := range m.drawers {
+		if !d.dr.Open() {
+			m.show(d, card)
+			return
+		}
+	}
+	m.show(m.newDrawer(p.AddDrawer()), card)
+}
+
+// show points a drawer at a card and opens it.
+func (m *monitor) show(d *drawer, card *glance.Card) {
+	dr := d.dr
+	d.subject = card
 	d.filter.Clear()
 
 	// The content is replaced when its shape changes, a list for the quotas,
 	// and not otherwise.
-	if quotas := tap.Card == m.usage; quotas != d.showsQuotas {
+	if quotas := card == m.usage; quotas != d.showsQuotas {
 		d.showsQuotas = quotas
 		dr.SetScrolling(quotas)
 		if quotas {
@@ -149,38 +227,46 @@ func (m *monitor) tapped(tap glance.Tap) {
 			dr.SetContent(d.listPieces()...)
 		}
 	}
-	// Only the thermal card has something to choose between.
-	if tap.Card == m.thermal {
+	// Only the thermal card has something to choose between, and it opens
+	// on the subject chosen last.
+	if card == m.thermal {
+		d.thermal = m.thermalLast
 		d.sw.SetChoices(thermalChoices)
 		d.sw.Select(d.thermal)
 	} else {
 		d.sw.SetChoices(nil)
 	}
-	dr.SetTitle(m.titleOf(tap.Card))
+	dr.SetTitle(m.titleOf(d, card))
 	dr.SetOpen(true)
-	m.renderDrawer()
+	m.renderOne(d)
 }
 
-// renderQuotas draws the usage drawer's meters, each a generated share.
-func (m *monitor) renderQuotas() {
+// renderQuotas draws a usage drawer's meters, each a generated share.
+func (m *monitor) renderQuotas(d *drawer) {
 	windows := []string{"5h", "7d", "model", "month"}
-	for i, q := range m.drawer.quotas {
+	for i, q := range d.quotas {
 		share := math.Abs(math.Sin(float64(m.ticks)/float64(40+3*i) + float64(i)))
 		q.SetLabel(windows[i%quotaLimits])
 		q.Set(share, glance.Percent(share*100), quotaStatus(share*100))
 	}
 }
 
-// renderDrawer draws the list: the names the filter passes, greatest first,
-// in as many rows as fit. It runs on the UI thread.
+// renderDrawer draws every open drawer. It runs on the UI thread.
 func (m *monitor) renderDrawer() {
-	dr := m.win.Panel().Drawer()
-	d := m.drawer
-	if d == nil || !dr.Open() {
+	for _, d := range m.drawers {
+		m.renderOne(d)
+	}
+}
+
+// renderOne draws a drawer's list: the names the filter passes, greatest
+// first, in as many rows as fit.
+func (m *monitor) renderOne(d *drawer) {
+	dr := d.dr
+	if !dr.Open() {
 		return
 	}
 	if d.showsQuotas {
-		m.renderQuotas()
+		m.renderQuotas(d)
 		return
 	}
 	fit := min(dr.Fit(d.rows[0], d.sw, d.filter), len(d.rows))

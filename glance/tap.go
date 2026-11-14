@@ -1,6 +1,9 @@
 package glance
 
-import "fyne.io/fyne/v2"
+import (
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/driver/desktop"
+)
 
 /*
 Tap is what a primary click on a panel landed on: the card, and the row or the
@@ -19,6 +22,17 @@ type Tap struct {
 	Row *Row
 	// Meter is the meter under the pointer, or nil.
 	Meter *Meter
+	// Shift is whether Shift was held at the click (spec 079 R10). It is
+	// how a person asks for a drawer beside the ones open rather than in
+	// their place; what it means is the program's.
+	Shift bool
+}
+
+// shiftHeld reports whether Shift is down, from the keyboard state the
+// driver keeps. A driver that keeps none, a test's, says no.
+func shiftHeld() bool {
+	d, ok := fyne.CurrentApp().Driver().(desktop.Driver)
+	return ok && d.CurrentKeyModifiers()&fyne.KeyModifierShift != 0
 }
 
 // tapped finds what a primary tap at a canvas position landed on and tells
@@ -35,9 +49,14 @@ func (p *Panel) tapped(at fyne.Position) {
 	p.staleAt = at
 	at.X += p.stale
 
-	// A click in the drawer is the drawer's: its switch, or nothing.
-	if p.drawer.tapped(at) {
-		return
+	shift := p.shifted()
+
+	// A click in a drawer is that drawer's: its buttons, its switch, its
+	// rows, or nothing.
+	for _, d := range p.row {
+		if d.tapped(at, shift) {
+			return
+		}
 	}
 	if p.OnTapped == nil {
 		return
@@ -54,7 +73,7 @@ func (p *Panel) tapped(at fyne.Position) {
 		if !inside(c.Object()) {
 			continue
 		}
-		tap := Tap{Card: c}
+		tap := Tap{Card: c, Shift: shift}
 		for _, r := range c.rows {
 			if r.Shown() && inside(r.Object()) {
 				tap.Row = r

@@ -181,8 +181,12 @@ type monitor struct {
 
 	ticks int
 
-	// drawer is what the drawer beside the cards shows; see drawer.go.
-	drawer *drawer
+	// drawer is what the first drawer beside the cards shows, and drawers
+	// every drawer made, the first first; see drawer.go. thermalLast is the
+	// thermal card's subject chosen last, which its drawer opens on.
+	drawer      *drawer
+	drawers     []*drawer
+	thermalLast string
 }
 
 // unitColumn is the width reserved for a temperature's unit, so the CPU and

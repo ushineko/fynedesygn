@@ -26,6 +26,10 @@ func (p *Panel) HoldLater() (run func()) {
 	}
 }
 
+// SetShift makes every click after it one with Shift held, or not: the test
+// driver keeps no keyboard state.
+func (p *Panel) SetShift(held bool) { p.shifted = func() bool { return held } }
+
 // CardsOrigin is where the card stack is drawn in the window.
 func (p *Panel) CardsOrigin() fyne.Position { return p.stack.Position() }
 

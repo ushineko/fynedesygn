@@ -191,3 +191,34 @@ against a screenshot), Plasma 6 on Wayland, two monitors at 1.5:
 ## Threat model delta
 
 No boundary touched: a layout change and a modifier key read.
+
+## Found after release
+
+On hayami's panel (Plasma, drawers on the left), a plain click with three
+drawers out closed them one `SetOpen(false)` at a time: three resizes in one
+moment. KWin answered with the widths in between, `Panel.resize` read the
+answer as a width the person had dragged, and the window stayed three drawers
+wide with the cards stretched across it until the program restarted. R4 says
+a change of shape is one resize; closing a row was three.
+
+- [x] `Panel.CloseDrawers` closes every drawer with one resize and one yield
+  (`TestCloseDrawersIsOneChangeOfShape`, falsified by closing each with
+  `SetOpen(false)`: three resizes). The example and the docs use it.
+
+With that fixed, the window came back to the cards' width but, in two of
+three closes of several drawers, two drawers' width to the left. KWin's log
+(a script printing every geometry change of the window) showed the close
+held correctly, then 31 ms later KWin restored the old x with the new width:
+its answer to the change of focus the close hands back, crossing the resize.
+The hold script acted only on a change of width and passed it by.
+
+- [x] `kwin.HoldRightEdgeScript` remembers the edge it held and, for 250 ms,
+  puts a change that keeps the width but not that edge back on it; a drag
+  (`w.move`) forgets the edge (`TestTheHoldScriptUndoesAPutBackOfThePlace`).
+  The logged sequence replayed through the script with a fake window: the
+  edge held through the put-back, a full put-back and a drag left alone.
+- [x] On hayami's panel, Plasma 6.8 on Wayland, drawers on the left: two
+  drawers then a plain click, five times, and three at once, once: the right
+  edge at 4000.3 each time (it had moved in two of three before). The cards'
+  place on the screen, from the grabs, unchanged through one, two and three
+  drawers, the cap, a close of all and a close of one.

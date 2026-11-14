@@ -34,6 +34,16 @@ inside its own handler: a drawer that opened at the centred place and closed
 at the held one, and the panel crept sideways by half a drawer at each
 opening.
 
+**A put-back of the place alone is undone too** (spec 079). KWin answers a
+change of focus with the geometry it knew before, and when that crosses a
+resize it can put back the old x while keeping the new width: three drawers
+closed at once on Plasma 6.8, then the keyboard handed back, left the cards
+two drawers to the left of where they stood, 30 ms after the edge had been
+held. Such a change keeps the width, so the handler above passes it by. So
+the script remembers the edge it last held, and for heldFor milliseconds a
+change that keeps the width but not that edge, made by nobody's hand, is put
+back on it. A drag (w.move) forgets the edge at once.
+
 **Load it only while the drawer is on the left**, and tell the drawer with
 glance.Drawer.SetEdgeHeld. Loaded for a drawer on the right it would make
 that one grow leftwards too: the script cannot know which side was meant.
@@ -42,20 +52,35 @@ The geometry is a plain object, as in PositionScript: Qt.rect does not exist
 in a KWin script.
 */
 func HoldRightEdgeScript(t Target) string {
-	return t.match() + `function hold(w) {
+	return t.match() + fmt.Sprintf(`const heldFor = %d;
+function hold(w) {
     if (!matches(w) || !w.frameGeometryChanged) { return; }
+    let edge = null, at = 0;
     w.frameGeometryChanged.connect(function(old) {
         const g = w.frameGeometry;
-        if (w.move || w.resize || Math.abs(g.width - old.width) < 0.5) { return; }
+        if (w.move || w.resize) { edge = null; return; }
+        if (Math.abs(g.width - old.width) < 0.5) {
+            if (edge === null || Date.now() - at > heldFor || Math.abs(g.x + g.width - edge) < 0.5) { return; }
+            w.frameGeometry = { x: edge - g.width, y: g.y, width: g.width, height: g.height };
+            return;
+        }
         const x = old.x + old.width - g.width;
+        edge = old.x + old.width;
+        at = Date.now();
         if (Math.abs(g.x - x) < 0.5) { return; }
         w.frameGeometry = { x: x, y: g.y, width: g.width, height: g.height };
     });
-}
+}`, holdPutBackMillis) + `
+
 for (const w of workspace.windowList()) { hold(w); }
 workspace.windowAdded.connect(hold);
 `
 }
+
+// holdPutBackMillis is how long after holding an edge the hold script undoes
+// a put-back of the place alone. The put-back seen came 31 ms after the hold;
+// a person's own move in that time is a drag, which the script never undoes.
+const holdPutBackMillis = 250
 
 /*
 ReportRoomScript is a KWin script that reports how much room a window has on

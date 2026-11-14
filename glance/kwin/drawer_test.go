@@ -19,11 +19,25 @@ func TestTheHoldScriptKeepsTheRightEdge(t *testing.T) {
 	assert.Contains(t, s, "w.frameGeometryChanged.connect(function(old)")
 	assert.Contains(t, s, "const x = old.x + old.width - g.width;")
 	assert.Contains(t, s, "x: x, y: g.y, width: g.width, height: g.height")
-	assert.Contains(t, s, "w.move || w.resize", "a window dragged or resized by hand was moved back")
-	assert.Contains(t, s, "|| Math.abs(g.width - old.width) < 0.5)", "a change that kept the width was acted on")
+	assert.Contains(t, s, "if (w.move || w.resize) { edge = null; return; }", "a window dragged or resized by hand was moved back")
+	assert.Contains(t, s, "if (Math.abs(g.width - old.width) < 0.5) {", "a change that kept the width was taken for a widening")
 	assert.Contains(t, s, "if (Math.abs(g.x - x) < 0.5) { return; }", "an edge already held was set again")
 	assert.Contains(t, s, "workspace.windowAdded.connect(hold)", "a panel restarted while it is loaded was not held")
 	assert.NotContains(t, s, "Qt.rect", "Qt.rect does not exist in a KWin script")
+}
+
+// Spec 079. KWin put the old x back with the new width 31 ms after the edge
+// was held; the script undoes a move that keeps the width only shortly after
+// a hold, only off the edge it held, and never one made by hand.
+func TestTheHoldScriptUndoesAPutBackOfThePlace(t *testing.T) {
+	s := kwin.HoldRightEdgeScript(panel)
+
+	assert.Contains(t, s, "const heldFor = 250;")
+	assert.Contains(t, s, "let edge = null, at = 0;", "the edge is remembered per window")
+	assert.Contains(t, s, "edge = old.x + old.width;\n        at = Date.now();", "the edge held is not remembered")
+	assert.Contains(t, s, "if (edge === null || Date.now() - at > heldFor || Math.abs(g.x + g.width - edge) < 0.5) { return; }",
+		"a move long after a hold, or one already on the edge, was undone")
+	assert.Contains(t, s, "w.frameGeometry = { x: edge - g.width, y: g.y, width: g.width, height: g.height };")
 }
 
 // R10. The room is two numbers, measured in the area windows are placed in.

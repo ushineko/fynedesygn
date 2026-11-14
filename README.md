@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.115
+**Version**: 0.1.116
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -280,6 +280,21 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.116 (2026-11-14)
+
+- **Fixed**: closing several drawers left the window as wide as they had made
+  it, with the cards stretched across it, on Plasma (spec 079). Closing each
+  with `SetOpen(false)` resized the window once per drawer in the same moment,
+  and the compositor's answers were read as a width the person dragged.
+  `Panel.CloseDrawers` closes them all in one resize.
+- **Fixed**: `kwin.HoldRightEdgeScript` let KWin put a left drawer's window
+  back at its old x after the edge had been held, which moved the cards
+  sideways by the width that had closed. KWin answers a change of focus with
+  the geometry it knew, and when that crosses a resize it can restore the x
+  and keep the new width, a change the script passed by because the width
+  had not changed. For 250 ms after a hold it now puts such a change back on
+  the edge it held; a drag is never undone.
 
 ### 0.1.115 (2026-11-14)
 

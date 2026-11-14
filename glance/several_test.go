@@ -273,3 +273,34 @@ func TestOnlyTheLastDrawerClosingGivesTheKeyboardBack(t *testing.T) {
 	second.SetOpen(false)
 	assert.Equal(t, 1, yields)
 }
+
+// R4. CloseDrawers pushes every drawer back with one resize and one yield;
+// one at a time is a resize for each, which a compositor answers with the
+// widths in between.
+func TestCloseDrawersIsOneChangeOfShape(t *testing.T) {
+	w, _, _ := drawerWindow(t, glance.Options{Title: "several"})
+	p := w.Panel()
+	p.SetSelfMoving(true)
+	closed := w.Window().Canvas().Size()
+	yields := 0
+	ds := []*glance.Drawer{p.Drawer(), p.AddDrawer(), p.AddDrawer()}
+	ds[0].SetSide(glance.Left)
+	for _, d := range ds {
+		d.SetYield(func() { yields++ })
+		d.SetOpen(true)
+	}
+	resizes := p.CountResizes()
+
+	p.CloseDrawers()
+	assert.Equal(t, 1, *resizes, "closing three drawers resized the window more than once")
+	assert.Equal(t, 1, yields)
+	assert.Zero(t, p.Opened())
+	assert.Equal(t, closed, w.Window().Canvas().Size())
+	assert.InDelta(t, 0, p.CardsOrigin().X, 0.01)
+	for _, d := range ds {
+		assert.False(t, d.Open())
+	}
+
+	p.CloseDrawers() // none out: nothing to do
+	assert.Equal(t, 1, *resizes)
+}

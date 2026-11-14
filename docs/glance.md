@@ -1192,6 +1192,12 @@ processes by memory.
 - **The keys go to one drawer**: the one that opened or was clicked last.
   When it closes, the keys go to the drawer that opened last of the others.
 - **Only the last drawer that closes gives the keyboard back.**
+- **Close several with `Panel.CloseDrawers`**, not with `SetOpen(false)` on
+  each. One call is one resize. A resize for each, in the same moment, is
+  answered by the compositor with the widths in between: on Plasma the
+  window stayed as wide as the drawers had made it, with the cards
+  stretched across it, and the panel read that width as one the person
+  dragged.
 - The width of each drawer is `Reach`. A window that is wider than its cards
   by a whole number of `Reach` has that many drawers, and on the left the
   cards start that far from the corner.

@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.116
+**Version**: 0.1.117
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -280,6 +280,15 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.117 (2026-11-14)
+
+- **Fixed**: a drawer on the right moved the cards left by half its width at
+  each opening on Plasma 6.8 (#236), as a left one did before 0.1.104 (#213).
+  Plasma 6.8 keeps a window's centre when it changes its width, and only the
+  left side had a script holding an edge. `kwin.HoldLeftEdgeScript` keeps the
+  left edge for drawers on the right, with the put-back guard of 0.1.116; a
+  program loads it, or `HoldRightEdgeScript`, for the side its drawers are on.
 
 ### 0.1.116 (2026-11-14)
 

@@ -48,9 +48,24 @@ type Panel struct {
 	bg    *canvas.Rectangle
 	root  *fyne.Container
 
-	// body is the cards and the drawer side by side.
-	body   *fyne.Container
-	drawer *Drawer
+	// body is the cards and the drawers side by side. drawer is the first,
+	// drawers every one made, row those open in the order they opened, and
+	// keyed the one the keys go to (spec 079).
+	body    *fyne.Container
+	drawer  *Drawer
+	drawers []*Drawer
+	row     []*Drawer
+	keyed   *Drawer
+
+	// side is the side of the cards the drawers open on. sideFixed is set
+	// once a side has been asked for by name; until then the row opens on
+	// whichever side the screen has room on. edgeHeld says the compositor
+	// keeps the window's right edge where it is when the window is made
+	// wider, which is what a left drawer needs where a window cannot move
+	// itself. See Drawer.SetEdgeHeld.
+	side      Side
+	sideFixed bool
+	edgeHeld  bool
 
 	// OnTapped is called, on the UI thread, for a primary click on a card
 	// that is drawn, with what the click landed on. See Tap. A press that
@@ -128,6 +143,10 @@ type Panel struct {
 	// later runs a function after the layout pass that asked for it. It is
 	// fyne.Do; a test sets its own to look at the panel in between.
 	later func(func())
+
+	// shifted says whether Shift is held at a click. It is shiftHeld; a test
+	// sets its own, having no keyboard.
+	shifted func() bool
 }
 
 // NewPanel builds an empty panel. minWidth of 0 means MinWidth.
@@ -144,6 +163,7 @@ func NewPanel(minWidth float32) *Panel {
 		minWidth:   minWidth,
 		selfMoving: movesItself,
 		later:      fyne.Do,
+		shifted:    shiftHeld,
 	}
 	// One layout for both arrangements rather than two containers swapped
 	// under the window: the arrangement is a setting and can change while the
@@ -167,6 +187,7 @@ func NewPanel(minWidth float32) *Panel {
 	// window while it is up (quirk 26), which on a panel means the context
 	// menu stops opening whenever a note is showing. See Card.SetTip.
 	p.drawer = newDrawer(p)
+	p.drawers = []*Drawer{p.drawer}
 	p.body = container.New(&drawerLayout{panel: p}, p.stack, p.drawer.frame)
 	p.root = container.NewStack(p.bg, p.body, widgets.NewTipLayer())
 	return p
@@ -310,7 +331,7 @@ func (p *Panel) Drawn() int {
 func (p *Panel) Attach(w fyne.Window) {
 	p.win = w
 	w.SetContent(p.content())
-	p.drawer.wireKeys()
+	p.wireKeys()
 	p.Resize()
 }
 
@@ -366,7 +387,9 @@ func (p *Panel) SetTheme(th fyne.Theme) {
 	for _, c := range p.cards {
 		c.SetTheme(th)
 	}
-	p.drawer.SetTheme(th)
+	for _, d := range p.drawers {
+		d.SetTheme(th)
+	}
 
 	if p.win != nil {
 		p.win.SetContent(p.content())
@@ -379,7 +402,7 @@ func (p *Panel) SetTheme(th fyne.Theme) {
 // needing a compositor.
 func (p *Panel) Size() fyne.Size {
 	s := p.cardsSize()
-	s.Width += p.drawer.extra()
+	s.Width += p.drawersExtra()
 	return s
 }
 
@@ -407,7 +430,7 @@ func (p *Panel) resize(fit bool) {
 	// The widths below are the cards' alone: the drawer's is added at the end,
 	// so a width the user dragged is a width of the cards and survives the
 	// drawer opening and closing.
-	extra := p.drawer.extra()
+	extra := p.drawersExtra()
 	want := p.cardsSize()
 
 	/*
@@ -551,7 +574,9 @@ func (p *Panel) Restyle() {
 	for _, c := range p.cards {
 		c.Restyle()
 	}
-	p.drawer.Restyle()
+	for _, d := range p.drawers {
+		d.Restyle()
+	}
 	p.body.Refresh()
 	p.resize(true)
 }

@@ -375,13 +375,17 @@ func (c *menuCatcher) MouseIn(e *desktop.MouseEvent) { c.MouseMoved(e) }
 
 func (c *menuCatcher) MouseMoved(e *desktop.MouseEvent) {
 	if c.owner.panel != nil {
-		c.owner.panel.drawer.hoverAt(e.AbsolutePosition)
+		for _, d := range c.owner.panel.drawers {
+			d.hoverAt(e.AbsolutePosition)
+		}
 	}
 }
 
 func (c *menuCatcher) MouseOut() {
 	if c.owner.panel != nil {
-		c.owner.panel.drawer.hoverAway()
+		for _, d := range c.owner.panel.drawers {
+			d.hoverAway()
+		}
 	}
 }
 

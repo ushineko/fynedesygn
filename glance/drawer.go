@@ -43,25 +43,16 @@ breakdown that has to be read whole may scroll inside it (SetScrolling).
 window is resized once, in the same call. The cards do not move on the
 screen, on either side.
 
-A panel has one, closed until asked; see Panel.Drawer. What a click means is
-the program's: Panel.OnTapped says what was clicked and the program decides
-what the drawer shows.
+A panel has one, closed until asked; see Panel.Drawer. Panel.AddDrawer makes
+more, which open in a row beyond it (spec 079). What a click means is the
+program's: Panel.OnTapped says what was clicked and the program decides what
+each drawer shows.
 */
 type Drawer struct {
 	themed
 
 	panel *Panel
-	side  Side
 	open  bool
-
-	// fixed is set once a side has been asked for by name. Until then the
-	// drawer opens on whichever side of the cards the screen has room on.
-	fixed bool
-
-	// held says the compositor keeps the window's right edge where it is
-	// when the window is made wider, which is what a left drawer needs where
-	// a window cannot move itself. See SetEdgeHeld.
-	held bool
 
 	// yield gives the keyboard back where the window cannot. See SetYield.
 	yield func()
@@ -314,41 +305,42 @@ func (d *Drawer) Fit(line Piece, above ...Piece) int {
 // Open reports whether the drawer is out.
 func (d *Drawer) Open() bool { return d.open }
 
-// Side is the side the drawer is on, or was last on.
-func (d *Drawer) Side() Side { return d.side }
+// Side is the side the drawers are on, or were last on. The side is the
+// panel's and not a drawer's: every drawer answers the same (spec 079 R5).
+func (d *Drawer) Side() Side { return d.panel.side }
 
 // Auto reports whether the side is chosen by the room on the screen.
-func (d *Drawer) Auto() bool { return !d.fixed }
+func (d *Drawer) Auto() bool { return !d.panel.sideFixed }
 
 // SetAuto goes back to choosing the side by the room on the screen, each
-// time the drawer opens. It is what a new drawer does.
-func (d *Drawer) SetAuto() { d.fixed = false }
+// time a drawer opens with none open. It is what a new panel does.
+func (d *Drawer) SetAuto() { d.panel.sideFixed = false }
 
-// SetSide puts the drawer on a side of the cards and keeps it there.
+// SetSide puts the drawers on a side of the cards and keeps them there.
 func (d *Drawer) SetSide(s Side) {
-	d.fixed = true
-	d.setSide(s)
+	d.panel.sideFixed = true
+	d.panel.setSide(s)
 }
 
-func (d *Drawer) setSide(s Side) {
-	if d.side == s {
+func (p *Panel) setSide(s Side) {
+	if p.side == s {
 		return
 	}
-	if !d.open {
-		d.side = s
+	if len(p.row) == 0 {
+		p.side = s
 		return
 	}
-	// As far as the window's place is concerned the drawer is closed on one
-	// side and opened on the other: what a left drawer added on the left
-	// comes off, then goes on where the drawer now is.
-	extra := d.extra()
-	d.panel.shift(extra, 0)
-	d.side = s
-	if s == Left && !d.growsLeft() {
-		d.side = Right
+	// As far as the window's place is concerned the drawers are closed on
+	// one side and opened on the other: what left drawers added on the left
+	// comes off, then goes on where the drawers now are.
+	extra := p.drawersExtra()
+	p.shift(extra, 0)
+	p.side = s
+	if s == Left && !p.growsLeft() {
+		p.side = Right
 	}
-	d.panel.shift(0, extra)
-	d.panel.body.Refresh()
+	p.shift(0, extra)
+	p.body.Refresh()
 }
 
 /*
@@ -366,11 +358,14 @@ millisecond or two. Call it with the answer, then SetOpen. A drawer nobody
 told opens on the right.
 */
 func (d *Drawer) Choose(left, right float32) Side {
-	if d.fixed {
-		return d.side
+	p := d.panel
+	if p.sideFixed || len(p.row) > 0 {
+		// A row that is out keeps its side: the next drawer goes beyond the
+		// last one, not across the cards from it.
+		return p.side
 	}
-	d.setSide(d.roomiest(left, right))
-	return d.side
+	p.setSide(d.roomiest(left, right))
+	return p.side
 }
 
 func (d *Drawer) roomiest(left, right float32) Side {
@@ -399,48 +394,76 @@ holds the edge, and the program says so here.
 asked for. The other choice is cards that jump sideways by the drawer's width
 under the pointer that clicked them.
 */
-func (d *Drawer) SetEdgeHeld(held bool) { d.held = held }
+func (d *Drawer) SetEdgeHeld(held bool) { d.panel.edgeHeld = held }
 
 // growsLeft reports whether a left drawer can be opened without the cards
 // moving.
-func (d *Drawer) growsLeft() bool { return d.panel.selfMoving || d.held }
+func (p *Panel) growsLeft() bool { return p.selfMoving || p.edgeHeld }
 
 // SetOpen pulls the drawer out or pushes it back. It is a change of shape:
 // the window is resized once, here.
 //
-// Closing gives the keyboard back (YieldFocus) and ends a filter that was
-// being typed.
+// A drawer that opens goes to the end of the row, furthest from the cards,
+// and takes the keys. One that closes leaves the row, and those beyond it
+// move in (spec 079 R2).
+//
+// Closing ends a filter that was being typed, and closing the last drawer
+// open gives the keyboard back (YieldFocus).
 func (d *Drawer) SetOpen(open bool) {
 	if d.open == open {
 		return
 	}
-	before := d.extra()
+	p := d.panel
+	before := p.drawersExtra()
 	if open {
-		d.settle()
+		if len(p.row) == 0 {
+			d.settle()
+		}
 		d.frame.Show()
+		p.row = append(p.row, d)
+		p.keyed = d
 	} else {
 		d.frame.Hide()
 		if d.filter != nil {
 			d.filter.stop()
 		}
 		d.scrollTo(0)
+		d.hoverAway()
+		p.leave(d)
 	}
 	d.open = open
-	d.panel.reshape(before)
-	if !open {
+	p.reshape(before)
+	if !open && len(p.row) == 0 {
 		d.YieldFocus()
 	}
 }
 
-// settle decides the side the drawer is about to open on.
-func (d *Drawer) settle() {
-	if !d.fixed && d.panel.win != nil {
-		if left, right, ok := roomBeside(d.panel.win); ok {
-			d.side = d.roomiest(left, right)
+// leave takes a drawer out of the row and hands the keys on when it had them.
+func (p *Panel) leave(d *Drawer) {
+	for i, o := range p.row {
+		if o == d {
+			p.row = append(p.row[:i], p.row[i+1:]...)
+			break
 		}
 	}
-	if d.side == Left && !d.growsLeft() {
-		d.side = Right
+	if p.keyed == d {
+		p.keyed = nil
+		if n := len(p.row); n > 0 {
+			p.keyed = p.row[n-1]
+		}
+	}
+}
+
+// settle decides the side the row is about to open on.
+func (d *Drawer) settle() {
+	p := d.panel
+	if !p.sideFixed && p.win != nil {
+		if left, right, ok := roomBeside(p.win); ok {
+			p.side = d.roomiest(left, right)
+		}
+	}
+	if p.side == Left && !p.growsLeft() {
+		p.side = Right
 	}
 }
 
@@ -501,7 +524,6 @@ func (d *Drawer) SetFilter(f *Filter) {
 		return
 	}
 	f.done = d.YieldFocus
-	d.wireKeys()
 }
 
 /*
@@ -516,14 +538,11 @@ reported: Panel.OnTapped is about cards.
 A filter takes its keys first. A choice whose key is the filter's key is
 never reached, so give it another.
 */
-func (d *Drawer) SetSwitch(s *Switch) {
-	d.sw = s
-	d.wireKeys()
-}
+func (d *Drawer) SetSwitch(s *Switch) { d.sw = s }
 
 // tapped takes a primary click at a canvas position when it landed in the
-// drawer, and reports whether it did.
-func (d *Drawer) tapped(at fyne.Position) bool {
+// drawer, and reports whether it did. A click in a drawer gives it the keys.
+func (d *Drawer) tapped(at fyne.Position, shift bool) bool {
 	if !d.open {
 		return false
 	}
@@ -531,11 +550,12 @@ func (d *Drawer) tapped(at fyne.Position) bool {
 	if at.X < pos.X || at.X >= pos.X+size.Width || at.Y < pos.Y || at.Y >= pos.Y+size.Height {
 		return false
 	}
+	d.panel.keyed = d
 	if d.buttonAt(at) {
 		return true
 	}
 	if d.sw != nil {
-		d.sw.tappedAt(at)
+		d.sw.tappedAt(at, shift)
 	}
 	if d.onRow != nil {
 		for _, r := range d.taprows {
@@ -576,34 +596,40 @@ func rowAt(r *Row, at fyne.Position) bool {
 		at.Y >= pos.Y && at.Y < pos.Y+size.Height
 }
 
-// wireKeys points the window's keys at the filter, the switch and the
-// scroller, in that order. It is called again when the panel is attached to a
-// window, which may be after SetFilter.
-func (d *Drawer) wireKeys() {
-	if d.panel.win == nil {
+// wireKeys points the window's keys at the keyed drawer's filter, switch and
+// scroller, in that order (spec 079 R13). The panel calls it once, when it is
+// attached to a window.
+func (p *Panel) wireKeys() {
+	if p.win == nil {
 		return
 	}
-	cv := d.panel.win.Canvas()
+	cv := p.win.Canvas()
 	cv.SetOnTypedRune(func(r rune) {
-		if !d.open {
-			return
-		}
-		if d.filter != nil && d.filter.TypedRune(r) {
-			return
-		}
-		if d.sw != nil {
-			d.sw.TypedRune(r)
+		if d := p.keyed; d != nil && d.open {
+			d.typedRune(r)
 		}
 	})
 	cv.SetOnTypedKey(func(e *fyne.KeyEvent) {
-		if !d.open {
-			return
+		if d := p.keyed; d != nil && d.open {
+			d.typedKey(e)
 		}
-		if d.filter != nil && d.filter.TypedKey(e) {
-			return
-		}
-		d.scrollKey(e)
 	})
+}
+
+func (d *Drawer) typedRune(r rune) {
+	if d.filter != nil && d.filter.TypedRune(r) {
+		return
+	}
+	if d.sw != nil {
+		d.sw.TypedRune(r)
+	}
+}
+
+func (d *Drawer) typedKey(e *fyne.KeyEvent) {
+	if d.filter != nil && d.filter.TypedKey(e) {
+		return
+	}
+	d.scrollKey(e)
 }
 
 // SetTheme gives the drawer and what it holds a theme of its own. A panel
@@ -644,13 +670,13 @@ type drawerLayout struct{ panel *Panel }
 
 func (l *drawerLayout) MinSize([]fyne.CanvasObject) fyne.Size {
 	s := l.panel.stack.MinSize()
-	s.Width += l.panel.drawer.extra()
+	s.Width += l.panel.drawersExtra()
 	return s
 }
 
 func (l *drawerLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
-	p, d := l.panel, l.panel.drawer
-	extra := d.extra()
+	p := l.panel
+	extra := p.drawersExtra()
 
 	// A window put back to the width it just left is laid out as the window
 	// the panel asked for, standing where the cards stood: against the right
@@ -660,7 +686,7 @@ func (l *drawerLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 	stale := p.putBack(size.Width)
 	if stale {
 		asked := p.asked + p.drawerShown
-		if d.side == Left {
+		if p.side == Left {
 			shift = size.Width - asked
 		}
 		size.Width = asked
@@ -668,13 +694,19 @@ func (l *drawerLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 
 	cards := fyne.NewSize(size.Width-extra, size.Height)
 	origin := fyne.NewPos(shift, 0)
-	if extra > 0 {
+	if p.side == Left {
+		origin.X += extra
+	}
+	// The row: the first opened next to the cards, each later one a drawer
+	// and a gap further out.
+	gap := p.gap()
+	for i, d := range p.row {
 		dw := d.width()
-		if d.side == Left {
-			d.frame.Move(fyne.NewPos(shift, 0))
-			origin.X += extra
+		out := float32(i) * d.need()
+		if p.side == Left {
+			d.frame.Move(fyne.NewPos(origin.X-gap-dw-out, 0))
 		} else {
-			d.frame.Move(fyne.NewPos(size.Width-dw, 0))
+			d.frame.Move(fyne.NewPos(origin.X+cards.Width+gap+out, 0))
 		}
 		d.frame.Resize(fyne.NewSize(dw, size.Height))
 	}
@@ -685,9 +717,90 @@ func (l *drawerLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 	}
 }
 
-// Drawer is the panel's drawer. It is there from the start, closed and
+// Drawer is the panel's first drawer. It is there from the start, closed and
 // empty.
 func (p *Panel) Drawer() *Drawer { return p.drawer }
+
+/*
+AddDrawer makes another drawer, closed and empty, in the panel's theme (spec
+079). Opened, it stands beyond the drawers already open, on their side.
+
+Ask Fits before opening one: a drawer that does not fit runs the window off
+its screen.
+*/
+func (p *Panel) AddDrawer() *Drawer {
+	d := newDrawer(p)
+	d.SetTheme(p.th)
+	p.drawers = append(p.drawers, d)
+	p.body.Objects = append(p.body.Objects, d.frame)
+	p.body.Refresh()
+	return d
+}
+
+// Drawers is every drawer the panel has made, the first first.
+func (p *Panel) Drawers() []*Drawer { return append([]*Drawer(nil), p.drawers...) }
+
+// Outermost is the open drawer furthest from the cards, which is the one
+// opened last, or nil when none is open.
+func (p *Panel) Outermost() *Drawer {
+	if len(p.row) == 0 {
+		return nil
+	}
+	return p.row[len(p.row)-1]
+}
+
+// DrawersWithoutRoom is how many drawers a program opens at most where
+// nothing can say how much room there is beside the window (spec 079 R8).
+const DrawersWithoutRoom = 2
+
+/*
+Fits reports whether one more drawer fits beside the window, given the room
+between the window and each edge of its screen's work area.
+
+With none open it is true: the first drawer chooses its side by the room and
+opens whatever it is (spec 068). With some open it is whether the side they
+are on has a drawer's Reach to spare, so that the window never runs off the
+screen.
+*/
+func (p *Panel) Fits(left, right float32) bool {
+	if len(p.row) == 0 {
+		return true
+	}
+	room := right
+	if p.side == Left {
+		room = left
+	}
+	return room >= p.drawer.need()
+}
+
+// FitsHere is Fits with the room read by the window itself, where it can
+// (Windows). Where it cannot, known is false: ask the compositor and call
+// Fits, or hold the row to DrawersWithoutRoom.
+func (p *Panel) FitsHere() (fits, known bool) {
+	if len(p.row) == 0 {
+		return true, true
+	}
+	if p.win == nil {
+		return false, false
+	}
+	left, right, ok := roomBeside(p.win)
+	if !ok {
+		return false, false
+	}
+	return p.Fits(left, right), true
+}
+
+// Opened is how many drawers are open.
+func (p *Panel) Opened() int { return len(p.row) }
+
+// drawersExtra is what the open drawers add to the window's width.
+func (p *Panel) drawersExtra() float32 {
+	var w float32
+	for _, d := range p.row {
+		w += d.extra()
+	}
+	return w
+}
 
 /*
 CardsSize is the size of the cards alone, without the drawer: what Size is
@@ -717,8 +830,8 @@ func (p *Panel) cardsSize() fyne.Size {
 }
 
 /*
-reshape resizes the window after the drawer's width changed from before,
-moving the window's origin when the drawer is on the left.
+reshape resizes the window after the drawers' width changed from before,
+moving the window's origin when they are on the left.
 
 **The window is resized before the body is laid out again.** Laid out first,
 at the size the window still had, the cards were given what was left after
@@ -731,7 +844,7 @@ Resize measures the cards as they are, which is at the width they have had
 all along, and Fyne lays the body out at the new size.
 */
 func (p *Panel) reshape(before float32) {
-	after := p.drawer.extra()
+	after := p.drawersExtra()
 	if p.win == nil {
 		p.body.Refresh()
 		return
@@ -751,7 +864,7 @@ func (p *Panel) reshape(before float32) {
 // shift moves the window's origin for a left drawer whose width went from
 // before to after.
 func (p *Panel) shift(before, after float32) {
-	if p.win == nil || p.drawer.side != Left || before == after {
+	if p.win == nil || p.side != Left || before == after {
 		return
 	}
 	if p.selfMoving {

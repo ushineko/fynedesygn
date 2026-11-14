@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.114
+**Version**: 0.1.115
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -280,6 +280,19 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.115 (2026-11-14)
+
+- **Added**: several drawers beside the cards, spec 079 (#233).
+  `Panel.AddDrawer` makes another; open drawers stand in a row, the first
+  opened next to the cards, and the cards do not move on the screen.
+  `Panel.Fits` and `Panel.FitsHere` say whether one more fits beside the
+  window, `glance.DrawersWithoutRoom` caps the row where the room cannot be
+  read, and `Panel.Outermost` is the drawer furthest out. `Tap.Shift` and
+  `Switch.OnShifted` report a Shift-click. The side is now the panel's: any
+  drawer's `SetSide` sets it for all. The keys go to the drawer opened or
+  clicked last. A program that never calls `AddDrawer` sees no change.
+  hayami needed it to show several details at once (hayami#320).
 
 ### 0.1.114 (2026-11-12)
 

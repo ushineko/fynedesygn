@@ -1164,6 +1164,38 @@ not keep them.
 KWin loads a script only from an absolute path. With a relative path
 `loadScript` returns an id, `run` returns true, and the script does not run.
 
+### Several drawers
+
+A panel can have more than one drawer open (spec 079), so that a person can
+read two details side by side: the processes by processor time beside the
+processes by memory.
+
+- `Panel.AddDrawer` makes another drawer, closed and empty.
+  `Panel.Drawer` is still the first, and a program that never calls
+  `AddDrawer` has one drawer, as before. `Panel.Drawers` lists them all.
+- **The open drawers stand in a row**, in the order they opened: the first
+  next to the cards, each later one further out. When a drawer closes, the
+  drawers beyond it move in. The cards do not move on the screen.
+- **The side is the panel's.** `SetSide`, `SetAuto`, `Choose` and
+  `SetEdgeHeld` on any drawer set it for all of them. The side is chosen
+  when a drawer opens with none open, and kept while any drawer is open.
+- **A drawer must not take the window off the screen.** Ask `Panel.Fits`
+  with the room on each side before opening another, or `Panel.FitsHere`
+  where the window can read the room itself (Windows). Where nothing can
+  read it, hold the row to `glance.DrawersWithoutRoom`. With no drawer open
+  the answer is always yes.
+- **What happens at the limit is the program's.** `Panel.Outermost` is the
+  drawer furthest from the cards. hayami shows the new detail there.
+- **Shift is the gesture.** `Tap.Shift` says Shift was held at the click,
+  and `Switch.OnShifted` is called for a Shift-click on a choice, without a
+  change of the selection. The library decides nothing about either.
+- **The keys go to one drawer**: the one that opened or was clicked last.
+  When it closes, the keys go to the drawer that opened last of the others.
+- **Only the last drawer that closes gives the keyboard back.**
+- The width of each drawer is `Reach`. A window that is wider than its cards
+  by a whole number of `Reach` has that many drawers, and on the left the
+  cards start that far from the corner.
+
 ## Degradation
 
 Each card decides what it shows when its source fails, and none of them shows

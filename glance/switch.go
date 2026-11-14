@@ -44,6 +44,12 @@ type Switch struct {
 	// that was not selected. Select does not call it.
 	OnChanged func(id string)
 
+	// OnShifted is called, on the UI thread, for a click on a choice with
+	// Shift held, the selected one included, and the selection is left as
+	// it was (spec 079 R11): a person asking for that choice in a drawer of
+	// its own. With it nil a Shift-click is a click.
+	OnShifted func(id string)
+
 	choices  []Choice
 	selected string
 	texts    []*canvas.Text
@@ -153,8 +159,9 @@ func (s *Switch) TypedRune(r rune) bool {
 	return false
 }
 
-// tappedAt selects the choice at a position on the canvas, if one is there.
-func (s *Switch) tappedAt(at fyne.Position) {
+// tappedAt selects the choice at a position on the canvas, if one is there,
+// or reports it to OnShifted for a click with Shift held.
+func (s *Switch) tappedAt(at fyne.Position, shift bool) {
 	if !s.box.Visible() {
 		return
 	}
@@ -162,6 +169,10 @@ func (s *Switch) tappedAt(at fyne.Position) {
 	for i, t := range s.texts {
 		pos, size := drv.AbsolutePositionForObject(t), t.Size()
 		if at.X >= pos.X && at.X < pos.X+size.Width && at.Y >= pos.Y && at.Y < pos.Y+size.Height {
+			if shift && s.OnShifted != nil {
+				s.OnShifted(s.choices[i].ID)
+				return
+			}
 			s.choose(s.choices[i].ID)
 			return
 		}

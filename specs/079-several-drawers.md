@@ -222,3 +222,18 @@ The hold script acted only on a change of width and passed it by.
   edge at 4000.3 each time (it had moved in two of three before). The cards'
   place on the screen, from the grabs, unchanged through one, two and three
   drawers, the cap, a close of all and a close of one.
+
+### The right side (#236)
+
+Checking the row on the right on hayami's panel showed the cards moving left
+by half a drawer at each opening. The glance-monitor example built from
+`main` did the same with one drawer: spec 071 had held the right edge for a
+left drawer on Plasma 6.8 and nothing held the left edge for a right one.
+
+- [x] `kwin.HoldLeftEdgeScript` keeps the left edge, from the same template
+  as the right edge's (`holdEdgeScript`), put-back guard included
+  (`TestTheLeftHoldScriptKeepsTheLeftEdge`,
+  `TestTheHoldScriptUndoesAPutBackOfThePlace` for both). Replayed against
+  Plasma 6.8's centring with a fake window: a right drawer's window keeps its
+  x through two openings, a close, a put-back; a drag and a later move are
+  left alone; the right edge's script behaves as before.

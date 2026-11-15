@@ -284,8 +284,8 @@ MIT. See [LICENSE](LICENSE).
 ### 0.1.119 (2026-11-14)
 
 - **Added**: a full row of drawers fills the room left beside it
-  (`Panel.Fill`, `FillHere`, `Unfill`, `SetFillable`, `DrawersWidth`; spec
-  080, #240). Every drawer is the same whole number of device pixels wide,
+  (`Panel.Fill`, `FillHere`, `Unfill`, `SetFillable`, `DrawersWidth`;
+  spec 080, #240). Every drawer is the same whole number of device pixels wide,
   and what the division leaves over is padding beyond the outermost.
 - **Added**: a glance panel tucks into a square with the program's icon at
   the cards' bottom corner (`Panel.Tuck`, `TuckCorner`, `TuckHere`,

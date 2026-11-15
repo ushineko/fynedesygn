@@ -67,6 +67,15 @@ type Panel struct {
 	sideFixed bool
 	edgeHeld  bool
 
+	// fill is the row's widths while filled is set, worked out for cards
+	// fillCards wide; fillable and fillToggle are the program's Fill button.
+	// See Fill.
+	fill       filling
+	filled     bool
+	fillCards  float32
+	fillable   bool
+	fillToggle func()
+
 	// OnTapped is called, on the UI thread, for a primary click on a card
 	// that is drawn, with what the click landed on. See Tap. A press that
 	// moves before its release is a drag and is not reported.
@@ -474,6 +483,14 @@ func (p *Panel) resize(fit bool) {
 		}
 		want.Width = max(want.Width, p.chosen)
 	}
+	// A filled row was worked out for the cards' width (spec 080). Cards
+	// that are now wider or narrower would push the window off the screen
+	// or short of its edge, so the row goes back to its own widths.
+	if p.filled && !p.sameWidth(want.Width, p.fillCards) {
+		p.endFill()
+		extra = p.drawersExtra()
+		defer p.placeFill()
+	}
 	if total := p.asked + p.drawerShown; p.sized && !p.sameWidth(total, want.Width+extra) {
 		p.before = total
 		p.reasked = false
@@ -562,6 +579,11 @@ func (p *Panel) sameWidth(have, asked float32) bool {
 // the wide window for the life of the program. A drag after the restyle is
 // remembered as before.
 func (p *Panel) Restyle() {
+	// A filled row's pixels were the old face's (spec 080 R10).
+	if p.filled {
+		p.endFill()
+		defer p.placeFill()
+	}
 	p.bg.FillColor = p.BackgroundColour()
 	p.bg.Refresh()
 	// The gap is a factor of the text size, and cardsLayout reads it from the

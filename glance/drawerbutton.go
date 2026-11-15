@@ -105,7 +105,7 @@ func (p buttonPad) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 
 // buttonAt reports whether a position is on the button, and presses it.
 func (d *Drawer) buttonAt(at fyne.Position) bool {
-	for _, b := range append([]*drawerButton{d.lead}, d.buttons...) {
+	for _, b := range append([]*drawerButton{d.lead, d.fill}, d.buttons...) {
 		if b == nil || b.on == nil || !b.box.Visible() {
 			continue
 		}
@@ -240,6 +240,9 @@ func (d *Drawer) rebuildTitle() {
 	row := container.NewHBox()
 	for _, b := range d.buttons {
 		row.Add(b.box)
+	}
+	if d.fill != nil {
+		row.Add(d.fill.box)
 	}
 	var lead fyne.CanvasObject
 	if d.lead != nil {

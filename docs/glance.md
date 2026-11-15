@@ -1206,7 +1206,33 @@ processes by memory.
   dragged.
 - The width of each drawer is `Reach`. A window that is wider than its cards
   by a whole number of `Reach` has that many drawers, and on the left the
-  cards start that far from the corner.
+  cards start that far from the corner. A filled row (below) is wider than
+  that: `Panel.DrawersWidth` is what the open drawers add now, filled or not.
+
+### A full row fills the room
+
+A row at its limit stops short of the screen's edge by up to a drawer.
+**`Panel.Fill(left, right)`** widens every open drawer by the same amount
+until the window reaches the edge on the drawers' side (spec 080), given the
+room as `Fits` takes it; `Panel.FillHere` reads the room itself where it can
+(Windows). `Panel.Unfill` puts the drawers back to their own width.
+
+- **Every drawer is the same number of device pixels wide.** The widths are
+  worked out in pixels at the window's scale, not in Fyne's units, which at
+  a scale of 1.5 round to drawers a pixel apart. The pixels the division
+  leaves over, fewer than there are drawers, are padding beyond the
+  outermost drawer.
+- The cards keep their width and place; the height does not change.
+- **A change of the row ends it**: a drawer opening or closing,
+  `CloseDrawers`, a new text size, or cards that change width. The row goes
+  back to its own widths in the same resize. What a drawer shows does not
+  end it, so a program that puts the next detail in the outermost drawer at
+  the limit keeps the row filled.
+- **`Panel.SetFillable(on, toggle)`** shows a Fill button at the right of
+  the outermost open drawer's heading, drawn engaged while filled. The
+  program says when, because the program is what asks the compositor
+  whether the row is at its limit. Where nothing can read the room there is
+  no edge to fill to, and the button should not be offered.
 
 ## Degradation
 

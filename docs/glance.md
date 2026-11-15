@@ -54,6 +54,7 @@ decorates it anyway.
 - [Trend plots](#trend-plots)
 - [The context menu is the whole interface](#the-context-menu-is-the-whole-interface)
 - [A drawer beside the cards](#a-drawer-beside-the-cards)
+- [A panel that tucks into its corner](#a-panel-that-tucks-into-its-corner)
 - [Degradation](#degradation)
 - [Alerting is not the window's job](#alerting-is-not-the-windows-job)
 - [Cadence](#cadence)
@@ -1233,6 +1234,39 @@ room as `Fits` takes it; `Panel.FillHere` reads the room itself where it can
   program says when, because the program is what asks the compositor
   whether the row is at its limit. Where nothing can read the room there is
   no edge to fill to, and the button should not be offered.
+
+## A panel that tucks into its corner
+
+A glance panel stays on top, and sometimes it is on top of the work. Tucked
+(spec 081), the window is a small square with the program's icon at the
+cards' bottom corner, and a click on the square brings the panel back.
+
+- **`Panel.SetTuckable(on, asked)`** shows a small glyph over the cards'
+  top-right corner while the pointer is over the cards. A click on it calls
+  `asked`, which tucks.
+- **The corner is the cards' bottom corner on the screen-edge side**: with
+  drawers open, the one away from them, and with none, the side with less
+  room. `Panel.TuckCorner(left, right)` says which, from the room as `Fits`
+  takes it. `Panel.Tuck(corner)` tucks; `Panel.TuckHere` does both where the
+  window reads the room itself (Windows).
+- **The drawers are hidden, not closed.** They come back with the cards, in
+  the same order, showing what they showed. Readings that arrive while
+  tucked change the hidden content and do not resize the square.
+  `Panel.SetOnTuck` says when the panel tucks and untucks, so a program can
+  stop its readings while nothing shows them.
+- **The corner is held while the window shrinks and grows.** On Windows the
+  window moves itself. On Plasma, load `kwin.HoldCornerScript` for the
+  corner in place of the hold-edge script before `Tuck`, put the hold-edge
+  script back after `Untuck`, and say so with `Panel.SetCornerHeld`. The
+  script holds the bottom edge too, which is why it is not left loaded: a
+  card that appears would grow the panel upwards. **A panel whose corner
+  nobody holds does not tuck** (`Panel.CanTuck`), because the compositor
+  would put the square wherever it chose.
+- **The square moves as the panel does**, by Meta-drag on Plasma and by a
+  drag on Windows. The panel unfolds from wherever the square is, holding
+  the same corner, and is kept inside the work area: a square dragged into
+  the far corner of the screen does not unfold off it.
+- A width the person dragged survives tucking.
 
 ## Degradation
 

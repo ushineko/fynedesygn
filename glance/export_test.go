@@ -107,5 +107,13 @@ func (d *Drawer) FillButton() (label string, shown, active bool) {
 	return d.fill.text.Text, d.fill.box.Visible(), d.fill.active
 }
 
+// TuckSquare is the tucked square, and TuckGlyph the glyph that asks to
+// tuck.
+func (p *Panel) TuckSquare() fyne.CanvasObject { return p.tuck.square }
+func (p *Panel) TuckGlyph() fyne.CanvasObject  { return p.tuck.glyph }
+
+// Body is the cards and drawers together.
+func (p *Panel) Body() fyne.CanvasObject { return p.body }
+
 // PressFill presses the drawer's Fill button.
 func (d *Drawer) PressFill() { d.fill.on() }

@@ -67,6 +67,9 @@ func main() {
 	edgeHeld := flag.Bool("drawer-edge-held", false,
 		"say the compositor holds the window's right edge (kwin.HoldRightEdgeScript is loaded), "+
 			"which a left drawer needs where a window cannot move itself")
+	cornerHeld := flag.Bool("corner-held", false,
+		"say the compositor holds the window's bottom corner (kwin.HoldCornerScript is loaded), "+
+			"which tucking needs where a window cannot move itself")
 	flag.Parse()
 
 	if *show || *install || *remove {
@@ -84,6 +87,8 @@ func main() {
 	m.translucent = *translucent
 	w := m.build(a)
 	w.Panel().Drawer().SetEdgeHeld(*edgeHeld)
+	w.Panel().SetCornerHeld(*cornerHeld)
+	m.offerTuck()
 	switch *drawerSide {
 	case "left":
 		w.Panel().Drawer().SetSide(glance.Left)
@@ -240,6 +245,22 @@ func (m *monitor) build(a fyne.App) *glance.Window {
 	m.win.Panel().Add(m.battery, m.bandwidth, m.thermal, m.usage)
 	m.buildDrawer()
 	return m.win
+}
+
+/*
+offerTuck shows the tuck glyph where the panel can tuck (spec 081): where the
+window moves itself, or where the compositor holds its corner. A click on it
+tucks into the corner the room gives, read by the window where it can; where
+it cannot, this program asks nobody and tucks into the right corner. A click
+on the square brings the panel back.
+*/
+func (m *monitor) offerTuck() {
+	p := m.win.Panel()
+	p.SetTuckable(p.CanTuck(), func() {
+		if _, known := p.TuckHere(); !known {
+			p.Tuck(glance.Right)
+		}
+	})
 }
 
 // meterLabel pins the label column so the two meters' captions start in the

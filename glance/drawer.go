@@ -69,12 +69,12 @@ type Drawer struct {
 
 	// button is the drawer's own control, at the right of its heading, and
 	// hovered is the row a pointer is over while highlighting is on.
-	buttons   []*drawerButton
-	lead      *drawerButton
+	buttons []*drawerButton
+	lead    *drawerButton
 
 	// fill is the panel's Fill button, right-most in the heading while this
 	// is the outermost drawer of a full row (Panel.SetFillable).
-	fill *drawerButton
+	fill      *drawerButton
 	hovered   *Row
 	highlight bool
 
@@ -903,7 +903,9 @@ all along, and Fyne lays the body out at the new size.
 */
 func (p *Panel) reshape(before float32) {
 	after := p.drawersExtra()
-	if p.win == nil {
+	if p.win == nil || p.tuck.tucked {
+		// Tucked, the drawers change out of sight and the window stays the
+		// square (spec 081 R7).
 		p.body.Refresh()
 		return
 	}

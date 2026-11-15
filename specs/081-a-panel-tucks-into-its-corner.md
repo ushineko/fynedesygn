@@ -20,18 +20,20 @@ corner, which brings the panel back where it was when clicked.
 
 ### Tucking
 
-- R1 **`Panel.Tuck(left, right float32)`** replaces the window's content with
+- R1 **`Panel.Tuck(corner Side) bool`** replaces the window's content with
   a square bearing the application's icon (`fyne.CurrentApp().Icon()`, or
   one set with `Panel.SetTuckIcon`), `TuckSizeInEms` text sizes on a side
-  (3), on the card surface's colour and radius, and resizes the window to it.
-  `left` and `right` are the room beside the window, as for `Fits`.
-- R2 **`Panel.TuckHere() (known bool)`** is `Tuck` with the room read by the
-  window itself where it can (Windows); where it cannot, the program asks the
-  compositor and calls `Tuck`.
+  (3), on the drawer surface's colour and the card radius, and resizes the
+  window to it, holding the bottom corner on that side.
+- R2 **`Panel.TuckCorner(left, right float32) Side`** is the corner, from the
+  room beside the window as `Fits` takes it, so a program on Plasma can load
+  the corner script for it before `Tuck`. **`Panel.TuckHere() (ok, known
+  bool)`** is both with the room read by the window itself where it can
+  (Windows).
 - R3 **The square stands at the cards' bottom corner on the screen-edge
   side**: with drawers open, the corner away from them; with none, the corner
-  on the side with less room. The cards' bottom edge and that side edge are
-  where the square's are.
+  on the side with less room. That is always a corner of the window, so the
+  window's corner is what is held.
 - R4 **The drawers are not closed.** They are hidden with the cards, keep
   their row, content and state, and come back with the cards.
 - R5 **`Panel.Untuck()`** puts the cards and drawers back and the window to
@@ -65,19 +67,22 @@ corner, which brings the panel back where it was when clicked.
 - R9 **On Plasma, `kwin.HoldCornerScript(t, corner)`** holds a bottom corner
   of the window while it is resized (Plasma 6.8 otherwise keeps the centre,
   #236), as the hold-edge scripts hold an edge; **`Panel.SetCornerHeld`**
-  says it is loaded. A panel whose corner is not held tucks at the window's
-  top-left and says so in `Tuck`'s result (`false`), so a program can choose
-  not to offer it.
+  says it is loaded. It is loaded only while tucking, tucked and unfolding,
+  in place of the hold-edge script: holding the bottom all the time would
+  grow the panel upwards when a card appears. **A panel whose corner is not
+  held does not tuck**: `Tuck` returns false and `Panel.CanTuck` says so, so
+  a program does not offer it.
 
 ### The control
 
-- R10 **`Panel.SetTuckable(on bool)`** shows a small glyph (a minimise
-  mark) in the cards' top corner on the screen-edge side when the pointer is
-  over the cards, and hides it when the pointer leaves; a tap on it calls the
-  program's tuck handler (`SetOnTuckAsked(func())`), which asks the room and
-  calls `Tuck`. The glyph does not take room from the cards: it is drawn over
-  the first card's heading corner, and the heading text is never under it
-  (a heading that would be is truncated short of it).
+- R10 **`Panel.SetTuckable(on bool, asked func())`** shows a small glyph (a
+  minimise mark on a button's ground) in the cards' top-right corner while
+  the pointer is over the cards, and hides it when the pointer leaves them; a
+  tap on it calls `asked`, which asks the room and tucks. The glyph does not
+  take room from the cards: it is drawn over the right end of the first
+  card's heading, where the stale mark goes and the title does not. The
+  corner is the same every time: the screen-edge side would need the
+  compositor asked at every hover.
 
 ### Documentation and the example
 
@@ -99,8 +104,14 @@ Headless, each falsified:
 - [ ] `SetOnTuck` is called with true then false (`TestOnTuck`).
 - [ ] A tap on the square untucks; a tap on the hover glyph asks to tuck;
   the glyph shows only while hovered (`TestTheGlyphAndTheSquare`).
+- [ ] The glyph goes when the pointer leaves the cards for a drawer, and a
+  tap on it is not a tap on the card (`TestTheGlyphIsOnlyOverTheCards`).
+- [ ] Without a held corner the panel does not tuck
+  (`TestNoTuckWithoutAHeldCorner`).
+- [ ] A width the person dragged survives tucking
+  (`TestADraggedWidthSurvivesTucking`).
 - [ ] `HoldCornerScript` is quoted and names the corner
-  (`TestHoldCornerScript`).
+  (`TestHoldCornerScript`, `TestTheCornerScriptCannotBeEscapedByItsStrings`).
 
 On a real window (Plasma 6.8 Wayland at 1.5, Windows 11 at 150 %), the
 glance-monitor example, at both screen edges and with drawers on each side:

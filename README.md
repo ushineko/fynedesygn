@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.118
+**Version**: 0.1.119
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -281,7 +281,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.119 (2026-11-14)
 
 - **Added**: a full row of drawers fills the room left beside it
   (`Panel.Fill`, `FillHere`, `Unfill`, `SetFillable`, `DrawersWidth`; spec

@@ -6,7 +6,13 @@
 
 ## Executive Summary
 
-(Filled in before the PR.)
+A row of drawers at its cap can fill the room left beside it: `Panel.Fill`
+widens every open drawer to the same whole number of device pixels until the
+window reaches the work area's edge, the remainder padding beyond the
+outermost, and `SetFillable` puts a Fill button on the outermost drawer. Any
+change of the row ends it. Tried on Plasma through hayami; the Windows check
+is still to run. A reviewer should look first at `planFill` and
+`placeFilled` in `glance/fill.go`.
 
 ## Context
 

@@ -6,7 +6,13 @@
 
 ## Executive Summary
 
-(Filled in before the PR.)
+A glance panel tucks into a square with the program's icon at the cards'
+bottom corner and unfolds from it again (`Panel.Tuck`, `TuckCorner`,
+`Untuck`, `SetTuckable`), the drawers hidden rather than closed. The corner
+is held by the window on Windows and by `kwin.HoldCornerScript` on Plasma,
+which unfolds to the corner it shrank from and keeps the window in the work
+area. Tried on Plasma through hayami; the Windows check is still to run. A
+reviewer should look first at `glance/tuck.go` and `glance/kwin/corner.go`.
 
 ## Context
 

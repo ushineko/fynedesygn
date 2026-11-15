@@ -2,7 +2,7 @@
 
 **Issue**: [#240](https://github.com/ushineko/fynedesygn/issues/240)
 
-## Status: INCOMPLETE
+## Status: COMPLETE
 
 ## Executive Summary
 
@@ -10,8 +10,8 @@ A row of drawers at its cap can fill the room left beside it: `Panel.Fill`
 widens every open drawer to the same whole number of device pixels until the
 window reaches the work area's edge, the remainder padding beyond the
 outermost, and `SetFillable` puts a Fill button on the outermost drawer. Any
-change of the row ends it. Tried on Plasma through hayami; the Windows check
-is still to run. A reviewer should look first at `planFill` and
+change of the row ends it. Tried on Plasma and on Windows 11
+through hayami. A reviewer should look first at `planFill` and
 `placeFilled` in `glance/fill.go`.
 
 ## Context
@@ -130,7 +130,12 @@ made through hayami (spec 090), which asks it:
   is equal (563 x 3, 580 x 5), the cards did not move.
 - [x] Plasma: unfilled, and with every drawer closed while filled: the widths
   are the drawers' own again and the cards did not move.
-- [ ] Windows 11 at 150 %, the example: the same.
+- [x] Windows 11 at 150 %: the same, through hayami 0.15.0 (this
+  release), where the window reads the room itself (`FillHere`): four
+  drawers at the cap, filled, the window's right edge on the screen's at
+  3840, the drawers' headings 592, 592 and 591 pixels apart (579-pixel
+  drawers and 13-pixel gaps), the cards at x 1100 throughout; unfilled and
+  closed, the widths the drawers' own again (hayami spec 090).
 
 ## Found on the desk
 

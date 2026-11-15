@@ -2,7 +2,7 @@
 
 **Issue**: [#241](https://github.com/ushineko/fynedesygn/issues/241)
 
-## Status: INCOMPLETE
+## Status: COMPLETE
 
 ## Executive Summary
 
@@ -11,7 +11,7 @@ bottom corner and unfolds from it again (`Panel.Tuck`, `TuckCorner`,
 `Untuck`, `SetTuckable`), the drawers hidden rather than closed. The corner
 is held by the window on Windows and by `kwin.HoldCornerScript` on Plasma,
 which unfolds to the corner it shrank from and keeps the window in the work
-area. Tried on Plasma through hayami; the Windows check is still to run. A
+area. Tried on Plasma and on Windows 11 through hayami. A
 reviewer should look first at `glance/tuck.go` and `glance/kwin/corner.go`.
 
 ## Context
@@ -99,7 +99,8 @@ corner, which brings the panel back where it was when clicked.
 
 Headless, each falsified (thirteen mutations; the one that survived, a drawer
 opened while tucked moving the window on Windows, is not seen at scale 1 on
-Linux and is left to the Windows check):
+Linux, and could not be reached on Windows either: nothing a person can do
+opens a drawer while the cards are hidden, so the guard stays untested):
 
 - [x] `Tuck` makes the window `TuckSizeInEms × textSize` square and shows the
   icon; `Untuck` restores the size it had, drawers open
@@ -133,8 +134,12 @@ made through hayami (spec 091), which loads it:
 - [x] Plasma: the square moved by Meta-drag unfolds the panel from its
   corner at the new place; moved into the screen's top-right corner, the
   panel unfolds inside the work area.
-- [ ] Windows 11 at 150 %, the example: the same, with a press-drag on the
-  square; a press that does not move untucks and one that moves does not.
+- [x] Windows 11 at 150 %: the same, through hayami 0.15.0, where the
+  window moves itself (`moveCorner`): the square at the cards' corner to
+  the pixel and the panel back to it, drawers included; a press-drag moved
+  the square without untucking, a click then unfolded the panel at the new
+  place; dragged to the bottom-right corner, it unfolded at 3840 less its
+  width, inside the screen (hayami spec 091).
 
 ## Found on the desk
 

@@ -229,6 +229,9 @@ func (p *Panel) SetTuckable(on bool, asked func()) {
 	}
 }
 
+// Tuckable reports whether the tuck glyph is offered (SetTuckable).
+func (p *Panel) Tuckable() bool { return p.tuck.tuckable }
+
 // hoverTuck shows the glyph while the pointer is over the cards and hides
 // it otherwise.
 func (p *Panel) hoverTuck(at fyne.Position, in bool) {

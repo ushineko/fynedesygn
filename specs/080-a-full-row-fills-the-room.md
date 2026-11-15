@@ -84,35 +84,55 @@ widened by the same amount, the cards left as they are.
 
 ## Acceptance Criteria
 
-Headless, each falsified:
+Headless, each falsified: eleven mutations each failed a test. Of two more
+for what the desk found, the rounding failed `TestAWholePixelIsNotRoundedUp`;
+the cards stood on the planned pixels is not seen at a test canvas's scale of
+1, and was checked on the desk:
 
-- [ ] Two drawers, room 101 on their side, scale 1: `Fill` makes both
-  drawers the same width and the window 101 wider; the padding is 1 px
+- [x] Two drawers, 101 of room on their side, scale 1: `Fill` makes both
+  drawers the same width and the window 101 wider; the padding is under 2
   (`TestFillSharesTheRoomEqually`).
-- [ ] At scale 1.5, three drawers, room chosen so the division leaves 2 px:
-  each drawer's width in pixels is equal and the padding is 2 px
+- [x] At a scale of 1.5, three drawers, every room from 1 to 300 in steps of
+  0.37: the pixels add up, the padding is fewer than three, and the window
+  is the one it was and the room's whole pixels
   (`TestFillAtAFractionalScale`).
-- [ ] The cards' size and place are the same before `Fill`, after it and
-  after `Unfill`, drawers on either side (`TestFillLeavesTheCards`).
-- [ ] Closing one drawer of three while filled ends filling and resizes once
-  (`TestClosingADrawerEndsFilling`); `CloseDrawers` likewise.
-- [ ] `SetContent` on a filled drawer keeps it filled
+- [x] Cards a whole number of pixels wide are planned at that number, not
+  one more (`TestAWholePixelIsNotRoundedUp`).
+- [x] The cards' size and place are the same before `Fill`, after it and
+  after `Unfill`, drawers on either side; on the left the drawers stand a
+  gap apart from the cards outwards and the padding is at the far end
+  (`TestFillLeavesTheCards`).
+- [x] Closing one drawer of three while filled ends filling and resizes once,
+  and `CloseDrawers` ends it (`TestClosingADrawerEndsFilling`).
+- [x] `SetContent` on a filled drawer keeps it filled
   (`TestNewContentKeepsTheRowFilled`).
-- [ ] `Fill` with no drawer open, or no room, returns false and changes
-  nothing (`TestFillWithNothingToFill`).
-- [ ] The Fill button is on the outermost drawer only, follows it when the
-  row changes, and a tap calls the toggle (`TestTheFillButtonIsOnTheOutermost`).
-- [ ] `DrawersWidth` equals the window's width less the cards', filled and
-  not (`TestDrawersWidth`).
+- [x] `Fill` with no drawer open, or less than a pixel of room on the
+  drawers' side, returns false and changes nothing
+  (`TestFillWithNothingToFill`).
+- [x] The Fill button is on the outermost drawer only, follows it when the
+  row changes, is drawn engaged while filled, and a tap calls the toggle
+  (`TestTheFillButtonIsOnTheOutermost`).
+- [x] `DrawersWidth` equals the window's width less the cards', filled and
+  not (`TestDrawersWidth`); `Restyle` ends filling (`TestRestyleEndsFilling`).
 
-On a real window (Plasma 6.8 Wayland at 1.5, Windows 11 at 150 %), the
-glance-monitor example:
+On a real window. The example reads the room only where the window can
+(Windows); on Plasma the room is the compositor's, so the check there was
+made through hayami (spec 090), which asks it:
 
-- [ ] Filled on the right and on the left: the window's outer edge is the
-  work area's to the pixel, each drawer's width recovered from the grab is
-  equal, the cards did not move.
-- [ ] Unfilled, and with a drawer closed while filled: the widths are the
-  drawers' own again and the cards did not move.
+- [x] Plasma 6.8 at 1.5, filled on the right and on the left: the window's
+  outer edge is the work area's, each drawer's width recovered from the grab
+  is equal (563 x 3, 580 x 5), the cards did not move.
+- [x] Plasma: unfilled, and with every drawer closed while filled: the widths
+  are the drawers' own again and the cards did not move.
+- [ ] Windows 11 at 150 %, the example: the same.
+
+## Found on the desk
+
+The first build planned cards 289.333 wide at a scale of 1.5 at 435 pixels:
+289.333 in float32 times 1.5 is 434.00001, and rounded up it was 435. The
+cards' left edge moved a pixel when the row filled. The rounding up now
+forgives what float32 adds, and a filled row stands the cards on the pixels
+it planned for them, as it stands the drawers (`drawerLayout`).
 
 ## Risks & Assumptions
 

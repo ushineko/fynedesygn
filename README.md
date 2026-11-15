@@ -281,6 +281,19 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Added**: a full row of drawers fills the room left beside it
+  (`Panel.Fill`, `FillHere`, `Unfill`, `SetFillable`, `DrawersWidth`; spec
+  080, #240). Every drawer is the same whole number of device pixels wide,
+  and what the division leaves over is padding beyond the outermost.
+- **Added**: a glance panel tucks into a square with the program's icon at
+  the cards' bottom corner (`Panel.Tuck`, `TuckCorner`, `TuckHere`,
+  `Untuck`, `SetTuckable`, `SetOnTuck`, `SetCornerHeld`;
+  `kwin.HoldCornerScript`; spec 081, #241). The drawers are hidden, not
+  closed; the square moves as the panel does and unfolds inside the work
+  area.
+
 ### 0.1.118 (2026-11-14)
 
 - **Fixed**: on Windows, a panel with drawers on the left moved a pixel to the

@@ -69,6 +69,26 @@ func TestFillAtAFractionalScale(t *testing.T) {
 	}
 }
 
+// R5. Cards that are a whole number of pixels wide are planned at that
+// number. Found on the desk: cards 289.333 wide at 1.5 are 434 pixels, and
+// float32 made them 434.00001, planned at 435; the cards' edge moved a pixel
+// when the row filled.
+func TestAWholePixelIsNotRoundedUp(t *testing.T) {
+	// The next float32 above 868/3: what the desk's cards measured, whose
+	// product with 1.5 is a hair over 434.
+	cards := math.Nextafter32(float32(868)/3, 1000)
+	require.Greater(t, float64(cards*1.5), 434.0)
+	// The window was 1276 wide with three drawers out.
+	reach := float32(2960) / 9
+	each, pad, window, ok := glance.PlanFill(1.5, cards, 3*reach, 8, 164, 3)
+	require.True(t, ok)
+	assert.Equal(t, 1914+246, window, "the window is not the one it was and the room")
+	// 2160 less the cards' 434 and three gaps of 12 is 1690: three of 563
+	// and a pixel over.
+	assert.Equal(t, 563, each)
+	assert.Equal(t, 1, pad)
+}
+
 // R1. Nothing to fill: no drawer open, or no whole pixel of room.
 func TestFillWithNothingToFill(t *testing.T) {
 	w, _, _ := drawerWindow(t, glance.Options{Title: "fill"})

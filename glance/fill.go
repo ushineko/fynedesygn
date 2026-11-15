@@ -39,12 +39,18 @@ of their own width taking extra and room to spare beyond them, at scale.
 The window is as many pixels wide as Fyne makes the window it has now
 (ceil, as pixelsMoved reads it, #238) and the whole pixels of the room; a
 fraction of a pixel of room is not room.
+
+**A width that is a whole number of pixels is that number**, not one more.
+Cards 289.333 wide at 1.5 are 434 pixels, but 289.333 in float32 times 1.5
+is 434.00001, and rounded up the cards were planned at 435: on the desk the
+cards' edge moved a pixel when the row filled. So the rounding up forgives
+what float32 adds.
 */
 func planFill(scale, cards, extra, gap, room float32, n int) (filling, bool) {
 	if n <= 0 || scale <= 0 {
 		return filling{}, false
 	}
-	ceil := func(v float32) int { return int(math.Ceil(float64(v * scale))) }
+	ceil := func(v float32) int { return int(math.Ceil(float64(v*scale) - 1e-3)) }
 	spare := int(math.Floor(float64(room*scale) + 1e-3))
 	if spare <= 0 {
 		return filling{}, false
@@ -157,6 +163,9 @@ func (p *Panel) SetFillable(on bool, toggle func()) {
 	p.fillable, p.fillToggle = on, toggle
 	p.placeFill()
 }
+
+// Fillable reports whether the Fill button is offered (SetFillable).
+func (p *Panel) Fillable() bool { return p.fillable }
 
 // FillWord is what the Fill button reads.
 const FillWord = "Fill"

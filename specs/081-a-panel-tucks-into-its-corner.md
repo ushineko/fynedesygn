@@ -91,39 +91,57 @@ corner, which brings the panel back where it was when clicked.
 
 ## Acceptance Criteria
 
-Headless, each falsified:
+Headless, each falsified (thirteen mutations; the one that survived, a drawer
+opened while tucked moving the window on Windows, is not seen at scale 1 on
+Linux and is left to the Windows check):
 
-- [ ] `Tuck` makes the window `TuckSizeInEms × textSize` square and shows the
+- [x] `Tuck` makes the window `TuckSizeInEms × textSize` square and shows the
   icon; `Untuck` restores the size it had, drawers open
   (`TestTuckAndBack`).
-- [ ] The corner is the one away from the drawers with drawers open, and the
+- [x] The corner is the one away from the drawers with drawers open, and the
   side with less room without (`TestTheCornerIsTheScreenEdges`).
-- [ ] Drawers open before tucking are open, in the same order and with the
+- [x] Drawers open before tucking are open, in the same order and with the
   same content, after untucking (`TestTuckKeepsTheDrawers`).
-- [ ] `Resize` while tucked keeps the square (`TestAReadingDoesNotUntuck`).
-- [ ] `SetOnTuck` is called with true then false (`TestOnTuck`).
-- [ ] A tap on the square untucks; a tap on the hover glyph asks to tuck;
+- [x] `Resize` while tucked keeps the square (`TestAReadingDoesNotUntuck`).
+- [x] `SetOnTuck` is called with true then false (`TestOnTuck`).
+- [x] A tap on the square untucks; a tap on the hover glyph asks to tuck;
   the glyph shows only while hovered (`TestTheGlyphAndTheSquare`).
-- [ ] The glyph goes when the pointer leaves the cards for a drawer, and a
+- [x] The glyph goes when the pointer leaves the cards for a drawer, and a
   tap on it is not a tap on the card (`TestTheGlyphIsOnlyOverTheCards`).
-- [ ] Without a held corner the panel does not tuck
+- [x] Without a held corner the panel does not tuck
   (`TestNoTuckWithoutAHeldCorner`).
-- [ ] A width the person dragged survives tucking
+- [x] A width the person dragged survives tucking
   (`TestADraggedWidthSurvivesTucking`).
-- [ ] `HoldCornerScript` is quoted and names the corner
+- [x] `HoldCornerScript` is quoted and names the corner
   (`TestHoldCornerScript`, `TestTheCornerScriptCannotBeEscapedByItsStrings`).
 
-On a real window (Plasma 6.8 Wayland at 1.5, Windows 11 at 150 %), the
-glance-monitor example, at both screen edges and with drawers on each side:
+On a real window. The example on Plasma has nobody to load the corner
+script (it takes `-corner-held` from a person who did); the check there was
+made through hayami (spec 091), which loads it:
 
-- [ ] Tucked: the square's bottom and side edges are the cards' to the pixel.
-- [ ] Untucked: the cards' rectangle recovered from the grab is the one
-  before tucking, and the drawers are back.
-- [ ] The square moved (Meta-drag on Plasma, press-drag on Windows), then
-  untucked: the cards' screen-edge bottom corner is the square's; moved into
-  the opposite corner of the screen, the panel unfolds inside the work area.
-- [ ] On Windows a press on the square that does not move untucks; one that
-  moves does not.
+- [x] Plasma 6.8 at 1.5, at the right edge with no drawer, with drawers on
+  the left, and on the main screen with five on the right: tucked, the
+  square's bottom and side edges are the cards'; untucked, the window is the
+  one before tucking to the pixel, and the drawers are back, a filled row
+  filled.
+- [x] Plasma: the square moved by Meta-drag unfolds the panel from its
+  corner at the new place; moved into the screen's top-right corner, the
+  panel unfolds inside the work area.
+- [ ] Windows 11 at 150 %, the example: the same, with a press-drag on the
+  square; a press that does not move untucks and one that moves does not.
+
+## Found on the desk
+
+Two things in the corner script, both from a panel placed against the
+screen's edge at a scale of 1.5, which stands a third of a unit past it:
+
+- The panel unfolded from the corner KWin had put the square at. Shrunk to
+  the square, its corner was 4000.333; held, the square went to 3970; the
+  panel unfolded from 4000 and stood a third of a unit up and to the left
+  of where it had been. The script now keeps the corner a window shrinks
+  from and unfolds to it, unless the window was moved by hand in between.
+- The pull back into the work area took in that third of a unit. It now
+  acts only past half a unit.
 
 ## Risks & Assumptions
 

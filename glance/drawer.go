@@ -748,6 +748,16 @@ func (l *drawerLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 	if p.side == Left {
 		origin.X += extra
 	}
+	// A filled row stands the cards on the pixels it planned for them, as
+	// it does the drawers, so that the cards do not move by the fraction
+	// the units leave (spec 080 R5).
+	if p.filled {
+		f := p.fill
+		cards.Width = f.unit(f.cards)
+		if p.side == Left {
+			origin.X = shift + f.unit(f.window-f.cards)
+		}
+	}
 	// The row: the first opened next to the cards, each later one a drawer
 	// and a gap further out.
 	gap := p.gap()

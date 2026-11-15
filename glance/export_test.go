@@ -88,3 +88,32 @@ func (r *Row) Head() fyne.CanvasObject {
 	}
 	return r.label
 }
+
+// PlanFill is planFill's pixels: each drawer's, the padding's, the window's.
+func PlanFill(scale, cards, extra, gap, room float32, n int) (each, pad, window int, ok bool) {
+	f, ok := planFill(scale, cards, extra, gap, room, n)
+	return f.each, f.pad, f.window, ok
+}
+
+// Gap is the gap between the cards and a drawer, and between drawers.
+func (p *Panel) Gap() float32 { return p.gap() }
+
+// FillButton is the drawer's Fill button's label, and whether it is shown
+// and drawn engaged; "" when the drawer has none.
+func (d *Drawer) FillButton() (label string, shown, active bool) {
+	if d.fill == nil {
+		return "", false, false
+	}
+	return d.fill.text.Text, d.fill.box.Visible(), d.fill.active
+}
+
+// TuckSquare is the tucked square, and TuckGlyph the glyph that asks to
+// tuck.
+func (p *Panel) TuckSquare() fyne.CanvasObject { return p.tuck.square }
+func (p *Panel) TuckGlyph() fyne.CanvasObject  { return p.tuck.glyph }
+
+// Body is the cards and drawers together.
+func (p *Panel) Body() fyne.CanvasObject { return p.body }
+
+// PressFill presses the drawer's Fill button.
+func (d *Drawer) PressFill() { d.fill.on() }

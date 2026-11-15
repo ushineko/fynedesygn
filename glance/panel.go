@@ -67,6 +67,19 @@ type Panel struct {
 	sideFixed bool
 	edgeHeld  bool
 
+	// fill is the row's widths while filled is set, worked out for cards
+	// fillCards wide; fillable and fillToggle are the program's Fill button.
+	// See Fill.
+	fill       filling
+	filled     bool
+	fillCards  float32
+	fillable   bool
+	fillToggle func()
+
+	// tuck is the square the panel tucks into and the glyph that asks for
+	// it (spec 081). See Tuck.
+	tuck tucking
+
 	// OnTapped is called, on the UI thread, for a primary click on a card
 	// that is drawn, with what the click landed on. See Tap. A press that
 	// moves before its release is a drag and is not reported.
@@ -189,7 +202,8 @@ func NewPanel(minWidth float32) *Panel {
 	p.drawer = newDrawer(p)
 	p.drawers = []*Drawer{p.drawer}
 	p.body = container.New(&drawerLayout{panel: p}, p.stack, p.drawer.frame)
-	p.root = container.NewStack(p.bg, p.body, widgets.NewTipLayer())
+	p.buildTuck()
+	p.root = container.NewStack(p.bg, p.body, p.tuck.square, p.tuck.layer, widgets.NewTipLayer())
 	return p
 }
 
@@ -425,6 +439,12 @@ func (p *Panel) resize(fit bool) {
 	if p.win == nil {
 		return
 	}
+	// A tucked panel is its square whatever the cards measure (spec 081
+	// R7): a reading that arrives does not unfold it.
+	if p.tuck.tucked {
+		p.win.Resize(p.squareSize())
+		return
+	}
 	p.stack.Refresh()
 
 	// The widths below are the cards' alone: the drawer's is added at the end,
@@ -460,6 +480,8 @@ func (p *Panel) resize(fit bool) {
 		switch {
 		case fit:
 			p.chosen = 0
+		case p.tuck.untucking:
+			// The square's width is nobody's choice.
 		case p.sized && !p.sameWidth(current, p.asked):
 			// The width this panel asked for the time before is not a
 			// choice either. A compositor answers a change of focus with
@@ -473,6 +495,14 @@ func (p *Panel) resize(fit bool) {
 			}
 		}
 		want.Width = max(want.Width, p.chosen)
+	}
+	// A filled row was worked out for the cards' width (spec 080). Cards
+	// that are now wider or narrower would push the window off the screen
+	// or short of its edge, so the row goes back to its own widths.
+	if p.filled && !p.sameWidth(want.Width, p.fillCards) {
+		p.endFill()
+		extra = p.drawersExtra()
+		defer p.placeFill()
 	}
 	if total := p.asked + p.drawerShown; p.sized && !p.sameWidth(total, want.Width+extra) {
 		p.before = total
@@ -562,8 +592,14 @@ func (p *Panel) sameWidth(have, asked float32) bool {
 // the wide window for the life of the program. A drag after the restyle is
 // remembered as before.
 func (p *Panel) Restyle() {
+	// A filled row's pixels were the old face's (spec 080 R10).
+	if p.filled {
+		p.endFill()
+		defer p.placeFill()
+	}
 	p.bg.FillColor = p.BackgroundColour()
 	p.bg.Refresh()
+	p.restyleTuck()
 	// The gap is a factor of the text size, and cardsLayout reads it from the
 	// panel on every pass, so there is nothing to replace here -- a refresh
 	// picks the new face up. Replacing the layout is what this line used to do,

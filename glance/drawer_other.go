@@ -14,6 +14,10 @@ const movesItself = false
 // drawer opens on the right.
 func moveWindowBy(fyne.Window, float32, float32) {}
 
+// moveCorner does nothing here: the compositor holds the corner
+// (kwin.HoldCornerScript).
+func moveCorner(fyne.Window, Side, fyne.Size, fyne.Size) {}
+
 // roomBeside cannot answer here. A program asks the compositor and tells the
 // drawer with Drawer.Choose.
 func roomBeside(fyne.Window) (left, right float32, ok bool) { return 0, 0, false }

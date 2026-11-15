@@ -18,6 +18,8 @@ A Shift-click opens the card's drawer beside the ones already open, or closes
 it when it is open, and with several open a plain click closes them all (spec
 079). Where the room beside the window cannot be read the row is held to
 glance.DrawersWithoutRoom; at the cap the outermost drawer takes the new card.
+Where the room can be read and the row is at the cap, the outermost drawer
+offers Fill, which widens the drawers to the screen's edge (spec 080).
 
 The thermal card has two subjects, and the choice between them is a switch in
 the drawer (spec 069): one target on the card, and no going back to it to see
@@ -170,6 +172,28 @@ func (m *monitor) tapped(tap glance.Tap) {
 	default:
 		m.show(m.drawer, tap.Card)
 	}
+	m.offerFill()
+}
+
+/*
+offerFill shows Fill on the outermost drawer while the row is at its cap and
+the room beside it can be read, and hides it otherwise. A filled row is at
+its cap by definition: there is no room left to read.
+*/
+func (m *monitor) offerFill() {
+	p := m.win.Panel()
+	fits, known := p.FitsHere()
+	p.SetFillable(p.Opened() > 0 && known && (!fits || p.Filled()), m.toggleFill)
+}
+
+// toggleFill fills the row, or puts it back.
+func (m *monitor) toggleFill() {
+	p := m.win.Panel()
+	if p.Filled() {
+		p.Unfill()
+		return
+	}
+	p.FillHere()
 }
 
 // shiftTapped closes the card's drawer when one is open, and otherwise opens
@@ -180,9 +204,11 @@ func (m *monitor) shiftTapped(card *glance.Card) {
 	for _, d := range open {
 		if d.subject == card {
 			d.dr.SetOpen(false)
+			m.offerFill()
 			return
 		}
 	}
+	defer m.offerFill()
 	if len(open) == 0 {
 		m.show(m.drawer, card)
 		return

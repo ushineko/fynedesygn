@@ -38,6 +38,11 @@ func shiftHeld() bool {
 // tapped finds what a primary tap at a canvas position landed on and tells
 // the program.
 func (p *Panel) tapped(at fyne.Position) {
+	// The tucked square and the tuck glyph come before anything under them
+	// (spec 081).
+	if p.tuckTapped(at) {
+		return
+	}
 	// A click that arrives where the last one did, after the compositor
 	// moved the window under a pointer that has not moved, is read at the old
 	// place (quirk 48). The window's content has moved under it by stale.

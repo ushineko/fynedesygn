@@ -69,8 +69,12 @@ type Drawer struct {
 
 	// button is the drawer's own control, at the right of its heading, and
 	// hovered is the row a pointer is over while highlighting is on.
-	buttons   []*drawerButton
-	lead      *drawerButton
+	buttons []*drawerButton
+	lead    *drawerButton
+
+	// fill is the panel's Fill button, right-most in the heading while this
+	// is the outermost drawer of a full row (Panel.SetFillable).
+	fill      *drawerButton
 	hovered   *Row
 	highlight bool
 
@@ -224,6 +228,15 @@ func (d *Drawer) need() float32 { return d.width() + d.panel.gap() }
 // whether the drawer is open or not, and changes with the text size.
 func (d *Drawer) Reach() float32 { return d.need() }
 
+// shown is the drawer's width as drawn: its own, or its share of a filled
+// row (spec 080).
+func (d *Drawer) shown() float32 {
+	if p := d.panel; p.filled && d.open {
+		return p.fill.unit(p.fill.each)
+	}
+	return d.width()
+}
+
 func (d *Drawer) extra() float32 {
 	if !d.open {
 		return 0
@@ -273,7 +286,7 @@ func (d *Drawer) SetContent(pieces ...Piece) {
 func (d *Drawer) Available() fyne.Size {
 	s := d.panel.cardsSize()
 	height := s.Height - d.padTop() - d.padBottom() - d.title.MinSize().Height - d.size(theme.SizeNamePadding)
-	return fyne.NewSize(d.width()-2*d.padH(), max(0, height))
+	return fyne.NewSize(d.shown()-2*d.padH(), max(0, height))
 }
 
 /*
@@ -417,6 +430,9 @@ func (d *Drawer) SetOpen(open bool) {
 	}
 	p := d.panel
 	before := p.drawersExtra()
+	// A row that changes is no longer the row that was filled (spec 080 R7,
+	// R9): it goes back to its own widths in the same change of shape.
+	p.endFill()
 	if open {
 		if len(p.row) == 0 {
 			d.settle()
@@ -429,6 +445,7 @@ func (d *Drawer) SetOpen(open bool) {
 	}
 	d.open = open
 	p.reshape(before)
+	p.placeFill()
 	if !open && len(p.row) == 0 {
 		d.YieldFocus()
 	}
@@ -462,11 +479,13 @@ func (p *Panel) CloseDrawers() {
 		return
 	}
 	before := p.drawersExtra()
+	p.endFill()
 	last := p.row[len(p.row)-1]
 	for _, d := range append([]*Drawer(nil), p.row...) {
 		d.shut()
 	}
 	p.reshape(before)
+	p.placeFill()
 	last.YieldFocus()
 }
 
@@ -685,7 +704,7 @@ func (d *Drawer) Restyle() {
 	d.title.Color = d.colour(theme.ColorNamePlaceHolder)
 	d.title.Refresh()
 	d.refit(d.title)
-	for _, b := range append([]*drawerButton{d.lead}, d.buttons...) {
+	for _, b := range append([]*drawerButton{d.lead, d.fill}, d.buttons...) {
 		if b != nil {
 			b.restyle(d)
 		}
@@ -729,12 +748,26 @@ func (l *drawerLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 	if p.side == Left {
 		origin.X += extra
 	}
+	// A filled row stands the cards on the pixels it planned for them, as
+	// it does the drawers, so that the cards do not move by the fraction
+	// the units leave (spec 080 R5).
+	if p.filled {
+		f := p.fill
+		cards.Width = f.unit(f.cards)
+		if p.side == Left {
+			origin.X = shift + f.unit(f.window-f.cards)
+		}
+	}
 	// The row: the first opened next to the cards, each later one a drawer
 	// and a gap further out.
 	gap := p.gap()
 	for i, d := range p.row {
 		dw := d.width()
 		out := float32(i) * d.need()
+		if p.filled {
+			p.placeFilled(d, i, shift, size.Height)
+			continue
+		}
 		if p.side == Left {
 			d.frame.Move(fyne.NewPos(origin.X-gap-dw-out, 0))
 		} else {
@@ -827,6 +860,9 @@ func (p *Panel) Opened() int { return len(p.row) }
 
 // drawersExtra is what the open drawers add to the window's width.
 func (p *Panel) drawersExtra() float32 {
+	if p.filled && len(p.row) > 0 {
+		return p.fill.extra(p.fillCards)
+	}
 	var w float32
 	for _, d := range p.row {
 		w += d.extra()
@@ -877,7 +913,9 @@ all along, and Fyne lays the body out at the new size.
 */
 func (p *Panel) reshape(before float32) {
 	after := p.drawersExtra()
-	if p.win == nil {
+	if p.win == nil || p.tuck.tucked {
+		// Tucked, the drawers change out of sight and the window stays the
+		// square (spec 081 R7).
 		p.body.Refresh()
 		return
 	}

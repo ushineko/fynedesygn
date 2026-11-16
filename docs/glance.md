@@ -988,7 +988,16 @@ program opens it.
   A breakdown can: see [Content that scrolls](#content-that-scrolls).
 - **The drawer has the surface of a card**: the same fill, border, radius and
   margins, `CardGap` away from the cards. Its width is `DrawerWidthInEms`
-  text sizes, in the face of the panel.
+  text sizes, in the face of the panel, unless the program sets another.
+- **The width is the program's, decided when the drawer is drawn** (spec
+  082). `Drawer.SetWidthInEms` sets it for what the drawer is about to show:
+  call it before `SetOpen`, or when the person gives an open drawer a new
+  subject, and never on a reading, which would resize the window as values
+  change. The library does not measure content. Work the width out from
+  what the content can be, not from what it is now: the widest value its
+  formatters make. Ask `Panel.Room` how wide a drawer the screen still takes
+  and open it at most that wide. Drawers of different widths stand side by
+  side, and Fill widens each by the same number of pixels.
 - **To open or close the drawer is a change of shape**, like a card that
   appears. The panel resizes the window one time, in the same call. A reading
   that changes in the drawer must not resize the window, so format each value

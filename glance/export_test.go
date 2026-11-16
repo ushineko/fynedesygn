@@ -91,8 +91,25 @@ func (r *Row) Head() fyne.CanvasObject {
 
 // PlanFill is planFill's pixels: each drawer's, the padding's, the window's.
 func PlanFill(scale, cards, extra, gap, room float32, n int) (each, pad, window int, ok bool) {
-	f, ok := planFill(scale, cards, extra, gap, room, n)
-	return f.each, f.pad, f.window, ok
+	own := make([]float32, n)
+	for i := range own {
+		own[i] = extra/float32(n) - gap
+	}
+	f, ok := planFill(scale, cards, extra, gap, room, own)
+	if !ok {
+		return 0, 0, 0, false
+	}
+	return f.widths[0], f.pad, f.window, ok
+}
+
+// PlanFillOwn is planFill's pixels for drawers of the widths given.
+func PlanFillOwn(scale, cards, gap, room float32, own []float32) (widths []int, pad, window int, ok bool) {
+	var extra float32
+	for _, w := range own {
+		extra += w + gap
+	}
+	f, ok := planFill(scale, cards, extra, gap, room, own)
+	return f.widths, f.pad, f.window, ok
 }
 
 // Gap is the gap between the cards and a drawer, and between drawers.

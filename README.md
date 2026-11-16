@@ -281,6 +281,14 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Added**: a drawer as wide as what it shows (`Drawer.SetWidthInEms`,
+  `WidthInEms`, `Panel.Room`, `RoomHere`; spec 082, #244). The program sets
+  the width when the drawer opens or is given a new subject; drawers of
+  different widths stand side by side, and Fill widens each by the same
+  number of pixels. A drawer whose width is never set is the 32 ems it was.
+
 ### 0.1.119 (2026-11-14)
 
 - **Added**: a full row of drawers fills the room left beside it

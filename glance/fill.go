@@ -23,12 +23,13 @@ padding, the panel's background.
 */
 
 // filling is the row's widths while it is filled, in device pixels at
-// scale. cards is the cards' share of the window, gap a gap's, each a
-// drawer's, and pad what the division left over.
+// scale. cards is the cards' share of the window, gap a gap's, widths each
+// drawer's in the row's order, and pad what the division left over.
 type filling struct {
 	scale              float32
 	window, cards, gap int
-	each, pad, drawers int
+	widths             []int
+	pad, drawers       int
 	room               float32
 }
 
@@ -46,7 +47,8 @@ is 434.00001, and rounded up the cards were planned at 435: on the desk the
 cards' edge moved a pixel when the row filled. So the rounding up forgives
 what float32 adds.
 */
-func planFill(scale, cards, extra, gap, room float32, n int) (filling, bool) {
+func planFill(scale, cards, extra, gap, room float32, own []float32) (filling, bool) {
+	n := len(own)
 	if n <= 0 || scale <= 0 {
 		return filling{}, false
 	}
@@ -66,9 +68,35 @@ func planFill(scale, cards, extra, gap, room float32, n int) (filling, bool) {
 	if f.drawers < n {
 		return filling{}, false
 	}
-	f.each = f.drawers / n
-	f.pad = f.drawers - n*f.each
+	// Each drawer keeps its own whole pixels and is given the same share of
+	// what is left (spec 082 R8). Drawers of one width are spec 080's row:
+	// floor(drawers/n) each.
+	pixels := make([]int, n)
+	used := 0
+	for i, w := range own {
+		pixels[i] = int(math.Floor(float64(w*scale) + 1e-3))
+		used += pixels[i]
+	}
+	share := int(math.Floor(float64(f.drawers-used) / float64(n)))
+	f.widths = make([]int, n)
+	f.pad = f.drawers
+	for i, px := range pixels {
+		f.widths[i] = px + share
+		if f.widths[i] < 1 {
+			return filling{}, false
+		}
+		f.pad -= f.widths[i]
+	}
 	return f, true
+}
+
+// before is the pixels the drawers before the i-th take, each with its gap.
+func (f filling) before(i int) int {
+	x := 0
+	for _, w := range f.widths[:i] {
+		x += f.gap + w
+	}
+	return x
 }
 
 // unit is a pixel count in Fyne's units.
@@ -105,7 +133,11 @@ func (p *Panel) Fill(left, right float32) bool {
 		room += p.fill.room
 	}
 	cards := p.CardsSize().Width
-	f, ok := planFill(p.scale(), cards, p.ownExtra(), p.gap(), room, n)
+	own := make([]float32, n)
+	for i, d := range p.row {
+		own[i] = d.width()
+	}
+	f, ok := planFill(p.scale(), cards, p.ownExtra(), p.gap(), room, own)
 	if !ok {
 		return false
 	}
@@ -231,11 +263,10 @@ window put back to a width it just left (putBack).
 */
 func (p *Panel) placeFilled(d *Drawer, i int, shift, height float32) {
 	f := p.fill
-	step := f.gap + f.each
-	x := f.cards + f.gap + i*step
+	x := f.cards + f.gap + f.before(i)
 	if p.side == Left {
-		x = f.window - f.cards - (i+1)*step
+		x = f.window - f.cards - f.before(i+1)
 	}
 	d.frame.Move(fyne.NewPos(shift+f.unit(x), 0))
-	d.frame.Resize(fyne.NewSize(f.unit(f.each), height))
+	d.frame.Resize(fyne.NewSize(f.unit(f.widths[i]), height))
 }

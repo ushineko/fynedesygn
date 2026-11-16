@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.119
+**Version**: 0.1.120
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -280,6 +280,14 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.120 (2026-11-15)
+
+- **Added**: a drawer as wide as what it shows (`Drawer.SetWidthInEms`,
+  `WidthInEms`, `Panel.Room`, `RoomHere`; spec 082, #244). The program sets
+  the width when the drawer opens or is given a new subject; drawers of
+  different widths stand side by side, and Fill widens each by the same
+  number of pixels. A drawer whose width is never set is the 32 ems it was.
 
 ### 0.1.119 (2026-11-14)
 

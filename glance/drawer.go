@@ -55,6 +55,8 @@ type Drawer struct {
 
 	panel *Panel
 	open  bool
+	// ems is the drawer's own width in text sizes (SetWidthInEms).
+	ems float32
 
 	// yield gives the keyboard back where the window cannot. See SetYield.
 	yield func()
@@ -92,7 +94,7 @@ type Drawer struct {
 }
 
 func newDrawer(p *Panel) *Drawer {
-	d := &Drawer{panel: p, title: canvas.NewText("", nil)}
+	d := &Drawer{panel: p, ems: DrawerWidthInEms, title: canvas.NewText("", nil)}
 	d.title.TextStyle = fyne.TextStyle{Bold: true}
 	d.title.Color = d.colour(theme.ColorNamePlaceHolder)
 	d.title.TextSize = d.textSize()
@@ -217,7 +219,40 @@ func (d *Drawer) scrollKey(e *fyne.KeyEvent) bool {
 }
 
 // width is the drawer's own width.
-func (d *Drawer) width() float32 { return d.textSize() * DrawerWidthInEms }
+func (d *Drawer) width() float32 { return d.textSize() * d.ems }
+
+/*
+SetWidthInEms sets the drawer's own width in text sizes (spec 082). A new
+drawer is DrawerWidthInEms; less than CardWidthInEms is taken as that.
+
+**The width is the program's, decided when the drawer is drawn**: when it
+opens, or when the person gives it a new subject. Nothing the drawer is given
+changes it, and a reading must not: a drawer resized by what it shows is the
+reflow the glance rule forbids.
+
+Set on a closed drawer, it is the width the drawer opens at. Set on an open
+one, it is a change of shape: the window is resized once, here, and a filled
+row goes back to its own widths.
+*/
+func (d *Drawer) SetWidthInEms(ems float32) {
+	ems = max(ems, CardWidthInEms)
+	if d.ems == ems {
+		return
+	}
+	if !d.open {
+		d.ems = ems
+		return
+	}
+	p := d.panel
+	before := p.drawersExtra()
+	p.endFill()
+	d.ems = ems
+	p.reshape(before)
+	p.placeFill()
+}
+
+// WidthInEms is the drawer's own width in text sizes.
+func (d *Drawer) WidthInEms() float32 { return d.ems }
 
 // need is what the drawer adds to the window when it is open: its width and
 // the gap between it and the cards. extra is what it adds now.
@@ -225,14 +260,17 @@ func (d *Drawer) need() float32 { return d.width() + d.panel.gap() }
 
 // Reach is how much wider the window is with the drawer out than without:
 // the drawer's width and the gap between it and the cards. It is the same
-// whether the drawer is open or not, and changes with the text size.
+// whether the drawer is open or not, and changes with the text size and
+// SetWidthInEms.
 func (d *Drawer) Reach() float32 { return d.need() }
 
-// shown is the drawer's width as drawn: its own, or its share of a filled
-// row (spec 080).
+// shown is the drawer's width as drawn: its own, or its pixels in a filled
+// row (spec 080, 082).
 func (d *Drawer) shown() float32 {
 	if p := d.panel; p.filled && d.open {
-		return p.fill.unit(p.fill.each)
+		if i := p.place(d); i >= 0 && i < len(p.fill.widths) {
+			return p.fill.unit(p.fill.widths[i])
+		}
 	}
 	return d.width()
 }
@@ -758,12 +796,15 @@ func (l *drawerLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 			origin.X = shift + f.unit(f.window-f.cards)
 		}
 	}
-	// The row: the first opened next to the cards, each later one a drawer
-	// and a gap further out.
+	// The row: the first opened next to the cards, each later one the reach
+	// of the one before it further out.
 	gap := p.gap()
+	out := float32(0)
 	for i, d := range p.row {
 		dw := d.width()
-		out := float32(i) * d.need()
+		if i > 0 {
+			out += p.row[i-1].need()
+		}
 		if p.filled {
 			p.placeFilled(d, i, shift, size.Height)
 			continue
@@ -831,11 +872,51 @@ func (p *Panel) Fits(left, right float32) bool {
 	if len(p.row) == 0 {
 		return true
 	}
+	return p.Room(left, right) >= DrawerWidthInEms
+}
+
+/*
+Room is the widest drawer, in text sizes, that fits beside the window now,
+given the room between the window and each edge of its screen's work area as
+Fits takes it (spec 082): the room on the drawers' side less a gap, or with
+none open the larger side's. Zero or less is no room.
+
+A program that sets drawers' widths asks it before opening one and opens it
+at most this wide; Fits is whether a drawer of DrawerWidthInEms fits.
+*/
+func (p *Panel) Room(left, right float32) float32 {
 	room := right
-	if p.side == Left {
+	switch {
+	case len(p.row) == 0:
+		room = max(left, right)
+	case p.side == Left:
 		room = left
 	}
-	return room >= p.drawer.need()
+	return (room - p.gap()) / p.textSize()
+}
+
+// RoomHere is Room with the room read by the window itself, where it can
+// (Windows). Where it cannot, known is false: ask the compositor and call
+// Room.
+func (p *Panel) RoomHere() (ems float32, known bool) {
+	if p.win == nil {
+		return 0, false
+	}
+	left, right, ok := roomBeside(p.win)
+	if !ok {
+		return 0, false
+	}
+	return p.Room(left, right), true
+}
+
+// place is the drawer's index in the row, or -1 when it is not out.
+func (p *Panel) place(d *Drawer) int {
+	for i, o := range p.row {
+		if o == d {
+			return i
+		}
+	}
+	return -1
 }
 
 // FitsHere is Fits with the room read by the window itself, where it can

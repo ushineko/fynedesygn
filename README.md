@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.120
+**Version**: 0.1.121
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -280,6 +280,13 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### 0.1.121 (2026-11-15)
+
+- **Added**: `glance.HeatStrip`, a row of cells each coloured by how full it
+  is, for many proportions of one kind on one line: a processor's cores
+  (spec 083, #246). A NaN keeps its cell empty in place, and the strip's
+  size never changes with its values.
 
 ### 0.1.120 (2026-11-15)
 

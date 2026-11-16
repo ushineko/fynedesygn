@@ -749,6 +749,23 @@ limit.
   a trailing value that changes width does not merely move itself, it drags
   the caption opposite it.
 
+## Heat strips
+
+A **heat strip** is many proportions of one kind on one line: a processor's
+cores, each one's load (spec 083). `glance.HeatStrip` draws a label and a
+cell per value, each coloured from the empty track to the primary by how
+full it is.
+
+- **Use it when the question is which of many, not how much of each.** A
+  meter per core is a line per core; the strip is one line, read at a
+  glance. The figures, where they matter, go elsewhere: a meter for the
+  whole.
+- **A value that is not there is NaN, and keeps its cell.** An offline core
+  is an outlined gap in its place; the cells after it do not move.
+- **Its size never changes.** The height is `HeatCellHeight` for any number
+  of cells, and it asks for no width beyond its label: the cells share what
+  the panel gives them.
+
 ## Cells
 
 A **cell** is a reading drawn as a block rather than as a line: the name

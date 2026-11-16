@@ -796,8 +796,8 @@ func (l *drawerLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 			origin.X = shift + f.unit(f.window-f.cards)
 		}
 	}
-	// The row: the first opened next to the cards, each later one a drawer
-	// and a gap further out.
+	// The row: the first opened next to the cards, each later one the reach
+	// of the one before it further out.
 	gap := p.gap()
 	out := float32(0)
 	for i, d := range p.row {
@@ -872,11 +872,7 @@ func (p *Panel) Fits(left, right float32) bool {
 	if len(p.row) == 0 {
 		return true
 	}
-	room := right
-	if p.side == Left {
-		room = left
-	}
-	return room >= p.textSize()*DrawerWidthInEms+p.gap()
+	return p.Room(left, right) >= DrawerWidthInEms
 }
 
 /*

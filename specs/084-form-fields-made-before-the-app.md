@@ -61,14 +61,29 @@ test caught it.
 Through fynstall (ushineko/fynstall#52): `examples/greet`, whose config has
 parameters on the Settings page, built against this release.
 
-1. `WAYLAND_DISPLAY=wayland-none DISPLAY= ./greet-0.1.0-linux-amd64-installer --gui`
-   stops with a message that there is no display, not a panic (R1).
+1. With neither `DISPLAY` nor `WAYLAND_DISPLAY` set,
+   `./greet-0.1.0-linux-amd64-installer --gui` stops with a message that
+   there is no display, not a panic (R1).
 2. On a desktop, the wizard opens and the Settings page shows its fields,
    with their placeholders (R1).
 
 ### Prod visibility
 
 Not applicable: a library.
+
+### E2E results (2026-11-18)
+
+Through fynstall (ushineko/fynstall#74), `examples/greet` built against
+0.1.122:
+
+- Step 1: "--gui needs a display, and neither DISPLAY nor WAYLAND_DISPLAY
+  is set". With 0.1.95 the same installer panicked in `forms.Entry` first.
+  The plan first named `WAYLAND_DISPLAY=wayland-none`, a display that does
+  not exist: that stops in GLFW for an installer with no parameters too,
+  so it is not a test of this change.
+- Step 2, in part: on Plasma 6 Wayland the wizard opened and stayed up for
+  8 seconds until it was stopped. The Settings page was not clicked
+  through to, so its placeholders were not seen in a real window.
 
 ## Verification
 

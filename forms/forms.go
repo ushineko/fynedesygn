@@ -60,7 +60,9 @@ func (f *Field) changed(v string) {
 // Entry is a single-line text field.
 func Entry(key, label, placeholder string) *Field {
 	e := widget.NewEntry()
-	e.SetPlaceHolder(placeholder)
+	// The field, not SetPlaceHolder, which measures the text: a wizard page's
+	// form is made before there is an app to measure with (spec 084).
+	e.PlaceHolder = placeholder
 	f := &Field{Key: key, Label: label, Widget: e, Get: func() string { return e.Text }}
 	f.Set = e.SetText
 	e.OnChanged = f.changed

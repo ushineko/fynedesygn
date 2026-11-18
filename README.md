@@ -281,6 +281,14 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Fix**: `forms.Entry` can be made before there is an app (spec 084,
+  [#248](https://github.com/ushineko/fynedesygn/issues/248)). It set its
+  placeholder with `SetPlaceHolder`, which measures the text, so a
+  `wizard.Form` page with an entry crashed before its window. A test makes
+  every `forms` field and every `wizard` page with no app.
+
 ### 0.1.121 (2026-11-15)
 
 - **Added**: `glance.HeatStrip`, a row of cells each coloured by how full it

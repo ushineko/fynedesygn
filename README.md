@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ushineko/fynedesygn.svg)](https://pkg.go.dev/github.com/ushineko/fynedesygn)
 
-**Version**: 0.1.121
+**Version**: 0.1.122
 
 A design system and wrapper library for building desktop user interfaces with
 [Fyne](https://fyne.io) in Go. It is the maintained home of the Fyne design
@@ -281,7 +281,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
-### Unreleased
+### 0.1.122 (2026-11-18)
 
 - **Fix**: `forms.Entry` can be made before there is an app (spec 084,
   [#248](https://github.com/ushineko/fynedesygn/issues/248)). It set its

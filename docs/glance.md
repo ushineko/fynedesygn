@@ -765,6 +765,13 @@ full it is.
 - **Its size never changes.** The height is `HeatCellHeight` for any number
   of cells, and it asks for no width beyond its label: the cells share what
   the panel gives them.
+- **Cells can be choices** (spec 085). A strip of days a person opens one of
+  -- a fortnight's activity, each day's page behind its cell -- gives each
+  cell its word underneath (`SetCellLabels`: a day's initial), marks the one
+  open (`SetSelected`), and hands the drawer its strips
+  (`Drawer.SetCellTapped`), as rows are handed over with `SetRowTapped`. A
+  click on a cell is the cell's and reaches nothing else. The labels add one
+  line, whatever they say, and marking a cell changes no size.
 
 ## Cells
 

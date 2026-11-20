@@ -281,6 +281,15 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Added**: a heat strip's cells can be choices (spec 085,
+  [#252](https://github.com/ushineko/fynedesygn/issues/252)).
+  `HeatStrip.SetCellLabels` draws a word under each cell, `SetSelected` marks
+  one, `CellAt` finds the cell under a position, and
+  `Drawer.SetCellTapped` says which cell of which strip was clicked. For
+  hayami's two weeks of repository activity, a day per cell.
+
 ### 0.1.122 (2026-11-18)
 
 - **Fix**: `forms.Entry` can be made before there is an app (spec 084,

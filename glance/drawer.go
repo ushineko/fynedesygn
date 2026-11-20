@@ -68,6 +68,8 @@ type Drawer struct {
 	sw      *Switch
 	onRow   func(*Row)
 	taprows []*Row
+	onCell  func(*HeatStrip, int)
+	strips  []*HeatStrip
 
 	// button is the drawer's own control, at the right of its heading, and
 	// hovered is the row a pointer is over while highlighting is on.
@@ -646,6 +648,14 @@ func (d *Drawer) tapped(at fyne.Position, shift bool) bool {
 	if d.sw != nil {
 		d.sw.tappedAt(at, shift)
 	}
+	if d.onCell != nil {
+		for _, h := range d.strips {
+			if i := h.CellAt(at); i >= 0 {
+				d.onCell(h, i)
+				return true
+			}
+		}
+	}
 	if d.onRow != nil {
 		for _, r := range d.taprows {
 			if rowAt(r, at) {
@@ -671,6 +681,19 @@ read again.
 */
 func (d *Drawer) SetRowTapped(on func(*Row), rows ...*Row) {
 	d.onRow, d.taprows = on, rows
+}
+
+/*
+SetCellTapped makes the cells of heat strips clickable and says which was
+clicked (spec 085): the strip and the cell's index. A strip of days a person
+opens one of is a list of choices drawn as colour.
+
+strips are pieces SetContent was given. A click on a cell is the cell's and
+reaches nothing else; a click anywhere else in the drawer is what it was.
+Passing no strips, or a nil function, makes the cells a thing to read again.
+*/
+func (d *Drawer) SetCellTapped(on func(*HeatStrip, int), strips ...*HeatStrip) {
+	d.onCell, d.strips = on, strips
 }
 
 // rowAt reports whether a canvas position is within a row.

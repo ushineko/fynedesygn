@@ -2,7 +2,7 @@
 
 **Issue**: [#252](https://github.com/ushineko/fynedesygn/issues/252)
 
-## Status: INCOMPLETE
+## Status: COMPLETE
 
 ## Executive Summary
 
@@ -94,3 +94,15 @@ height throughout. Covers AC1–AC5 on a real window.
 ### Prod visibility
 
 Not applicable: a library.
+
+### E2E results (2026-11-19)
+
+Through hayami's Development drawer (hayami spec 102), built against this
+branch, on Plasma 6 Wayland at 1.5, from a throwaway copy of the desk's
+settings:
+
+- Two strips of fourteen days, each a day's initial under its cell, inside
+  a drawer 581 px wide; an empty day an outlined cell in its place.
+- A real click (ydotool) on a GitHub day opened that day's page; the cell was
+  outlined and its initial bold, and the strip kept its height.
+- A click on a row (the forge's heading) still reached the row, not a cell.

@@ -594,6 +594,13 @@ with nothing in it.
 - **In `Lines` a card that is only its heading keeps it.** `Lines` leaves
   headings out because rows carry the readings; here the heading is the
   reading, and leaving it out would leave an empty line.
+- **`Card.SetTitleSize(name)` draws the heading at a theme size of its own**
+  (spec 088): `theme.SizeNameSubHeadingText` for a heading that is read
+  from across the room, a clock. The margins and rows keep the ordinary size.
+- **A title end stops short of the tuck glyph.** The glyph stands over the
+  top card's right end; a card with a title end keeps room after it, in
+  every place in the stack, so the date neither hides under the glyph nor
+  moves when its card is moved.
 
 ### A card that has more to say than it can draw
 

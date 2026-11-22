@@ -78,7 +78,7 @@ func buildGlance(sh *shell.Shell) fyne.CanvasObject {
 		demo("Card + Sparkline", plotCard().Object()),
 		demo("Card, InsertRow over a plot", insertedCard().Object()),
 		demo("Card + Scroller over a plot: three of five rows, the wheel scrolls", scrollerCard().Object()),
-		demo("Card, SetTitle + SetTitleEnd: a heading that is the reading", clockCard().Object()),
+		demo("Card, SetTitle + SetTitleEnd + SetTitleSize: a heading that is the reading", clockCard().Object()),
 		demo("Sparkline, ScaleShared, SeriesColour + Faded", sharedPlot(90)),
 		demo("Sparkline, SetDrift + SetSamples: live, a sample every 2 s", driftingPlot(sh != nil && sh.OnScreen())),
 
@@ -512,13 +512,14 @@ func setRow(label string, r glance.Reading) *glance.Row {
 	return row
 }
 
-// clockCard is a card whose heading is a clock (spec 086): the time at the
+// clockCard is a card whose heading is a clock (specs 086, 088): the time at the
 // left and the date at the right, each after its icon, and nothing under
 // them.
 func clockCard() *glance.Card {
 	c := glance.NewCard("14:32:07")
 	c.SetIcon(fynetheme.HistoryIcon())
 	c.SetTitleEnd("Sat 2026/11/21", fynetheme.CalendarIcon())
+	c.SetTitleSize(fynetheme.SizeNameSubHeadingText)
 	c.SetAvailable(true)
 	return c
 }

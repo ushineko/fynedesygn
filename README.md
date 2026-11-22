@@ -281,6 +281,16 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Added**: a card's heading can be drawn at a theme size of its own, and a
+  title end stops short of the tuck glyph (spec 088,
+  [#263](https://github.com/ushineko/fynedesygn/issues/263)).
+  `Card.SetTitleSize(theme.SizeNameSubHeadingText)` draws both titles and
+  their icons larger, the rows and margins unchanged; a card with a title
+  end keeps room after it so the date is not drawn under the glyph. For
+  hayami's clock.
+
 ### 0.1.125 (2026-11-21)
 
 - **Added**: a row's label can be bold and indented (spec 087,

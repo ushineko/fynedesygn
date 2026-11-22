@@ -45,6 +45,7 @@ type extras struct {
 func (e *extras) buildClock() *glance.Card {
 	e.clock = glance.NewCard("")
 	e.clock.SetIcon(titleGrey(fynetheme.HistoryIcon()))
+	e.clock.SetTitleSize(fynetheme.SizeNameSubHeadingText)
 	return e.clock
 }
 

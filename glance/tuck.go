@@ -291,8 +291,12 @@ func (p *Panel) windowSize() fyne.Size {
 	return p.Size()
 }
 
+// glyphEms is the side of the tuck glyph in text sizes. A card's title end
+// keeps clear of it (Card.sizeClear).
+const glyphEms float32 = 1.25
+
 // glyphSize is the side of the tuck glyph.
-func (p *Panel) glyphSize() float32 { return p.textSize() * 1.25 }
+func (p *Panel) glyphSize() float32 { return p.textSize() * glyphEms }
 
 // restyleTuck paints the square and the glyph in the current theme.
 func (p *Panel) restyleTuck() {

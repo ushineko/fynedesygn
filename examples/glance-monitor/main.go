@@ -70,6 +70,9 @@ func main() {
 	cornerHeld := flag.Bool("corner-held", false,
 		"say the compositor holds the window's bottom corner (kwin.HoldCornerScript is loaded), "+
 			"which tucking needs where a window cannot move itself")
+	clock := flag.Bool("clock", false, "put a clock with no title at the top (spec 086)")
+	tunnels := flag.Bool("tunnels", false,
+		"put five tunnels under Bandwidth, scrolled three at a time over a plot (spec 086)")
 	flag.Parse()
 
 	if *show || *install || *remove {
@@ -85,6 +88,7 @@ func main() {
 
 	m := newMonitor()
 	m.translucent = *translucent
+	m.withClock, m.withTunnels = *clock, *tunnels
 	w := m.build(a)
 	w.Panel().Drawer().SetEdgeHeld(*edgeHeld)
 	w.Panel().SetCornerHeld(*cornerHeld)
@@ -186,6 +190,11 @@ type monitor struct {
 
 	ticks int
 
+	// withClock and withTunnels are the -clock and -tunnels flags, and
+	// extras what they added; see extras.go.
+	withClock, withTunnels bool
+	extras                 extras
+
 	// drawer is what the first drawer beside the cards shows, and drawers
 	// every drawer made, the first first; see drawer.go. thermalLast is the
 	// thermal card's subject chosen last, which its drawer opens on.
@@ -242,6 +251,12 @@ func (m *monitor) build(a fyne.App) *glance.Window {
 	m.spend = glance.NewMeter("month", meterLabel)
 	m.usage.Add(m.session, m.spend)
 
+	if m.withTunnels {
+		m.extras.buildTunnels(m.bandwidth)
+	}
+	if m.withClock {
+		m.win.Panel().Add(m.extras.buildClock())
+	}
 	m.win.Panel().Add(m.battery, m.bandwidth, m.thermal, m.usage)
 	m.buildDrawer()
 	return m.win
@@ -375,6 +390,7 @@ func (m *monitor) render(s sample) {
 	// The drawer's list is a reading like the cards' and is drawn with them.
 	// After them, because how many of its rows fit follows the cards' height.
 	defer m.renderDrawer()
+	m.extras.render(time.Now(), float64(m.ticks))
 	m.bandwidth.SetAvailable(true)
 	m.down.Set(glance.Measured(glance.Rate(s.down)))
 	m.up.Set(glance.Measured(glance.Rate(s.up)))

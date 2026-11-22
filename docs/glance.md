@@ -2,7 +2,7 @@
 
 A glance window is a small panel on the desktop. It has no frame, it stays
 above other windows, and a person reads it without touching it. It has no
-header, no navigation, no status bar and no scroller. The window is its
+header, no navigation, no status bar and no window scroller. The window is its
 content: a stack of cards. Each card is one measurement that is worth a look,
 or the card is absent.
 
@@ -67,7 +67,7 @@ decorates it anyway.
 | design-system.md says | A glance window says | Why |
 |---|---|---|
 | Default window 1180 x 760, `SetMaster()` | The window is whatever its content measures, and never larger | There is no content to page through. A glance window that needed sizing would be an application window |
-| One scroll per section; the shell owns a scroller | **No scroller anywhere.** Content that does not fit is content that should have been hidden | A scrollbar is an instruction to interact. Nobody scrolls a widget they are reading past |
+| One scroll per section; the shell owns a scroller | **No window scroller.** The window is the height of its cards. A run of rows in a card (`Scroller`) or a drawer's content may scroll inside a height that does not change | The window is what is read at a glance and never pages. A list that grows with what is read is held to a height, so it does not push the cards under it. The rest is a turn of the wheel away |
 | Header carries the app name and a few actions | No header, no app name, no buttons | The name is knowledge the reader already has. Chrome is the majority of a 260 px window |
 | Nav is a list of section titles | No nav. Every card is visible at once | Four cards do not need an index |
 | Nothing transient may reflow the interface | Still binding, and harder: the window itself resizes, so a card appearing moves the whole panel | See [Sizing](#sizing) |
@@ -545,6 +545,55 @@ gallery, is told directly with `Card.SetArrangement`.
 
 The heading carries `GoneMarker`, so in `Lines` a stale card says it by its
 dimmed rows alone.
+
+### A run of rows held to a height
+
+`glance.NewScroller(n)` is a run of rows that is never taller than `n` of them
+(spec 086). It is for a list whose length follows what is read and whose
+order does not: the VPNs that are up, under a card's interfaces. A card that
+grew a line for each would push every card under it down whenever one came
+up.
+
+- **Its height is the rows it shows**: `n` rows when it holds more, all of
+  them when it holds fewer. A row added past `n` changes nothing outside it,
+  so it needs no `Resize`; one added while it holds fewer than `n` is a change
+  of shape like any other row.
+- **Add it with `Card.Add`**, between what is above and what is below. A plot
+  added after it stays under it and does not scroll. Its rows are added with
+  its own `AddRow`, `InsertRow`, `RemoveRow` and `RowByID`, which work as the
+  card's do.
+- **The wheel moves it by whole rows** while the pointer is over it. A notch
+  is a row; a touchpad's travel makes a row a quarter of a row's height at a
+  time. The bar is the drawer's: in the card's right margin, no width of its
+  own, not dragged.
+- **A reading set in place does not move it.** A row added or taken away
+  leaves the row at the top where it is while that row is still there.
+- **A click lands on the row under the pointer** (`Tap.Row`), and a row
+  scrolled out of sight is never the one clicked.
+- **In `Lines` its rows are lines**, still held to `n`.
+- **Not for a list sorted by a reading**: its order moves under the eye. Cut
+  that to the height and filter it, as a drawer does (`Drawer.Fit`).
+
+![Two glance cards captured from examples/glance-monitor run with -clock and -tunnels. Above, a card whose heading is a clock, in the bold grey of a title: a clock-face icon and "18:25:04" at the left, where the other cards start their titles, and a calendar icon and "Sat 2026/11/21" at the right, where their figures end. Below, the Bandwidth card twice, before and after two turns of the wheel. Each has its title, "eno2 down" and "eno2 up", then three tunnel rows and a green plot at the bottom. On the left the three rows are wg0, wg1 and wg2, with a short scroll bar in the right margin at the top of its track; on the right, after scrolling, they are wg2, wg3 and wg4, the bar is at the bottom of its track, and the card, the interface rows and the plot have not moved.](img/glance-scroller.png)
+
+### A heading that is the reading
+
+A card whose reading is a line on its own -- a clock -- draws it as its
+heading, with no rows under it (spec 086). The heading is where the eye
+starts a card, and a line of figures under an empty one would be a title
+with nothing in it.
+
+- **`Card.SetTitle(text)` changes the title**, for a title that ticks.
+- **`Card.SetTitleEnd(text, icon)` puts a second title at the heading's
+  right end**, with an icon before it, in the title's face: the date across
+  from the time. The icon is drawn as given, as `SetIcon`'s is.
+- **Both are held at the widest they have been.** The title's face is not
+  monospace, so `18:01:18` and `11:11:11` are different widths; held, a
+  narrower one leaves the card's width alone. A change of face measures them
+  again.
+- **In `Lines` a card that is only its heading keeps it.** `Lines` leaves
+  headings out because rows carry the readings; here the heading is the
+  reading, and leaving it out would leave an empty line.
 
 ### A card that has more to say than it can draw
 
@@ -1081,14 +1130,18 @@ processes by processor, by graphics card and by memory.
 ### Content that scrolls
 
 `Drawer.SetScrolling(true)` lets the content scroll when it is higher than
-the cards (spec 069). Use it for a breakdown that a person reads as a whole:
-the quotas of each account.
+the cards (spec 069). Use it for a breakdown that a person reads as a whole,
+the quotas of each account, and for a list in an order that does not follow
+its readings: a host's peers, by name.
 
 - **The drawer still has the height of the cards.** Content that fits looks
   the same with scrolling on and off.
-- **Do not scroll a list of live readings.** The order of the list changes
-  under the eye. Cut the list to the height with `Drawer.Fit`, and give it a
-  `Filter`.
+- **Scroll a list whose order stands still; cut one sorted by a reading.**
+  A list in an order the person chose, or by name, does not move when its
+  readings do, and scrolling it is reading further down. A list sorted by a
+  reading reorders under the eye: cut it to the height with `Drawer.Fit` and
+  give it a `Filter`. (Spec 086 replaced "do not scroll a list of live
+  readings", which consumers had already outgrown.)
 - **The wheel scrolls the content** while the pointer is on the drawer. The
   keys Up, Down, Page Up, Page Down, Home and End scroll it while the drawer
   is open and no filter is being typed.

@@ -659,3 +659,23 @@ func TestAPanelWithNoWindowHasADrawerThatMeasures(t *testing.T) {
 	assert.Greater(t, p.Size().Width, closed.Width)
 	assert.Equal(t, closed.Height, p.Size().Height)
 }
+
+// Available is the room the content is laid out in, with buttons in the
+// heading as without: a heading with a button is taller than its title, and
+// measuring the title alone made Fit's lists a few pixels too long, enough
+// to scroll a drawer that was meant to fit (found on hayami's Development
+// drawer, beside the Fill button).
+func TestAvailableIsTheRoomUnderAHeadingWithButtons(t *testing.T) {
+	w, _, _ := drawerWindow(t, glance.Options{Title: "drawer"})
+	d := w.Panel().Drawer()
+	d.SetTitle("Development")
+	d.SetContent(glance.NewRow("a row", glance.NoRate()))
+	d.SetOpen(true)
+	w.Panel().Resize()
+	assert.InDelta(t, d.Room().Height, d.Available().Height, 0.5, "without buttons")
+
+	d.SetButtons(glance.DrawerSpec{Label: "Kill", Words: []string{"Kill"}, On: func() {}})
+	w.Panel().Resize()
+	w.Window().Content().Refresh()
+	assert.InDelta(t, d.Room().Height, d.Available().Height, 0.5, "with a button in the heading")
+}

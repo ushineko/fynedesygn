@@ -326,7 +326,9 @@ func (d *Drawer) SetContent(pieces ...Piece) {
 // the height the cards have now.
 func (d *Drawer) Available() fyne.Size {
 	s := d.panel.cardsSize()
-	height := s.Height - d.padTop() - d.padBottom() - d.title.MinSize().Height - d.size(theme.SizeNamePadding)
+	// The heading's height, not its title's: a button in the heading is
+	// taller than the title, and the content is laid out under it.
+	height := s.Height - d.padTop() - d.padBottom() - d.titled.MinSize().Height - d.size(theme.SizeNamePadding)
 	return fyne.NewSize(d.shown()-2*d.padH(), max(0, height))
 }
 

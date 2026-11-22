@@ -288,6 +288,9 @@ MIT. See [LICENSE](LICENSE).
   `Row.SetLabelBold` draws it bold where the theme has the face, and
   `Row.SetIndent` sets it in by steps of `IndentStep` text sizes with the
   value still against the right edge. For hayami's Development drawer.
+- **Fixed**: `Drawer.Available`, and so `Drawer.Fit`, measured the heading
+  by its title and not by its buttons, which are taller; a list fitted beside
+  a Fill or Kill button was a few pixels too long and scrolled the drawer.
 
 ### 0.1.124 (2026-11-21)
 

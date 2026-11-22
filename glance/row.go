@@ -34,6 +34,12 @@ type Row struct {
 	// for a row whose label takes its own width.
 	labelBox *fyne.Container
 
+	// indented holds the label, pinned or not, at the row's indent; boldLabel
+	// and indent are what SetLabelBold and SetIndent asked for (spec 087).
+	indented  *fyne.Container
+	boldLabel bool
+	indent    int
+
 	// slot holds the value: the plain text first, then one text per part.
 	// The plain text is always there and always carries the whole value,
 	// because it is what the slot is measured by -- hidden while the parts
@@ -118,10 +124,60 @@ func NewRowWidth(label, blank string, labelWidth float32) *Row {
 	// when highlighting is turned on.
 	r.ground = canvas.NewRectangle(color.Transparent)
 	r.ground.CornerRadius = r.size(theme.SizeNameInputRadius)
+	r.indented = container.New(r.indentLayout(), head)
 	r.box = container.NewStack(r.ground,
-		container.NewHBox(head, layout.NewSpacer(), r.slot))
+		container.NewHBox(r.indented, layout.NewSpacer(), r.slot))
 	r.reading = Measured(blank)
 	return r
+}
+
+// IndentStep is one level of a row's indent, in text sizes: about two
+// characters of the label's face.
+const IndentStep float32 = 1.0
+
+// indentLayout is the label's margin at the row's indent.
+func (r *Row) indentLayout() fyne.Layout {
+	return layout.NewCustomPaddedLayout(0, 0, float32(r.indent)*IndentStep*r.textSize(), 0)
+}
+
+/*
+SetLabelBold draws the label bold, or not (spec 087): a heading among the
+lines it heads, where the label is a section's name and not a reading's.
+Bold only where the theme has the face (quirk 35), as a bold part is.
+*/
+func (r *Row) SetLabelBold(on bool) {
+	if r.boldLabel == on {
+		return
+	}
+	r.boldLabel = on
+	r.styleLabel()
+	r.refit(r.label)
+	r.box.Refresh()
+}
+
+/*
+SetIndent sets the label in by levels steps of IndentStep (spec 087): a
+line under the line it belongs to -- a repository under its day, a pull
+request under its repository. The value stays at the right edge; zero or
+less is no indent.
+*/
+func (r *Row) SetIndent(levels int) {
+	levels = max(0, levels)
+	if r.indent == levels {
+		return
+	}
+	r.indent = levels
+	r.indented.Layout = r.indentLayout()
+	r.indented.Refresh()
+	r.box.Refresh()
+}
+
+// styleLabel gives the label its weight in this row's theme.
+func (r *Row) styleLabel() {
+	r.label.TextStyle = fyne.TextStyle{}
+	if r.boldLabel {
+		r.label.TextStyle = r.bold(fyne.TextStyle{})
+	}
 }
 
 /*
@@ -287,6 +343,10 @@ func (r *Row) readingColour() color.Color {
 // theme at paint time, so nothing else brings it up to date.
 func (r *Row) Restyle() {
 	r.label.TextSize = r.textSize()
+	// Both follow the face: the bold face is the theme's, and a step is a
+	// text size.
+	r.styleLabel()
+	r.indented.Layout = r.indentLayout()
 	r.value.TextSize = r.textSize()
 	r.label.Color = r.colour(theme.ColorNameForeground)
 	r.value.Color = r.readingColour()

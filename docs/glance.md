@@ -727,6 +727,15 @@ because the upload beside it was 40 MiB/s (hayami spec 031).
 - A new reading with as many parts repaints the texts the row has. Nothing is
   laid out unless a part changed width.
 
+### A heading and the lines under it
+
+A list in a drawer that has levels -- a day, the repositories worked in it,
+the things worked on in each -- is told apart by weight and indent, not by
+more rules (spec 087). `Row.SetLabelBold(true)` draws a heading's label bold,
+where the theme has the face. `Row.SetIndent(n)` sets a label in by `n`
+steps of `IndentStep` text sizes; the value stays against the right edge, so
+figures stay in one column at every level. Both follow the face.
+
 ### A pinned label
 
 `glance.NewRowWidth(label, blank, labelWidth)` is a row whose label column is

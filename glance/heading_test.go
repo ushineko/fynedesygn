@@ -54,9 +54,13 @@ func TestATitleAtTheHeadingsRightEnd(t *testing.T) {
 	x := func(o fyne.CanvasObject) float32 { return drv.AbsolutePositionForObject(o).X }
 
 	title, end := text(t, clock, "18:01:18"), text(t, clock, "Sat 2026/11/21")
+	// Spec 088 R3: it ends short of the figures' end, out from under the
+	// tuck glyph, which TestATitleEndStopsShortOfTheTuckGlyph measures.
 	rowValueEnd := x(other.Rows()[0].Object()) + other.Rows()[0].Object().Size().Width
-	assert.InDelta(t, rowValueEnd, x(end)+end.Size().Width, 0.5,
-		"the date does not end where the other card's figures do")
+	assert.Less(t, x(end)+end.Size().Width, rowValueEnd,
+		"the date runs to the figures' end, under the tuck glyph")
+	assert.Greater(t, x(end)+end.Size().Width, rowValueEnd-3*fynetheme.TextSize(),
+		"the date is not at the right end")
 
 	var icons []*canvas.Image
 	for _, o := range test.LaidOutObjects(clock.Object()) {
@@ -128,4 +132,50 @@ func visibleInTree(root fyne.CanvasObject, o fyne.CanvasObject) bool {
 	}
 	_, v := walk(root)
 	return v
+}
+
+// Spec 088 R3. The heading's other end stops short of the tuck glyph, by a
+// quarter of a text size, so a date is not drawn under it.
+func TestATitleEndStopsShortOfTheTuckGlyph(t *testing.T) {
+	w, clock, _ := clockWindow(t)
+	p := w.Panel()
+	p.SetCornerHeld(true)
+	p.SetTuckable(true, func() {})
+	test.MoveMouse(w.Window().Canvas(), fyne.NewPos(10, 10))
+	require.True(t, p.TuckGlyph().Visible(), "the glyph is not shown over the cards")
+
+	drv := fyne.CurrentApp().Driver()
+	end := text(t, clock, "Sat 2026/11/21")
+	endRight := drv.AbsolutePositionForObject(end).X + end.Size().Width
+	glyphLeft := drv.AbsolutePositionForObject(p.TuckGlyph()).X
+	assert.LessOrEqual(t, endRight+fynetheme.TextSize()/4, glyphLeft+0.5,
+		"the date reaches under the tuck glyph")
+	assert.Greater(t, endRight+fynetheme.TextSize(), glyphLeft,
+		"the date stops further from the glyph than it needs to")
+}
+
+// Spec 088 R1, R2. A heading drawn at the sub-heading size draws its two
+// titles and both icons at that size, and leaves the rows and margins at the
+// ordinary one.
+func TestAHeadingDrawnLarger(t *testing.T) {
+	_, clock, other := clockWindow(t)
+	before := clock.Object().MinSize().Height
+	clock.SetTitleSize(fynetheme.SizeNameSubHeadingText)
+
+	sub := fyne.CurrentApp().Settings().Theme().Size(fynetheme.SizeNameSubHeadingText)
+	require.Greater(t, sub, fynetheme.TextSize())
+	assert.InDelta(t, sub, text(t, clock, "18:01:18").TextSize, 0.01, "the time is not larger")
+	assert.InDelta(t, sub, text(t, clock, "Sat 2026/11/21").TextSize, 0.01, "the date is not larger")
+	for _, o := range test.LaidOutObjects(clock.Object()) {
+		if img, ok := o.(*canvas.Image); ok && img.Visible() {
+			assert.InDelta(t, sub*glance.IconScale, img.Size().Width, 0.5, "an icon is not larger")
+		}
+	}
+	assert.Greater(t, clock.Object().MinSize().Height, before, "the card did not grow with its heading")
+	assert.InDelta(t, fynetheme.TextSize(), text(t, other, "Peripherals").TextSize, 0.01,
+		"another card's title changed")
+
+	clock.SetTitleSize(fynetheme.SizeNameText)
+	assert.InDelta(t, fynetheme.TextSize(), text(t, clock, "18:01:18").TextSize, 0.01)
+	assert.InDelta(t, before, clock.Object().MinSize().Height, 0.5, "the card did not shrink back")
 }

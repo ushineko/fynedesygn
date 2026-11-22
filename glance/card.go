@@ -3,6 +3,7 @@ package glance
 import (
 	"errors"
 	"fmt"
+	"image/color"
 	"slices"
 
 	"fyne.io/fyne/v2"
@@ -99,6 +100,14 @@ type Card struct {
 	end     *canvas.Text
 	endIcon *canvas.Image
 
+	// clear is the room after the heading's other end that keeps it out from
+	// under the panel's tuck glyph (spec 088). Shown with the end.
+	clear *canvas.Rectangle
+
+	// titleSize is the theme size the heading is drawn at (SetTitleSize):
+	// the ordinary text size unless the consumer asks for another.
+	titleSize fyne.ThemeSizeName
+
 	// titleWidth and endWidth hold the two titles at the widest they have
 	// been, so a title that changes -- a clock's time -- never narrows the
 	// card and the panel with it.
@@ -146,14 +155,15 @@ type Card struct {
 // flash an empty panel on the way up.
 func NewCard(title string) *Card {
 	c := &Card{
-		title:   canvas.NewText(title, nil),
-		mark:    canvas.NewText(GoneMarker, nil),
-		allowed: true,
+		title:     canvas.NewText(title, nil),
+		mark:      canvas.NewText(GoneMarker, nil),
+		allowed:   true,
+		titleSize: theme.SizeNameText,
 	}
 	c.title.TextStyle = fyne.TextStyle{Bold: true}
 	c.title.Color = c.colour(theme.ColorNamePlaceHolder)
 	c.mark.Color = c.colour(theme.ColorNameDisabled)
-	c.title.TextSize = c.textSize()
+	c.title.TextSize = c.headingSize()
 	c.mark.TextSize = c.textSize()
 	c.mark.Hide()
 
@@ -170,11 +180,14 @@ func NewCard(title string) *Card {
 	c.endIcon = canvas.NewImageFromResource(nil)
 	c.endIcon.FillMode = canvas.ImageFillContain
 	c.endIcon.Hide()
+	c.clear = canvas.NewRectangle(color.Transparent)
+	c.clear.Hide()
+	c.sizeClear()
 	c.sizeIcon()
 
 	c.titleWidth, c.endWidth = &widest{}, &widest{}
 	c.header = container.NewHBox(c.icon, container.New(c.titleWidth, c.title), layout.NewSpacer(),
-		c.endIcon, container.New(c.endWidth, c.end), c.mark)
+		c.endIcon, container.New(c.endWidth, c.end), c.clear, c.mark)
 	c.body = container.NewVBox()
 
 	// A card is a surface of its own, not a run of rows. Fyne cannot draw a
@@ -244,6 +257,7 @@ func (c *Card) SetTitleEnd(text string, icon fyne.Resource) {
 	c.end.Hidden = text == ""
 	c.endIcon.Resource = icon
 	c.endIcon.Hidden = icon == nil
+	c.clear.Hidden = text == "" && icon == nil
 	c.refit(c.end)
 	c.endIcon.Refresh()
 	c.header.Refresh()
@@ -251,6 +265,39 @@ func (c *Card) SetTitleEnd(text string, icon fyne.Resource) {
 
 // TitleEnd is the heading's right-hand title, or empty.
 func (c *Card) TitleEnd() string { return c.end.Text }
+
+/*
+SetTitleSize draws the heading -- the title, the title end and their icons --
+at a theme size other than the ordinary text's: theme.SizeNameSubHeadingText
+for a heading that is the reading, a clock's time and date (spec 088). The
+card's margins, rows and gone marker keep the ordinary size, so a larger
+heading makes the card taller by the heading's own growth and nothing else.
+*/
+func (c *Card) SetTitleSize(name fyne.ThemeSizeName) {
+	c.titleSize = name
+	c.Restyle()
+}
+
+// headingSize is the size the heading is drawn at, in this card's face.
+func (c *Card) headingSize() float32 { return c.size(c.titleSize) }
+
+/*
+sizeClear sizes the room after the title end, so the end stops short of the
+panel's tuck glyph (spec 081) by a quarter of a text size. The glyph stands
+half a side margin in from the card's right edge and is glyphEms wide; the
+heading ends a whole side margin in, so the glyph reaches glyphEms less half
+a margin past it. The header's own padding before the room is the rest of
+the gap.
+
+Every card with a title end keeps the room, not only the one under the glyph:
+a date that moved when its card was moved down the stack would be a
+transient reflow of its own.
+*/
+func (c *Card) sizeClear() {
+	ts := c.textSize()
+	w := ts*glyphEms - c.padH()/2 + ts/4 - c.size(theme.SizeNamePadding)
+	c.clear.SetMinSize(fyne.NewSize(max(0, w), 0))
+}
 
 // widest is a layout that is as wide as the widest its object has asked to
 // be since it was last reset, so a text that changes does not narrow what
@@ -541,7 +588,7 @@ func (c *Card) Icon() fyne.Resource { return c.icon.Resource }
 
 // sizeIcon measures the icon against the card's own face.
 func (c *Card) sizeIcon() {
-	edge := c.textSize() * IconScale
+	edge := c.headingSize() * IconScale
 	for _, img := range []*canvas.Image{c.icon, c.endIcon} {
 		if img == nil {
 			continue
@@ -625,11 +672,12 @@ func (c *Card) apply() {
 func (c *Card) Restyle() {
 	// The icon is measured from the text, so a change of face moves it too.
 	c.sizeIcon()
-	c.title.TextSize = c.textSize()
+	c.sizeClear()
+	c.title.TextSize = c.headingSize()
 	c.title.Color = c.colour(theme.ColorNamePlaceHolder)
 	c.mark.TextSize = c.textSize()
 	c.mark.Color = c.colour(theme.ColorNameDisabled)
-	c.end.TextSize = c.textSize()
+	c.end.TextSize = c.headingSize()
 	c.end.Color = c.title.Color
 	// A new face measures the titles again from nothing: the widest they
 	// were was in the old one.

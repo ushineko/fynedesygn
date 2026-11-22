@@ -137,3 +137,6 @@ func (d *Drawer) PressFill() { d.fill.on() }
 
 // Offset is how far a scroller's rows are scrolled, in pixels.
 func (s *Scroller) Offset() float32 { return s.scroll.Offset.Y }
+
+// Room is the size the drawer's content is laid out in, under its heading.
+func (d *Drawer) Room() fyne.Size { return d.holder.Size() }

@@ -281,6 +281,14 @@ MIT. See [LICENSE](LICENSE).
 
 ## Changelog
 
+### Unreleased
+
+- **Added**: a row's label can be bold and indented (spec 087,
+  [#258](https://github.com/ushineko/fynedesygn/issues/258)).
+  `Row.SetLabelBold` draws it bold where the theme has the face, and
+  `Row.SetIndent` sets it in by steps of `IndentStep` text sizes with the
+  value still against the right edge. For hayami's Development drawer.
+
 ### 0.1.124 (2026-11-21)
 
 - **Added**: a run of rows in a card held to a height, and a heading with a

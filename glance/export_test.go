@@ -134,3 +134,6 @@ func (p *Panel) Body() fyne.CanvasObject { return p.body }
 
 // PressFill presses the drawer's Fill button.
 func (d *Drawer) PressFill() { d.fill.on() }
+
+// Offset is how far a scroller's rows are scrolled, in pixels.
+func (s *Scroller) Offset() float32 { return s.scroll.Offset.Y }

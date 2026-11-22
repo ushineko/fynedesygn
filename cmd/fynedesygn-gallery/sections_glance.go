@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"slices"
 	"time"
@@ -76,6 +77,8 @@ func buildGlance(sh *shell.Shell) fyne.CanvasObject {
 		demo("Card, source gone", staleCard().Object()),
 		demo("Card + Sparkline", plotCard().Object()),
 		demo("Card, InsertRow over a plot", insertedCard().Object()),
+		demo("Card + Scroller over a plot: three of five rows, the wheel scrolls", scrollerCard().Object()),
+		demo("Card, SetTitle + SetTitleEnd: a heading that is the reading", clockCard().Object()),
 		demo("Sparkline, ScaleShared, SeriesColour + Faded", sharedPlot(90)),
 		demo("Sparkline, SetDrift + SetSamples: live, a sample every 2 s", driftingPlot(sh != nil && sh.OnScreen())),
 
@@ -122,9 +125,7 @@ func buildGlance(sh *shell.Shell) fyne.CanvasObject {
 
 // glanceRow is one row, drawn at its natural width.
 func glanceRow(label string, r glance.Reading) fyne.CanvasObject {
-	row := glance.NewRow(label, r.Text)
-	row.Set(r)
-	return row.Object()
+	return setRow(label, r).Object()
 }
 
 // glanceValue is one formatter's name and three of its outputs, in the
@@ -481,4 +482,43 @@ func filterDemo() fyne.CanvasObject {
 	plain.SetText("fire(")
 
 	return container.NewVBox(hint.Object(), typed.Object(), kept.Object(), plain.Object())
+}
+
+// scrollerCard is a card whose tunnels are a run held to three rows over a
+// plot (spec 086): five tunnels, three shown, the rest a turn of the wheel
+// away.
+func scrollerCard() *glance.Card {
+	c := glance.NewCard("Network")
+	c.AddRow(setRow("eno2", glance.Measured(glance.Rate(5.1*1024*1024))))
+	s := glance.NewScroller(3)
+	for i, rate := range []float64{2.6 * 1024, 1.7 * 1024 * 1024, 1.8 * 1024 * 1024, 286.4 * 1024, 1.5 * 1024 * 1024} {
+		s.AddRow(setRow(fmt.Sprintf("wg%d", i), glance.Measured(glance.Rate(rate))))
+	}
+	c.Add(s)
+	plot := glance.NewSparkline(30)
+	plot.AddSeries("wg", widgets.StatusColor(fd.StatusGood), 5)
+	for i := range 30 {
+		plot.Add("wg", math.Abs(math.Sin(float64(i)/5)))
+	}
+	c.AddObject(plot)
+	c.SetAvailable(true)
+	return c
+}
+
+// setRow is a row holding a reading.
+func setRow(label string, r glance.Reading) *glance.Row {
+	row := glance.NewRow(label, r.Text)
+	row.Set(r)
+	return row
+}
+
+// clockCard is a card whose heading is a clock (spec 086): the time at the
+// left and the date at the right, each after its icon, and nothing under
+// them.
+func clockCard() *glance.Card {
+	c := glance.NewCard("14:32:07")
+	c.SetIcon(fynetheme.HistoryIcon())
+	c.SetTitleEnd("Sat 2026/11/21", fynetheme.CalendarIcon())
+	c.SetAvailable(true)
+	return c
 }

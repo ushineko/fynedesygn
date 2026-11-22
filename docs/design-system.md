@@ -111,7 +111,8 @@ Border{
   that collects the changes.
 - This skeleton is the application window. A small panel that stays above
   other windows, and that a person reads without touching, is a different
-  shape with its own rules: it has no header, no navigation and no scroller.
+  shape with its own rules: it has no header, no navigation and no window
+  scroller.
   See [glance.md](glance.md). A window that takes a person through pages in
   a fixed order, such as an installer, is the third shape. See
   [wizard.md](wizard.md).

@@ -28,17 +28,23 @@ func TestTheIconComesBeforeTheLabel(t *testing.T) {
 	c.SetIcon(fynetheme.ComputerIcon())
 	require.NotNil(t, c.Icon())
 
+	// Positions on the window's canvas, not in their parents: the title sits
+	// in a holder of its own (spec 086), the icon does not.
 	var iconX, titleX float32 = -1, -1
-	c.Object().Resize(fyne.NewSize(400, 200))
+	c.SetAvailable(true)
+	w := test.NewWindow(c.Object())
+	t.Cleanup(w.Close)
+	w.Resize(fyne.NewSize(400, 200))
+	drv := fyne.CurrentApp().Driver()
 	for _, o := range test.LaidOutObjects(c.Object()) {
 		switch v := o.(type) {
 		case *canvas.Image:
 			if v.Visible() {
-				iconX = v.Position().X
+				iconX = drv.AbsolutePositionForObject(v).X
 			}
 		case *canvas.Text:
 			if v.Text == "Peripherals" {
-				titleX = v.Position().X
+				titleX = drv.AbsolutePositionForObject(v).X
 			}
 		}
 	}

@@ -85,6 +85,12 @@ func (p *Panel) tapped(at fyne.Position) {
 				break
 			}
 		}
+		for _, s := range c.scrollers {
+			if tap.Row != nil {
+				break
+			}
+			tap.Row = s.rowAt(at)
+		}
 		for _, m := range c.meters {
 			if tap.Row == nil && inside(m.Object()) {
 				tap.Meter = m

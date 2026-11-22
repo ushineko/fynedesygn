@@ -104,7 +104,7 @@ Each example is a complete program with a headless test, in `examples/`, on
 | `transfer` | A job that measures, run through `PerformCancellable`, giving the busy popup a real value with `BusyProgress`: the bar fills with the bytes copied. |
 | `job-runner` | A `steps.List` beside a `logpane.Pane`, a job run through `PerformCancellable` that advances steps and logs, and one banner for the result. |
 | `document-viewer` | `markdown.Section` over an embedded guide with a mermaid diagram rendered by `go generate`. |
-| `glance-monitor` | Not a shell program: a `glance` panel of four cards — peripherals, bandwidth, a two-trace sparkline over thermals, and two quota meters — with a context menu for its settings, a drawer of processes that a click on a card opens and `f` filters, with a switch between the thermal card's two lists and a scrolling drawer of quotas on the usage card, and the KDE window rule offered behind `-kwin`. |
+| `glance-monitor` | Not a shell program: a `glance` panel of four cards — peripherals, bandwidth, a two-trace sparkline over thermals, and two quota meters — with a context menu for its settings, a drawer of processes that a click on a card opens and `f` filters, with a switch between the thermal card's two lists and a scrolling drawer of quotas on the usage card, and the KDE window rule offered behind `-kwin`. `-clock` adds a card whose heading is a clock, `-tunnels` a run of rows that scrolls in the bandwidth card. |
 | `installer-wizard` | Not a shell program: a `wizard` through every standard page, installing nothing, with a fake job slow enough to cancel and `-fail` to make it fail at its third step. |
 
 The `transfer` example, mid-copy: the busy popup with a real value, in the dark and the light scheme.
@@ -280,6 +280,23 @@ Work is specified in `specs/` and follows the conventions in
 MIT. See [LICENSE](LICENSE).
 
 ## Changelog
+
+### Unreleased
+
+- **Added**: a run of rows in a card held to a height, and a heading with a
+  title at each end (spec 086,
+  [#255](https://github.com/ushineko/fynedesygn/issues/255)).
+  `glance.NewScroller(n)` shows at most `n` rows, and the wheel moves it a
+  row at a time with the bar in the card's right margin; what is added after
+  it, a plot, stays put. `Card.SetTitle` changes a title and
+  `Card.SetTitleEnd` puts a second one, with its icon, at the heading's right
+  end; both are held at the widest they have been, and a card that is only
+  its heading keeps it in `Lines`. For hayami's VPN rows and its clock.
+  `examples/glance-monitor` takes `-clock` and `-tunnels`.
+- **Change**: `docs/glance.md` no longer forbids scrolling inside a glance
+  window. The window still does not scroll; a run of rows or a drawer may,
+  within a height that does not change. A list sorted by a reading is still
+  cut and filtered rather than scrolled.
 
 ### 0.1.123 (2026-11-19)
 

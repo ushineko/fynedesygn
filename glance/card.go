@@ -93,8 +93,18 @@ type Card struct {
 	icon   *canvas.Image
 	mark   *canvas.Text
 	header *fyne.Container
-	rows   []*Row
-	body   *fyne.Container
+
+	// end and endIcon are the heading's other end (SetTitleEnd), drawn at
+	// the right before the gone marker. Hidden until given something.
+	end     *canvas.Text
+	endIcon *canvas.Image
+
+	// titleWidth and endWidth hold the two titles at the widest they have
+	// been, so a title that changes -- a clock's time -- never narrows the
+	// card and the panel with it.
+	titleWidth, endWidth *widest
+	rows                 []*Row
+	body                 *fyne.Container
 
 	// objects are what AddObject was given, kept so a change of theme can
 	// reach them: the body holds them as plain canvas objects and a
@@ -122,6 +132,10 @@ type Card struct {
 	// meters are the card's meters, which share columns in Lines.
 	meters []*Meter
 
+	// scrollers are the runs of rows given to Add (spec 086), whose rows are
+	// the card's to dim, restyle and report a click on as its own are.
+	scrollers []*Scroller
+
 	// OnDrawnChanged is called when the card starts or stops being drawn, so
 	// the owner can start and stop its poll. It is called on the UI thread.
 	OnDrawnChanged func(drawn bool)
@@ -148,7 +162,19 @@ func NewCard(title string) *Card {
 	c.icon.Hide()
 	c.sizeIcon()
 
-	c.header = container.NewHBox(c.icon, c.title, layout.NewSpacer(), c.mark)
+	c.end = canvas.NewText("", nil)
+	c.end.TextStyle = c.title.TextStyle
+	c.end.Color = c.title.Color
+	c.end.TextSize = c.title.TextSize
+	c.end.Hide()
+	c.endIcon = canvas.NewImageFromResource(nil)
+	c.endIcon.FillMode = canvas.ImageFillContain
+	c.endIcon.Hide()
+	c.sizeIcon()
+
+	c.titleWidth, c.endWidth = &widest{}, &widest{}
+	c.header = container.NewHBox(c.icon, container.New(c.titleWidth, c.title), layout.NewSpacer(),
+		c.endIcon, container.New(c.endWidth, c.end), c.mark)
 	c.body = container.NewVBox()
 
 	// A card is a surface of its own, not a run of rows. Fyne cannot draw a
@@ -173,12 +199,89 @@ func NewCard(title string) *Card {
 	return c
 }
 
+/*
+showHeader draws the heading, or leaves it out in Lines.
+
+Lines leaves a card's heading out, since its rows carry the readings -- except
+for a card that has nothing but its heading (spec 086). A clock's time and
+date are its heading (SetTitle, SetTitleEnd), and without it the card would
+be a line with nothing on it.
+*/
+func (c *Card) showHeader() {
+	if c.lines && len(c.body.Objects) > 0 {
+		c.header.Hide()
+	} else {
+		c.header.Show()
+	}
+}
+
+/*
+SetTitle replaces the card's title, for a heading that is a reading: a
+clock's time (spec 086). It is drawn in the title's face, which is not
+monospace, so the title is held at the widest it has been: a narrower time
+leaves the card's width alone, and nothing under it moves.
+*/
+func (c *Card) SetTitle(text string) {
+	c.title.Text = text
+	c.refit(c.title)
+	c.header.Refresh()
+}
+
+// Title is the card's title.
+func (c *Card) Title() string { return c.title.Text }
+
+/*
+SetTitleEnd puts a second title at the heading's right end, with an icon
+before it, in the title's face: a clock's date across from its time (spec
+086). It is held at the widest it has been, as the title is. An empty text and
+a nil icon take it away.
+
+The icon is drawn as given, as SetIcon's is: pass a resource coloured as the
+program's other icons are.
+*/
+func (c *Card) SetTitleEnd(text string, icon fyne.Resource) {
+	c.end.Text = text
+	c.end.Hidden = text == ""
+	c.endIcon.Resource = icon
+	c.endIcon.Hidden = icon == nil
+	c.refit(c.end)
+	c.endIcon.Refresh()
+	c.header.Refresh()
+}
+
+// TitleEnd is the heading's right-hand title, or empty.
+func (c *Card) TitleEnd() string { return c.end.Text }
+
+// widest is a layout that is as wide as the widest its object has asked to
+// be since it was last reset, so a text that changes does not narrow what
+// holds it.
+type widest struct{ width float32 }
+
+func (w *widest) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	var size fyne.Size
+	for _, o := range objects {
+		if o.Visible() {
+			size = size.Max(o.MinSize())
+		}
+	}
+	w.width = max(w.width, size.Width)
+	return fyne.NewSize(w.width, size.Height)
+}
+
+func (w *widest) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	for _, o := range objects {
+		o.Move(fyne.NewPos(0, 0))
+		o.Resize(fyne.NewSize(o.MinSize().Width, size.Height))
+	}
+}
+
 // AddRow appends rows in the order they will be drawn.
 //
 // It panics on a row whose ID the card already holds: two rows answering to
 // one name is a fault in the program building the card, and finding it on
 // the first build is better than a lookup returning whichever came first.
 func (c *Card) AddRow(rows ...*Row) {
+	defer c.showHeader()
 	for _, r := range rows {
 		if err := c.unique(r); err != nil {
 			panic(err)
@@ -215,6 +318,7 @@ It returns ErrRowIndex for a position outside 0..len(Rows()), and ErrRowID for
 an ID the card already holds; the card is unchanged either way.
 */
 func (c *Card) InsertRow(at int, r *Row) error {
+	defer c.showHeader()
 	if at < 0 || at > len(c.rows) {
 		return fmt.Errorf("inserting at %d of %d rows: %w", at, len(c.rows), ErrRowIndex)
 	}
@@ -293,6 +397,7 @@ func (c *Card) position(r *Row) int {
 // AddObject appends something that is not a row — a Sparkline, a progress bar
 // — under the rows added so far.
 func (c *Card) AddObject(o fyne.CanvasObject) {
+	defer c.showHeader()
 	c.themeOne(o)
 	c.objects = append(c.objects, o)
 	c.body.Add(o)
@@ -323,12 +428,19 @@ type Piece interface {
 // Prefer it to AddObject for anything this package builds. AddObject stays for
 // a consumer's own object, which is its own to style.
 func (c *Card) Add(pieces ...Piece) {
+	defer c.showHeader()
 	for _, p := range pieces {
 		p.SetTheme(c.th)
 		c.pieces = append(c.pieces, p)
 		if m, ok := p.(*Meter); ok {
 			c.meters = append(c.meters, m)
 			m.peers = &c.meters
+		}
+		if s, ok := p.(*Scroller); ok {
+			c.scrollers = append(c.scrollers, s)
+			if c.stale {
+				s.setStale(true)
+			}
 		}
 		c.body.Add(p.Object())
 		if c.lines {
@@ -430,8 +542,13 @@ func (c *Card) Icon() fyne.Resource { return c.icon.Resource }
 // sizeIcon measures the icon against the card's own face.
 func (c *Card) sizeIcon() {
 	edge := c.textSize() * IconScale
-	c.icon.SetMinSize(fyne.NewSize(edge, edge))
-	c.icon.Resize(fyne.NewSize(edge, edge))
+	for _, img := range []*canvas.Image{c.icon, c.endIcon} {
+		if img == nil {
+			continue
+		}
+		img.SetMinSize(fyne.NewSize(edge, edge))
+		img.Resize(fyne.NewSize(edge, edge))
+	}
 }
 
 // SetStale dims every row and marks the header, for a source that was
@@ -468,6 +585,9 @@ func (c *Card) setStale(dim, mark bool) {
 			rd := r.Reading()
 			rd.Stale = dim
 			r.Set(rd)
+		}
+		for _, s := range c.scrollers {
+			s.setStale(dim)
 		}
 	}
 	if mark {
@@ -509,6 +629,11 @@ func (c *Card) Restyle() {
 	c.title.Color = c.colour(theme.ColorNamePlaceHolder)
 	c.mark.TextSize = c.textSize()
 	c.mark.Color = c.colour(theme.ColorNameDisabled)
+	c.end.TextSize = c.textSize()
+	c.end.Color = c.title.Color
+	// A new face measures the titles again from nothing: the widest they
+	// were was in the old one.
+	c.titleWidth.width, c.endWidth.width = 0, 0
 	c.face.FillColor = c.colour(theme.ColorNameButton)
 	c.face.StrokeColor = c.colour(theme.ColorNameSeparator)
 	c.face.CornerRadius = CardRadius
@@ -522,10 +647,13 @@ func (c *Card) Restyle() {
 	c.face.Refresh()
 	c.title.Refresh()
 	c.mark.Refresh()
-	c.refit(c.title, c.mark)
+	c.refit(c.title, c.end, c.mark)
 	c.header.Refresh()
 	for _, r := range c.rows {
 		r.Restyle()
+	}
+	for _, sc := range c.scrollers {
+		sc.Restyle()
 	}
 }
 
@@ -580,8 +708,8 @@ func (c *Card) SetArrangement(a Arrangement) {
 		return
 	}
 	c.lines = lines
+	c.showHeader()
 	if lines {
-		c.header.Hide()
 		c.tucked = c.tucked[:0]
 		tuck := func(o fyne.CanvasObject) {
 			if o.Visible() {
@@ -602,7 +730,6 @@ func (c *Card) SetArrangement(a Arrangement) {
 			}
 		}
 	} else {
-		c.header.Show()
 		for _, o := range c.tucked {
 			o.Show()
 		}

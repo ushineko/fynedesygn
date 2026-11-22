@@ -134,8 +134,9 @@ the room (spec 069), for a breakdown that has to be read whole: several
 accounts' quotas. Content that fits is drawn exactly as without it.
 
 **The drawer is still the cards' height and still never sets the window's.**
-A list of live readings should not scroll: it reorders under the eye. Cut it
-to the height (Fit) and give it a Filter.
+A list sorted by a reading should not scroll: it reorders under the eye. Cut
+it to the height (Fit) and give it a Filter. A list in an order that does not
+follow its readings may (spec 086).
 
 The wheel scrolls it while the pointer is over the drawer, and with the drawer
 open and no filter being typed so do Up, Down, Page Up, Page Down, Home and
